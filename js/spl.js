@@ -27,7 +27,7 @@
     layers: [
       { name: 'eComm', match: String.raw`match(_raw,"\[SPLMessage\]")`, layer: 1 },
       { name: 'Enterprise', match: String.raw`match(_raw,"\[SPLHostMessage\]")`, layer: 2 },
-      { name: 'Host', match: String.raw`match(_raw,"<SvcCode>") AND match(_raw,"(?i)(request|response message)")`, layer: 3 },
+      { name: 'Host', match: String.raw`match(_raw,"<SvcCode>") AND match(_raw,"(request|response) message")`, layer: 3 },
       { name: 'WS', match: String.raw`match(_raw,"WSAppLog")`, layer: 2 },
     ],
     directions: [
@@ -108,11 +108,14 @@ coalesce(LastWsURL,"N/A"), LayerName="Host",DGEEndpoint)
     if (terms.length) out.push('| ' + terms.map(quoteTerm).join(' OR '));
 
     const layers = cfg.layers.filter((l) => l.name.trim());
-    out.push('| eval LayerName=case(\n'
-      + layers.map((l) => `        ${l.match.trim()},"${l.name.trim()}"`).join(',\n')
-      + '\n\t)');
+    // Two conditions per line; Layer=case() is listed by layer number (stable for equal numbers).
+    const nameCases = layers.map((l) => `${l.match.trim()},"${l.name.trim()}"`);
+    const nameLines = [];
+    for (let i = 0; i < nameCases.length; i += 2) nameLines.push(nameCases.slice(i, i + 2).join(','));
+    out.push('| eval LayerName=case(' + nameLines.join(',\n    ') + ')');
+    const byNumber = layers.slice().sort((a, b) => Number(a.layer) - Number(b.layer));
     out.push('| eval Layer=case('
-      + layers.map((l) => `LayerName="${l.name.trim()}",${l.layer}`).join(',')
+      + byNumber.map((l) => `LayerName="${l.name.trim()}",${l.layer}`).join(',')
       + ')');
 
     out.push(ENDPOINT_BLOCK);

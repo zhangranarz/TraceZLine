@@ -5,13 +5,21 @@ const fs = require('node:fs');
 const path = require('node:path');
 const spl = require('../js/spl.js');
 
-// Indentation in the hand-written base query is inconsistent (tabs/spaces,
-// trailing spaces), so compare line by line with surrounding whitespace removed.
-const norm = (s) => s.replace(/\r/g, '').split('\n').map((l) => l.trim()).join('\n').trim();
+// Line breaks and indentation in the hand-written base query are free-form and
+// not significant to SPL, so compare with every whitespace run collapsed and
+// spaces after commas dropped.
+const norm = (s) => s.replace(/\s+/g, ' ').replace(/, /g, ',').trim();
 
 test('default config reproduces the base query', () => {
   const base = fs.readFileSync(path.join(__dirname, 'base.spl'), 'utf8');
   assert.strictEqual(norm(spl.generate(spl.DEFAULT_CONFIG)), norm(base));
+});
+
+test('Layer=case() follows layer number order, LayerName=case() keeps list order', () => {
+  const out = spl.generate(spl.DEFAULT_CONFIG);
+  assert.match(out, /\| eval LayerName=case\(match\(_raw,"\\\[SPLMessage\\\]"\),"eComm",match/);
+  assert.match(out, /"Host",match\(_raw,"WSAppLog"\),"WS"\)\n/);
+  assert.match(out, /\| eval Layer=case\(LayerName="eComm",1,LayerName="Enterprise",2,LayerName="WS",2,LayerName="Host",3\)/);
 });
 
 test('search terms are quoted, escaped and OR-joined; empty list drops the line', () => {
