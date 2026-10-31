@@ -36,7 +36,7 @@ copies both. `index.html#mock` opens the Mock Test tab
 
 ### Upload a Splunk flow result
 
-In the **Table** view, **Upload** loads the table the query produced in
+In the **Flow** view, **Upload** loads the table the query produced in
 Splunk (columns Step, EventTime, sessionId, ServiceInfo or Flow, Params, ElapsedMs) and
 builds the summary, Diagram and Sequence views from it, without the raw logs. Rows with
 an empty Step continue the row above (Host SvcCode lines). Rows the importer cannot read
