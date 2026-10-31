@@ -113,6 +113,7 @@
             <button type="button" class="seg-btn" data-view="table" aria-pressed="true">Flow</button>
             <button type="button" class="seg-btn" data-view="diagram" aria-pressed="false">PlantUML</button>
             <button type="button" class="seg-btn" data-view="sequence" aria-pressed="false">Sequence</button>
+            <button type="button" class="seg-btn" data-view="rules" aria-pressed="false">Processing Rule</button>
             <button type="button" class="seg-btn" data-view="debug" aria-pressed="false">Debug</button>
             <button type="button" class="seg-btn mock-only" data-view="logs" aria-pressed="false">Log Files</button>
           </div>
@@ -133,6 +134,10 @@
           <span class="view-actions" data-for="debug" hidden>
             <label class="check"><input type="checkbox" id="debug-problems" autocomplete="off"> Only excluded or incomplete events</label>
             <button type="button" id="btn-copy-debug" title="Copy the execution log and the event table">Copy Log</button>
+          </span>
+          <span class="view-actions" data-for="rules" hidden>
+            <button type="button" id="btn-copy-rules" disabled title="Copy the processing rules as Markdown">Copy</button>
+            <button type="button" id="btn-download-rules" disabled title="Save the processing rules as a .md file">Download</button>
           </span>
           <span class="view-actions" data-for="sequence" hidden>
             <label class="check"><input type="checkbox" id="seq-fit"> Fit to width</label>
@@ -157,6 +162,9 @@
           <pre id="debug-log" class="debug-log" tabindex="0">No files loaded yet.</pre>
           <div class="table-wrap"><table id="debug-table" class="debug-table"></table></div>
         </div>
+        <div class="view" id="view-rules" hidden>
+          <div id="rules" class="rules"></div>
+        </div>
         <div class="view" id="view-sequence" hidden>
           <p class="note">Drawn in this browser from the same analysis as the PlantUML view; nothing is sent anywhere. Orange notes mark requests that got no response.</p>
           <div id="sequence" class="sequence"></div>
@@ -180,6 +188,7 @@
   <script src="js/flow.js"></script>
   <script src="js/sequence.js"></script>
   <script src="js/importer.js"></script>
+  <script src="js/rules.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

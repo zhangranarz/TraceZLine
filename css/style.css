@@ -250,6 +250,18 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .log-preview .ln-no { display: inline-block; padding: 0 10px 0 8px; margin-right: 8px; color: var(--muted); border-right: 1px solid var(--border); user-select: none; }
 .log-preview .ln.ev { background: var(--warn-bg); color: var(--warn-fg); font-weight: 600; }
 #log-file-select { width: auto; max-width: 100%; font-family: inherit; }
+#view-rules { overflow: auto; }
+.rules h3 { font-size: 14px; margin: 16px 0 2px; }
+.rules .note { margin: 0 0 6px; }
+.rules-head { margin: 0 0 8px; font-size: 13px; }
+.rules ul { margin: 4px 0; padding-left: 20px; font-size: 13px; color: var(--muted); }
+.rules-table { flex: none; min-height: 0; margin-bottom: 4px; }
+.rules-table table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+.rules-table th { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); background: var(--panel); font-weight: 600; }
+.rules-table td { padding: 4px 8px; border-bottom: 1px solid var(--border); vertical-align: top; font-family: var(--mono); font-size: 12px; }
+.rules-table td .sub { margin-top: 2px; }
+.conf-ok { color: var(--accent); font-family: system-ui, sans-serif; font-weight: 600; }
+.conf-single { color: var(--muted); font-family: system-ui, sans-serif; font-style: italic; }
 #view-sequence { overflow: auto; }
 .sequence { display: flex; flex-direction: column; gap: 16px; }
 .seq-fig { margin: 0; overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; background: #fff; }

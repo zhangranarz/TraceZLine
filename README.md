@@ -34,6 +34,17 @@ copies both. `index.html#mock` opens the Mock Test tab
 (`#mock/diagram` and `#mock/sequence` open those views). The same logic runs from the command line:
 `node tools/simulate.js --all mock/*.log`.
 
+### Processing rules
+
+The **Processing Rule** view (next to **Sequence**) derives rules from the Flow rows and the
+Sequence call tree: routing (what each entry call calls, in order), the call map (caller →
+callee, with Host SvcCodes), the order of calls (sequential or overlapping), gaps (no
+response, response without a request, unknown direction) and a latency baseline (min /
+median / max ElapsedMs, outliers). Each rule shows how many sessions it was seen in; a rule
+seen in one session is labelled a single-sample observation. **Copy** and **Download** give
+the rules as Markdown. Success / failure rules need response codes, which the flow does not
+have yet.
+
 ### Upload a Splunk flow result
 
 In the **Flow** view, **Upload** loads the table the query produced in

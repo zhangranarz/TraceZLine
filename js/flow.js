@@ -285,6 +285,9 @@
       const rankOf = (name) => rank[name] ?? order.length;
       const norm = (api) => String(api ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '/').replace(/^\/|\/$/g, '');
       const related = (a, b) => a.length > 3 && b.length > 3 && (a.includes(b) || b.includes(a));
+      // calls: the call tree behind the diagram, one entry per request (and per orphan row),
+      // { layer, api, parent (call or null for App), req, res, orphan: 'response' | 'direction' }.
+      const calls = [];
       const stack = [];
       for (const r of rs) {
         const me = alias(r.LayerName);
@@ -295,21 +298,26 @@
           const pick = [...open].reverse().find((s) => related(mine, norm(s.row.API))) || open[open.length - 1];
           const caller = pick ? pick.who : 'P_App';
           items.push({ t: 'msg', from: caller, to: me, dashed: false, lines: label(r) }, { t: 'act', who: me });
-          stack.push({ who: me, caller, key, row: r });
+          const call = { layer: r.LayerName, api: r.API, parent: pick ? pick.call : null, req: r, res: null };
+          calls.push(call);
+          stack.push({ who: me, caller, key, row: r, call });
           continue;
         }
         if (r.Direction !== 'Response') {
           items.push({ t: 'note', who: me, lines: [{ text: 'Direction unknown' }, ...label(r, r.ElapsedMs)] });
+          calls.push({ layer: r.LayerName, api: r.API, parent: null, req: null, res: r, orphan: 'direction' });
           continue;
         }
         let idx = -1;
         for (let k = stack.length - 1; k >= 0; k--) if (stack[k].key === key) { idx = k; break; }
         if (idx < 0) {
           items.push({ t: 'note', who: me, lines: [{ text: 'Response without a request' }, ...label(r, r.ElapsedMs)] });
+          calls.push({ layer: r.LayerName, api: r.API, parent: null, req: null, res: r, orphan: 'response' });
           continue;
         }
         // Only the matching call closes; calls opened after it may still be running (async work).
         const [s] = stack.splice(idx, 1);
+        s.call.res = r;
         items.push({ t: 'msg', from: me, to: s.caller, dashed: true, lines: label(r, r.ElapsedMs) }, { t: 'deact', who: me });
       }
       while (stack.length) noResponse(stack.pop());
@@ -321,6 +329,7 @@
           // Layers not in the settings (possible in an imported result) go after the known ones.
           ...[...used].filter((n) => !order.some((l) => l.name === n)).map((n) => ({ id: alias(n), name: n }))],
         items,
+        calls,
       });
     }
     return diagrams;
