@@ -1,0 +1,47 @@
+Step | EventTime               | sessionId                            | ServiceInfo                                                   | Params                    | ElapsedMs
+-----|-------------------------|--------------------------------------|---------------------------------------------------------------|---------------------------|----------
+1    | 2026-10-26 09:30:00.000 | aaaaaaaa-0000-4000-8000-000000000001 | eComm: /spl-banking/services/vn/security/preLogin [?]         |                           |
+2    | 2026-10-26 09:30:00.004 | aaaaaaaa-0000-4000-8000-000000000001 | eComm: /spl-banking/services/vn/security/preLogin [!]         |                           | 4
+3    | 2026-10-26 09:30:03.000 | aaaaaaaa-0000-4000-8000-000000000001 | eComm: /spl-banking/services/vn/security/auth/v2/login [?]    |                           |
+4    | 2026-10-26 09:30:03.001 | aaaaaaaa-0000-4000-8000-000000000001 | > Enterprise: /idm/user/profile/get [?]                       | TxnCode=SEC02             |
+5    | 2026-10-26 09:30:03.008 | aaaaaaaa-0000-4000-8000-000000000001 | >> WS: /dge-idm/idm/user/profile/get [?]                      | TxnCode=SEC02             |
+6    | 2026-10-26 09:30:03.053 | aaaaaaaa-0000-4000-8000-000000000001 | >> WS: /dge-idm/idm/user/profile/get [!]                      | TxnRefNo=9990000000000101 | 45
+     |                         |                                      |                                                               | TxnCode=SEC02             |
+7    | 2026-10-26 09:30:03.065 | aaaaaaaa-0000-4000-8000-000000000001 | > Enterprise: /idm/user/profile/get [!]                       | TxnRefNo=9990000000000101 | 64
+     |                         |                                      |                                                               | TxnCode=SEC02             |
+8    | 2026-10-26 09:30:03.070 | aaaaaaaa-0000-4000-8000-000000000001 | > Enterprise: /enq/customer/portfolio [?]                     | TxnCode=AES01             |
+9    | 2026-10-26 09:30:03.075 | aaaaaaaa-0000-4000-8000-000000000001 | >> WS: /dge-enq/enq/customer/portfolio [?]                    | TxnCode=AES01             |
+10   | 2026-10-26 09:30:03.110 | aaaaaaaa-0000-4000-8000-000000000001 | >>> Host: dge-enq.enq.customer.portfolio.VN.V2.3 [?]          |                           |
+     |                         |                                      | - [BA_ACCT_INFO_N3 ~ BA_ACCT_INFO_N3] [?]                     |                           |
+1    | 2026-10-26 09:30:03.200 | bbbbbbbb-0000-4000-8000-000000000002 | eComm: /spl-banking/services/vn/pfm/enriched/transactions [?] |                           |
+2    | 2026-10-26 09:30:03.202 | bbbbbbbb-0000-4000-8000-000000000002 | > Enterprise: /enq/card/transactions [?]                      | TxnCode=AES06             |
+3    | 2026-10-26 09:30:03.206 | bbbbbbbb-0000-4000-8000-000000000002 | >> WS: /dge-enq/enq/card/transactions [?]                     | TxnCode=AES06             |
+4    | 2026-10-26 09:30:03.230 | bbbbbbbb-0000-4000-8000-000000000002 | >>> Host: dge-enq.enq.card.transactions.VN.V2.0 [?]           |                           |
+     |                         |                                      | - [CC_INFO_STMT_X ~ CC_CC_STMT_N] [?]                         |                           |
+11   | 2026-10-26 09:30:03.507 | aaaaaaaa-0000-4000-8000-000000000001 | >>> Host: dge-enq.enq.customer.portfolio.VN.V2.3 [!]          |                           | 397
+     |                         |                                      | - [BA_ACCT_INFO_N3 ~ BA_ACCT_INFO_N3] [!]                     |                           |
+12   | 2026-10-26 09:30:03.520 | aaaaaaaa-0000-4000-8000-000000000001 | >>> Host: dge-enq.enq.customer.portfolio.VN.V2.3 [?]          |                           |
+     |                         |                                      | - [AC_ACCT_SUM_X ~ AC_RBK_SUMM_N] [?]                         |                           |
+     |                         |                                      | - [AC_VSA_SUMM_N ~ AC_VSA_SUMM_N] [?]                         |                           |
+5    | 2026-10-26 09:30:04.060 | bbbbbbbb-0000-4000-8000-000000000002 | >>> Host: dge-enq.enq.card.transactions.VN.V2.0 [!]           |                           | 830
+     |                         |                                      | - [CC_INFO_STMT_X ~ CC_CC_STMT_N] [!]                         |                           |
+6    | 2026-10-26 09:30:04.081 | bbbbbbbb-0000-4000-8000-000000000002 | >> WS: /dge-enq/enq/card/transactions [!]                     | TxnCode=AES06             | 875
+7    | 2026-10-26 09:30:04.085 | bbbbbbbb-0000-4000-8000-000000000002 | > Enterprise: /enq/card/transactions [!]                      | TxnCode=AES06             | 883
+8    | 2026-10-26 09:30:04.090 | bbbbbbbb-0000-4000-8000-000000000002 | eComm: /spl-banking/services/vn/pfm/enriched/transactions [!] |                           | 890
+13   | 2026-10-26 09:30:04.620 | aaaaaaaa-0000-4000-8000-000000000001 | >>> Host: dge-enq.enq.customer.portfolio.VN.V2.3 [!]          |                           | 1100
+     |                         |                                      | - [AC_ACCT_SUM_X ~ AC_RBK_SUMM_N] [!]                         |                           |
+     |                         |                                      | - [AC_VSA_SUMM_N ~ AC_VSA_SUMM_N] [!]                         |                           |
+14   | 2026-10-26 09:30:04.748 | aaaaaaaa-0000-4000-8000-000000000001 | >> WS: /dge-enq/enq/customer/portfolio [!]                    | TxnCode=AES01             | 1673
+15   | 2026-10-26 09:30:04.757 | aaaaaaaa-0000-4000-8000-000000000001 | > Enterprise: /enq/customer/portfolio [!]                     | TxnCode=AES01             | 1687
+16   | 2026-10-26 09:30:05.110 | aaaaaaaa-0000-4000-8000-000000000001 | eComm: /spl-banking/services/vn/security/auth/v2/login [!]    |                           | 2110
+1    | 2026-10-26 09:30:10.000 | cccccccc-0000-4000-8000-000000000003 | eComm: /spl-banking/services/vn/payment/precapture [?]        |                           |
+2    | 2026-10-26 09:30:10.002 | cccccccc-0000-4000-8000-000000000003 | > Enterprise: /bfs/payee/list/bp [?]                          | TxnCode=PMT02             |
+3    | 2026-10-26 09:30:10.006 | cccccccc-0000-4000-8000-000000000003 | >> WS: /dge-bfs/bfs/payee/list [?]                            | TxnCode=PMT02             |
+4    | 2026-10-26 09:30:10.042 | cccccccc-0000-4000-8000-000000000003 | >> WS: /dge-bfs/bfs/payee/list [!]                            | TxnRefNo=9990000000000301 | 36
+     |                         |                                      |                                                               | TxnCode=PMT02             |
+5    | 2026-10-26 09:30:10.046 | cccccccc-0000-4000-8000-000000000003 | > Enterprise: /bfs/payee/list/bp [!]                          | TxnRefNo=9990000000000301 | 44
+     |                         |                                      |                                                               | TxnCode=PMT02             |
+6    | 2026-10-26 09:30:10.050 | cccccccc-0000-4000-8000-000000000003 | > Enterprise: /bfs/quick/bp/initiate [?]                      | TxnCode=PMT20             |
+7    | 2026-10-26 09:30:10.055 | cccccccc-0000-4000-8000-000000000003 | >> WS: /dge-bfs/bfs/bp/initiate [?]                           | TxnCode=PMT20             |
+8    | 2026-10-26 09:30:40.056 | cccccccc-0000-4000-8000-000000000003 | > Enterprise: /bfs/quick/bp/initiate [!]                      | TxnCode=PMT20             | 30006
+9    | 2026-10-26 09:30:40.060 | cccccccc-0000-4000-8000-000000000003 | eComm: /spl-banking/services/vn/payment/precapture [!]        |                           | 30060

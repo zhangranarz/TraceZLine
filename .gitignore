@@ -1,6 +1,8 @@
 # Local reference material and sample data: never commit (may contain real log data)
 ToolBase/
 *.log
+# Mock logs contain only fake data and are part of the test suite
+!mock/*.log
 *.xlsx
 ~$*
 
