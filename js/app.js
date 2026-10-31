@@ -1009,11 +1009,11 @@
               el('pre', {}, [r.l.raw.length > RAW_PREVIEW ? r.l.raw.slice(0, RAW_PREVIEW) + '\n…' : r.l.raw]),
             ])] : []);
           }
-          // Structure: when the event carries JSON, "Structure:" expands to a Parameter / Value table.
+          // Structure: when the event carries JSON, "JSON:" expands to a Parameter / Value table.
           if (kind === 'struct') {
             const params = r.l ? jsonParams(r.l) : [];
             return el('td', { class: 'cmp-log' }, params.length ? [el('details', { class: 'cmp-raw cmp-struct' }, [
-              el('summary', { title: `${params.length} parameters` }, ['Structure:']),
+              el('summary', { title: `${params.length} parameters` }, ['JSON:']),
               el('div', { class: 'cmp-struct-wrap' }, [el('table', {}, [
                 el('thead', {}, [el('tr', {}, [el('th', {}, ['Parameter']), el('th', {}, ['Value'])])]),
                 el('tbody', {}, params.map(([p, v]) => el('tr', {}, [el('td', {}, [p]), el('td', {}, [v])]))),
