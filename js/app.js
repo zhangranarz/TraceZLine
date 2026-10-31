@@ -953,6 +953,16 @@
   // The Splunk line (what it says) first, then where it maps in the log, then the rest of the row.
   const svcLines = (x) => (Array.isArray(x.ServiceInfo) ? x.ServiceInfo : [x.ServiceInfo ?? x.Flow]);
   const logTime = (l) => (l ? new Date(l.time).toISOString().replace('T', ' ').slice(0, 23) : '');
+  // Parameter/value rows of the JSON a log event carries ([] when none), parsed once per event.
+  const jsonCache = new WeakMap();
+  function jsonParams(ev) {
+    if (!jsonCache.has(ev)) {
+      const value = window.TraceCompare.extractJson(ev.raw);
+      jsonCache.set(ev, value ? window.TraceCompare.flattenJson(value) : []);
+    }
+    return jsonCache.get(ev);
+  }
+
   // The event on one line without its timestamp (LogTime shows it).
   const logEventText = (r) => (r.l ? r.l.raw.replace(/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{3}\s+/, '').replace(/\s+/g, ' ').slice(0, 300) : '');
   // On screen the Log column shows a short "Log:" that expands to the raw event ('log');
@@ -991,11 +1001,24 @@
           if (kind === 'multi') return el('td', {}, multi(text));
           if (kind === 'issue') return el('td', { class: 'cmp-issue' }, [text]);
           // Log: the matched event as a short "Log:"; hover shows the event text, expanding the raw event.
+          // When the event carries JSON, "Structure:" expands to its parameters and values.
           if (kind === 'log') {
-            return el('td', { class: 'cmp-log' }, r.l ? [el('details', { class: 'cmp-raw' }, [
+            if (!r.l) return el('td', { class: 'cmp-log' }, []);
+            const parts = [el('details', { class: 'cmp-raw' }, [
               el('summary', { title: text }, ['Log:']),
               el('pre', {}, [r.l.raw.length > RAW_PREVIEW ? r.l.raw.slice(0, RAW_PREVIEW) + '\n…' : r.l.raw]),
-            ])] : []);
+            ])];
+            const params = jsonParams(r.l);
+            if (params.length) {
+              parts.push(el('details', { class: 'cmp-raw cmp-struct' }, [
+                el('summary', { title: `${params.length} parameters` }, ['Structure:']),
+                el('div', { class: 'cmp-struct-wrap' }, [el('table', {}, [
+                  el('thead', {}, [el('tr', {}, [el('th', {}, ['Parameter']), el('th', {}, ['Value'])])]),
+                  el('tbody', {}, params.map(([p, v]) => el('tr', {}, [el('td', {}, [p]), el('td', {}, [v])]))),
+                ])]),
+              ]));
+            }
+            return el('td', { class: 'cmp-log' }, parts);
           }
           return el('td', {}, [text]);
         })))),

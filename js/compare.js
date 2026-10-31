@@ -172,5 +172,59 @@
 
   const base = (p) => String(p ?? '').split(/[\\/]/).pop();
 
-  return { compare, detectOffset, formatOffset };
+  // ---------- JSON payload of a log event ----------
+
+  // The JSON object a log event carries after its text prefix ("- Request -", "[Request]:",
+  // "Response:"). Finds a balanced {...} (strings and escapes respected) and parses it; tries
+  // the first few "{" so a brace in the prefix does not hide the payload. null when none parses.
+  function extractJson(raw) {
+    const s = String(raw ?? '');
+    let from = 0;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const start = s.indexOf('{', from);
+      if (start < 0) return null;
+      let depth = 0; let inStr = false; let esc = false; let end = -1;
+      for (let i = start; i < s.length; i++) {
+        const c = s[i];
+        if (inStr) {
+          if (esc) esc = false;
+          else if (c === '\\') esc = true;
+          else if (c === '"') inStr = false;
+        } else if (c === '"') inStr = true;
+        else if (c === '{' || c === '[') depth++;
+        else if (c === '}' || c === ']') { depth--; if (depth === 0) { end = i; break; } }
+      }
+      if (end > start) {
+        try {
+          const value = JSON.parse(s.slice(start, end + 1));
+          if (value && typeof value === 'object') return value;
+        } catch (e) { /* not JSON from this brace; try the next one */ }
+      }
+      from = start + 1;
+    }
+    return null;
+  }
+
+  // Parameter paths and values: { a: { b: [1, { c: 2 }] } } -> a.b[0] = 1, a.b[1].c = 2.
+  // Empty objects/arrays are kept as {} / []; at most `limit` rows.
+  function flattenJson(value, limit = 1000) {
+    const rows = [];
+    const walk = (v, p) => {
+      if (rows.length >= limit) return;
+      if (Array.isArray(v)) {
+        if (!v.length) rows.push([p, '[]']);
+        v.forEach((x, i) => walk(x, `${p}[${i}]`));
+      } else if (v && typeof v === 'object') {
+        const keys = Object.keys(v);
+        if (!keys.length) rows.push([p, '{}']);
+        keys.forEach((k) => walk(v[k], p ? `${p}.${k}` : k));
+      } else {
+        rows.push([p, v === null ? 'null' : String(v)]);
+      }
+    };
+    walk(value, '');
+    return rows;
+  }
+
+  return { compare, detectOffset, formatOffset, extractJson, flattenJson };
 });

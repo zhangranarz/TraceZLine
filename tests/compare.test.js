@@ -72,3 +72,18 @@ test('files without a shared session are reported as unrelated, with no offset g
   assert.strictEqual(r.offsetMs, 0);
   assert.strictEqual(r.quality[0].kind, 'The files do not seem to belong together');
 });
+
+test('JSON payload of a log event: found after the text prefix and flattened to paths', () => {
+  const { extractJson, flattenJson } = require('../js/compare.js');
+  const ecomm = events.find((e) => /- Request -/.test(e.raw) && e.raw.includes('[SPLMessage]'));
+  const rows = flattenJson(extractJson(ecomm.raw));
+  assert.ok(rows.some(([p, v]) => p === 'meta.requestContext.sessionId' && v === 'aaaaaaaa-0000-4000-8000-000000000001'));
+  assert.ok(rows.some(([p]) => p === 'data.device.deviceId'));
+  assert.deepStrictEqual(flattenJson({ a: { b: [1, { c: null }], e: {}, f: [] } }), [['a.b[0]', '1'], ['a.b[1].c', 'null'], ['a.e', '{}'], ['a.f', '[]']]);
+  // braces inside strings and a brace in the prefix do not break it
+  assert.deepStrictEqual(extractJson('x [{bad] - Response:{"m":"a}b","n":{"k":"v"}} tail'), { m: 'a}b', n: { k: 'v' } });
+  // Host XML and truncated JSON have no structure
+  const host = events.find((e) => e.raw.includes('<EAI>'));
+  assert.strictEqual(extractJson(host.raw), null);
+  assert.strictEqual(extractJson('Request - {"a":{"b":1'), null);
+});

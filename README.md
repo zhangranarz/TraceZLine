@@ -43,7 +43,7 @@ Every line of the Splunk result is listed and mapped to the log event with the c
 timestamp, within a tolerance; when several events are equally close (an Excel export keeps
 whole seconds), the one with the same session, layer, direction and API wins. The time
 offset between Splunk's EventTime and the log timestamps (e.g. a time-zone difference) is
-detected, or set in **Offset** (hours). Columns: Step, EventTime, ServiceInfo, Log (the matched log event as "Log:"; expand it for the raw text), LogRow (`file:line`), LogTime, sessionId, Params, ElapsedMs. Lines that differ or are not mapped have a coloured edge and say why on hover. Copy/Download also include Δ ms and Check, and the event text in Log. Each line shows the log time, the difference in ms,
+detected, or set in **Offset** (hours). Columns: Step, EventTime, ServiceInfo, Log (the matched log event as "Log:"; expand it for the raw text; when the event carries JSON, "Structure:" expands to a Parameter / Value table of its fields), LogRow (`file:line`), LogTime, sessionId, Params, ElapsedMs. Lines that differ or are not mapped have a coloured edge and say why on hover. Copy/Download also include Δ ms and Check, and the event text in Log. Each line shows the log time, the difference in ms,
 the log event (`file:line`, expand it for the raw text) and whether it agrees. Data quality
 lists lines with no event in the window, lines mapped to another layer/direction/API, log
 events not mapped, and warns when the files share no session. **Use Mock** loads the mock

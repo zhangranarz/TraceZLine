@@ -387,4 +387,11 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 .cmp-log { white-space: nowrap; }
+.cmp-struct { margin-top: 2px; }
+.cmp-struct-wrap { margin: 4px 0 2px; max-height: 280px; max-width: 640px; overflow: auto; border: 1px solid var(--border); border-radius: 4px; }
+.cmp-struct-wrap table { border-collapse: collapse; font: 11.5px/1.4 var(--mono); }
+.cmp-struct-wrap th { position: sticky; top: 0; background: var(--panel); text-align: left; padding: 3px 8px; border-bottom: 1px solid var(--border); font: 600 11.5px system-ui, sans-serif; }
+.cmp-struct-wrap td { padding: 2px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.cmp-struct-wrap td:first-child { color: var(--muted); }
+.cmp-struct-wrap td:last-child { white-space: pre-wrap; word-break: break-all; min-width: 160px; max-width: 360px; }
 .cmp-log .cmp-raw summary { font-size: 12px; }
