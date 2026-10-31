@@ -10,7 +10,7 @@ Rebuilds the base flow query from editable values while keeping its structure fi
 - **Sources**: add/remove/disable `source="..."` blocks and their filters
 - **Search terms**: paste session IDs (one per line); quoted and OR-joined
 - **Layers**, **Direction rules**, **sessionId rules**, **Params**, **Output columns**: add, remove, reorder
-- Live preview with warnings, Copy, Download `.spl`, Export/Import config JSON
+- Live preview with warnings, Copy, Download (`.spl`), Export/Import config JSON
 - Settings are kept in the browser's localStorage
 
 The default settings reproduce the base query exactly (`tests/base.spl`, checked by `npm test`).
