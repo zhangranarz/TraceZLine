@@ -210,6 +210,27 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .puml-images { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
 .puml-images:empty { display: none; }
 .puml-images img { max-width: 100%; height: auto; background: #fff; border: 1px solid var(--border); border-radius: 6px; }
+.debug-log {
+  margin: 0 0 8px;
+  max-height: 22vh;
+  min-height: 60px;
+  overflow: auto;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--code-bg);
+  color: var(--code-fg);
+  font: 12px/1.45 var(--mono);
+  white-space: pre-wrap;
+  word-break: break-word;
+  flex-shrink: 0;
+}
+.debug-table { border-collapse: collapse; width: 100%; font: 12px/1.4 var(--mono); }
+.debug-table th { position: sticky; top: 0; background: var(--panel); text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); font: 600 12px system-ui, sans-serif; }
+.debug-table td { padding: 3px 8px; border-bottom: 1px solid var(--border); vertical-align: top; white-space: nowrap; }
+.debug-table td.dbg-head { white-space: pre; color: var(--muted); }
+.debug-table tr.dbg-out td:nth-child(4) { color: var(--danger); }
+.debug-table tr.dbg-warn td:nth-child(4) { color: var(--warn-fg); font-weight: 600; }
+.debug-table tr.dbg-ok td:nth-child(4) { color: var(--accent); }
 #view-sequence { overflow: auto; }
 .sequence { display: flex; flex-direction: column; gap: 16px; }
 .seq-fig { margin: 0; overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; background: #fff; }

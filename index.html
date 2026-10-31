@@ -101,7 +101,7 @@
 
       <div class="pane" id="pane-flow" role="tabpanel" aria-labelledby="tab-flow" hidden>
         <div class="flow-bar">
-          <label class="btn primary-btn">Load log files<input type="file" id="log-files" multiple accept=".log,.txt,text/plain" hidden></label>
+          <label class="btn primary-btn">Load log files<input type="file" id="log-files" multiple hidden></label>
           <button type="button" id="btn-mock">Load mock logs</button>
           <label class="check"><input type="checkbox" id="use-terms" autocomplete="off"> Only sessions in Search terms</label>
           <select id="session-filter" aria-label="Session"></select>
@@ -117,6 +117,7 @@
             <button type="button" class="seg-btn" data-view="table" aria-pressed="true">Table</button>
             <button type="button" class="seg-btn" data-view="diagram" aria-pressed="false">Diagram</button>
             <button type="button" class="seg-btn" data-view="sequence" aria-pressed="false">Sequence</button>
+            <button type="button" class="seg-btn" data-view="debug" aria-pressed="false">Debug</button>
           </div>
           <span class="spacer"></span>
           <span class="view-actions" data-for="table">
@@ -127,6 +128,10 @@
             <button type="button" id="btn-copy-puml" disabled>Copy PlantUML</button>
             <button type="button" id="btn-download-puml" disabled>Download .puml</button>
             <button type="button" id="btn-render-puml" disabled title="Draws the diagram with the public PlantUML server">Render image…</button>
+          </span>
+          <span class="view-actions" data-for="debug" hidden>
+            <label class="check"><input type="checkbox" id="debug-problems" autocomplete="off"> Only excluded or incomplete events</label>
+            <button type="button" id="btn-copy-debug">Copy debug log</button>
           </span>
           <span class="view-actions" data-for="sequence" hidden>
             <label class="check"><input type="checkbox" id="seq-fit"> Fit to width</label>
@@ -141,6 +146,11 @@
           <p class="note">PlantUML, one diagram per session. Paste it into the VS Code PlantUML extension or <code>java -jar plantuml.jar</code> to draw it locally; <b>Render image…</b> uses the public plantuml.com server.</p>
           <pre id="puml" tabindex="0"></pre>
           <div id="puml-images" class="puml-images"></div>
+        </div>
+        <div class="view" id="view-debug" hidden>
+          <p class="note">Execution log of every file load and run, then one row per event with the decision the query logic took for it.</p>
+          <pre id="debug-log" class="debug-log" tabindex="0">No files loaded yet.</pre>
+          <div class="table-wrap"><table id="debug-table" class="debug-table"></table></div>
         </div>
         <div class="view" id="view-sequence" hidden>
           <p class="note">Drawn in this browser from the same analysis as the Diagram view; nothing is sent anywhere. Orange notes mark requests that got no response.</p>

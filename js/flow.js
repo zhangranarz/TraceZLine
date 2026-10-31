@@ -113,12 +113,20 @@
     let body = text.replace(/\r/g, '');
     if (isExport(body)) body = stripExport(body);
     const events = [];
-    for (const line of body.split('\n')) {
+    body.split('\n').forEach((line, i) => {
       const m = line.match(/^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{3})\s/);
-      if (m) events.push({ source, anySource, time: Date.parse(m[1].replace(' ', 'T') + 'Z'), lines: [line] });
+      if (m) events.push({ source, anySource, lineNo: i + 1, time: Date.parse(m[1].replace(' ', 'T') + 'Z'), lines: [line] });
       else if (events.length) events[events.length - 1].lines.push(line);
-    }
+    });
     return events.map((e) => ({ ...e, raw: e.lines.join('\n').trimEnd(), lower: e.lines.join('\n').toLowerCase() }));
+  }
+
+  // What a loaded file looks like, for the debug log.
+  function describeLog(text) {
+    if (text.startsWith('PK\u0003\u0004')) return { format: 'xlsx', events: 0 };
+    if (/\u0000/.test(text.slice(0, 4096))) return { format: 'binary', events: 0 };
+    const events = parseEvents('', text).length;
+    return { format: isExport(text.replace(/\r/g, '')) ? 'splunk-export' : events ? 'raw' : 'unknown', events };
   }
 
   // ---------- pipeline ----------
@@ -129,7 +137,8 @@
   }
 
   // logs: [{ name, text, anySource? }], one per file. terms: search terms; [] keeps every session.
-  function run(cfg, logs, terms) {
+  // trace: optional array; gets one record per event with the decision taken for it.
+  function run(cfg, logs, terms, trace) {
     const query = spl.generate(cfg);
     const lineRex = (startsWith) => rx(query.split('\n').find((l) => l.startsWith(startsWith)).match(/"(.*)"$/)[1]);
     const sourceExpr = parseSearch(query.slice(0, query.indexOf('\n)\n') + 2));
@@ -142,7 +151,10 @@
 
     const rows = [];
     for (const ev of logs.flatMap((l) => parseEvents(l.name, l.text, l.anySource))) {
-      if (!matches(sourceExpr, ev) || !matches(termExpr, ev)) continue;
+      const rec = trace ? { file: basename(ev.source), lineNo: ev.lineNo, head: ev.lines[0], ev } : null;
+      if (rec) trace.push(rec);
+      if (!matches(sourceExpr, ev)) { if (rec) rec.reason = 'Excluded: source filter (source="…" and its filter terms)'; continue; }
+      if (!matches(termExpr, ev)) { if (rec) rec.reason = 'Excluded: no Search term in the event'; continue; }
       const r = ev.raw;
       const L = layers.find((l) => evalCond(l.match, ev));
       ev.LayerName = L ? L.name : null;
@@ -163,7 +175,12 @@
       Object.assign(ev, extract(DGE_RE, r), extract(URL_RE, r));
       ev.SvcCode = [...r.matchAll(SVC_RE)].map((m) => m[1]);
       for (const p of cfg.params) if (p.rex.trim()) Object.assign(ev, extract(rx(p.rex), r));
-      if (!(ev.LayerName !== 'Host' || ev.SvcCode.length >= 1)) continue;
+      if (!(ev.LayerName !== 'Host' || ev.SvcCode.length >= 1)) { if (rec) rec.reason = 'Excluded: Host event without <SvcCode> (where clause)'; continue; }
+      if (rec) {
+        rec.kept = true;
+        rec.warn = [!ev.LayerName && 'no layer matched', !ev.Direction && 'no direction', ev.sessionId == null && 'no sessionId']
+          .filter(Boolean).join(', ');
+      }
       // SPL string comparison is case-sensitive: "response" is not "Response".
       ev.SortKey = ev.Layer == null ? null : (ev.Direction === 'Request' ? ev.Layer : -ev.Layer);
       rows.push(ev);
@@ -349,5 +366,5 @@
     return out.join('\n') + '\n';
   }
 
-  return { parseEvents, matchesAnySource, run, summarize, sequenceModel, toPlantUml, plantUmlEncode64, format, parseSearch };
+  return { parseEvents, describeLog, matchesAnySource, run, summarize, sequenceModel, toPlantUml, plantUmlEncode64, format, parseSearch };
 });

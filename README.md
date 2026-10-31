@@ -27,7 +27,10 @@ WS, Host; request/response arrows with activation, elapsed times, Params and Hos
 SvcCode pairs; an orange note where a request got no response). Copy it or download
 `.puml` and draw it locally; **Render image…** asks first, then uses plantuml.com. The **Sequence** view
 draws the same diagram as SVG in the browser (nothing is sent anywhere), with
-**Fit to width** and **Download SVG**. `index.html#mock` opens
+**Fit to width** and **Download SVG**. The **Debug** view logs every file
+load and run (file format, events read, how many each filter excluded, the Search
+terms used) and lists every event with the decision taken for it; **Copy debug log**
+copies both. `index.html#mock` opens
 with the mock logs loaded (`#mock/diagram` and `#mock/sequence` open those views). The same logic runs from the command line:
 `node tools/simulate.js --all mock/*.log`.
 

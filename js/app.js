@@ -302,16 +302,22 @@
     const status = document.getElementById('flow-status');
     if (!logs.length) return;
     const useTerms = document.getElementById('use-terms').checked;
+    const terms = useTerms ? state.terms.filter((t) => t.trim()) : [];
+    const trace = [];
     try {
-      flowRows = window.TraceFlow.run(state, logs, useTerms ? state.terms.filter((t) => t.trim()) : []);
+      flowRows = window.TraceFlow.run(state, logs, terms, trace);
     } catch (err) {
       flowRows = [];
       document.getElementById('flow-count').textContent = 'error';
       status.textContent = 'Could not run the query logic: ' + err.message;
+      logDebug('error', 'Run failed: ' + err.message);
       renderFlow([]);
       renderDiagram([]);
+      renderDebugTable(trace);
       return;
     }
+    logRun(trace, useTerms, terms);
+    renderDebugTable(trace);
     const sessions = window.TraceFlow.summarize(flowRows);
     const noSid = flowRows.filter((r) => r.sessionId == null).length;
     const anyNote = logs.some((l) => l.anySource)
@@ -371,6 +377,75 @@
       el('div', { class: 'problem-actions' }, [showAll, useIds]));
   }
 
+  // ---------- debug ----------
+
+  const debugLines = [];
+  const MAX_DEBUG_LINES = 300;
+  let lastTrace = [];
+
+  function logDebug(level, msg) {
+    const t = new Date().toTimeString().slice(0, 8);
+    debugLines.push(`${t} ${level === 'error' ? 'ERROR' : level === 'warn' ? 'WARN ' : 'INFO '} ${msg}`);
+    if (debugLines.length > MAX_DEBUG_LINES) debugLines.splice(0, debugLines.length - MAX_DEBUG_LINES);
+    const pre = document.getElementById('debug-log');
+    pre.textContent = debugLines.join('\n');
+    pre.scrollTop = pre.scrollHeight;
+    if (level === 'error') toast(msg.length > 90 ? msg.slice(0, 90) + '…' : msg);
+  }
+
+  // One summary line per run, skipped when nothing changed since the last run (edits re-run often).
+  let lastRunLine = '';
+  function logRun(trace, useTerms, terms) {
+    const count = (re) => trace.filter((r) => re.test(r.reason || '')).length;
+    const kept = trace.filter((r) => r.kept);
+    const sources = state.sources.filter((s) => s.enabled && s.source.trim()).map((s) => s.source.trim()).join(', ');
+    const line = `Run: ${trace.length} events read; excluded by source filter ${count(/source filter/)}, `
+      + `by Search terms ${count(/Search term/)}, by Host/SvcCode where-clause ${count(/where clause/)}; kept ${kept.length}`
+      + ` (no layer ${kept.filter((r) => /no layer/.test(r.warn)).length}, no direction ${kept.filter((r) => /no direction/.test(r.warn)).length},`
+      + ` no sessionId ${kept.filter((r) => /no sessionId/.test(r.warn)).length}). Sources: ${sources || '(none)'}. `
+      + (useTerms ? `Search terms (${terms.length}): ${terms.join(', ') || '(none)'}` : 'Search terms: not applied');
+    if (line === lastRunLine) return;
+    lastRunLine = line;
+    logDebug(kept.length ? 'info' : 'warn', line);
+  }
+
+  function renderDebugTable(trace) {
+    lastTrace = trace;
+    const onlyProblems = document.getElementById('debug-problems').checked;
+    const rows = onlyProblems ? trace.filter((r) => !r.kept || r.warn) : trace;
+    const cols = ['#', 'File:line', 'Time', 'Result', 'Layer', 'Direction', 'sessionId', 'API / Endpoint', 'Event (first line)'];
+    const head = el('thead', {}, [el('tr', {}, cols.map((c) => el('th', {}, [c])))]);
+    const body = el('tbody', {}, rows.map((r) => {
+      const ev = r.ev;
+      const result = r.kept ? (r.warn ? `Kept, ${r.warn}` : 'Kept') : r.reason;
+      return el('tr', { class: r.kept ? (r.warn ? 'dbg-warn' : 'dbg-ok') : 'dbg-out' }, [
+        el('td', {}, [String(trace.indexOf(r) + 1)]),
+        el('td', {}, [`${r.file}:${r.lineNo}`]),
+        el('td', {}, [new Date(ev.time).toISOString().slice(11, 23)]),
+        el('td', {}, [result]),
+        el('td', {}, [ev.LayerName ?? '']),
+        el('td', {}, [ev.Direction ?? '']),
+        el('td', {}, [ev.sessionId ?? '']),
+        el('td', {}, [ev.API ?? ev.Endpoint ?? ev.URL ?? '']),
+        el('td', { class: 'dbg-head', title: ev.raw.slice(0, 2000) }, [r.head.slice(0, 160)]),
+      ]);
+    }));
+    document.getElementById('debug-table').replaceChildren(head, body);
+  }
+
+  document.getElementById('debug-problems').addEventListener('change', () => renderDebugTable(lastTrace));
+
+  document.getElementById('btn-copy-debug').addEventListener('click', async () => {
+    const table = lastTrace.map((r, i) => [i + 1, `${r.file}:${r.lineNo}`, r.kept ? (r.warn ? `Kept, ${r.warn}` : 'Kept') : r.reason,
+      r.ev.LayerName ?? '', r.ev.Direction ?? '', r.ev.sessionId ?? '', r.ev.API ?? r.ev.Endpoint ?? '', r.head.slice(0, 160)].join('\t'));
+    try {
+      await navigator.clipboard.writeText(debugLines.join('\n') + '\n\n' + table.join('\n') + '\n');
+      toast('Debug log copied');
+    } catch (e) {
+      toast('Clipboard blocked: select the log and press Ctrl+C');
+    }
+  });
+
   // ---------- sequence diagram ----------
 
   let pumlText = '';
@@ -397,7 +472,7 @@
 
   function showView(name) {
     document.querySelectorAll('.seg-btn').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === name)));
-    ['table', 'diagram', 'sequence'].forEach((v) => { document.getElementById('view-' + v).hidden = v !== name; });
+    ['table', 'diagram', 'sequence', 'debug'].forEach((v) => { document.getElementById('view-' + v).hidden = v !== name; });
     document.querySelectorAll('.view-actions').forEach((s) => { s.hidden = s.dataset.for !== name; });
   }
 
@@ -498,8 +573,40 @@
     return [cols.join(sep), ...rows.map((r) => cols.map((c) => cell(r[c])).join(sep))].join('\r\n') + '\r\n';
   }
 
+  // Files that cannot hold log events (Excel, binary, no timestamped lines) are reported and skipped.
   function setLogs(files) {
-    logs = files.map((f) => ({ ...f, anySource: !window.TraceFlow.matchesAnySource(state, f.name) }));
+    logs = [];
+    for (const f of files) {
+      const info = window.TraceFlow.describeLog(f.text);
+      const size = `${f.text.length.toLocaleString()} chars`;
+      if (info.format === 'xlsx') {
+        logDebug('error', `${f.name}: Excel workbook (.xlsx), not a log file. Load the raw log, or the Splunk EventTime/PopulatedLog export saved as text.`);
+        continue;
+      }
+      if (info.format === 'binary') {
+        logDebug('error', `${f.name}: binary file (${size}), not a text log. Skipped.`);
+        continue;
+      }
+      if (!info.events) {
+        const first = f.text.split(/\r?\n/).find((x) => x.trim()) || '(empty)';
+        logDebug('error', `${f.name}: ${size}, no events found. Each event must start with "YYYY-MM-DD hh:mm:ss.mmm ". First line: ${first.slice(0, 160)}`);
+        continue;
+      }
+      const anySource = !window.TraceFlow.matchesAnySource(state, f.name);
+      logs.push({ ...f, anySource });
+      logDebug('info', `${f.name}: ${size}, format ${info.format}, ${info.events} events`
+        + (anySource ? '; name matches no source= pattern, so it is treated as every source' : '; name matches a source= pattern'));
+    }
+    if (!logs.length) {
+      flowRows = [];
+      document.getElementById('flow-count').textContent = '0 rows';
+      document.getElementById('flow-status').textContent = 'No usable log file loaded. See the Debug view for details.';
+      renderFlow([]);
+      renderDiagram([]);
+      renderDebugTable([]);
+      showView('debug');
+      return;
+    }
     refreshFlow();
   }
 
@@ -507,7 +614,16 @@
     const files = [...e.target.files];
     e.target.value = '';
     if (!files.length) return;
-    setLogs(await Promise.all(files.map(async (f) => ({ name: f.name, text: await f.text() }))));
+    logDebug('info', `Load log files: ${files.map((f) => `${f.name} (${f.size.toLocaleString()} bytes)`).join(', ')}`);
+    const read = [];
+    for (const f of files) {
+      try {
+        read.push({ name: f.name, text: await f.text() });
+      } catch (err) {
+        logDebug('error', `${f.name}: could not be read (${err.message}).`);
+      }
+    }
+    setLogs(read);
   });
 
   document.getElementById('btn-mock').addEventListener('click', async () => {
@@ -519,8 +635,10 @@
         return res.text();
       }));
       document.getElementById('use-terms').checked = false;
+      logDebug('info', 'Load mock logs: ' + names.join(', '));
       setLogs(names.map((name, i) => ({ name, text: texts[i] })));
     } catch (err) {
+      logDebug('error', 'Could not load mock logs: ' + err.message);
       toast('Could not load mock logs: ' + err.message);
     }
   });
@@ -578,11 +696,11 @@
 
   renderAll();
   // Demo links: index.html#mock opens the Flow tab with the mock logs loaded;
-  // #mock/diagram and #mock/sequence open it on that view.
+  // #mock/diagram, #mock/sequence and #mock/debug open it on that view.
   if (location.hash.startsWith('#mock')) {
     showTab('flow');
     const view = location.hash.split('/')[1];
-    if (view === 'diagram' || view === 'sequence') showView(view);
+    if (['diagram', 'sequence', 'debug'].includes(view)) showView(view);
     document.getElementById('btn-mock').click();
   }
 })();
