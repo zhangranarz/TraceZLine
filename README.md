@@ -34,6 +34,15 @@ copies both. `index.html#mock` opens
 with the mock logs loaded (`#mock/diagram` and `#mock/sequence` open those views). The same logic runs from the command line:
 `node tools/simulate.js --all mock/*.log`.
 
+### Upload a Splunk flow result
+
+In the **Table** view, **Upload flow (.xlsx/.csv)** loads the table the query produced in
+Splunk (columns Step, EventTime, sessionId, ServiceInfo or Flow, Params, ElapsedMs) and
+builds the summary, Diagram and Sequence views from it, without the raw logs. Rows with
+an empty Step continue the row above (Host SvcCode lines). Rows the importer cannot read
+fully are listed in the Debug view. `mock/mock-flow.xlsx` and `mock/mock-flow.csv` are
+examples.
+
 ## Planned
 
 - Import of the Splunk result (Excel/CSV) and the raw request/response log

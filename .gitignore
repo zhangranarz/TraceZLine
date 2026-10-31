@@ -4,6 +4,7 @@ ToolBase/
 # Mock logs contain only fake data and are part of the test suite
 !mock/*.log
 *.xlsx
+!mock/*.xlsx
 ~$*
 
 # Local exports

@@ -298,33 +298,49 @@
     return sid ? flowRows.filter((r) => r.sessionId === sid) : flowRows;
   }
 
+  // An uploaded Splunk result ({ name, rows, problems, trace }) replaces the loaded logs.
+  let imported = null;
+
+  // Search terms on imported rows: a term must appear in the row (as Splunk matches raw text).
+  const rowHasTerm = (r, terms) => terms.some((t) => r.raw.toLowerCase().includes(t.toLowerCase()));
+
   function refreshFlow() {
     const status = document.getElementById('flow-status');
-    if (!logs.length) return;
+    if (!logs.length && !imported) return;
     const useTerms = document.getElementById('use-terms').checked;
     const terms = useTerms ? state.terms.filter((t) => t.trim()) : [];
-    const trace = [];
-    try {
-      flowRows = window.TraceFlow.run(state, logs, terms, trace);
-    } catch (err) {
-      flowRows = [];
-      document.getElementById('flow-count').textContent = 'error';
-      status.textContent = 'Could not run the query logic: ' + err.message;
-      logDebug('error', 'Run failed: ' + err.message);
-      renderFlow([]);
-      renderDiagram([]);
+    if (imported) {
+      flowRows = terms.length ? imported.rows.filter((r) => rowHasTerm(r, terms)) : imported.rows;
+      renderDebugTable(imported.trace);
+    } else {
+      const trace = [];
+      try {
+        flowRows = window.TraceFlow.run(state, logs, terms, trace);
+      } catch (err) {
+        flowRows = [];
+        document.getElementById('flow-count').textContent = 'error';
+        status.textContent = 'Could not run the query logic: ' + err.message;
+        logDebug('error', 'Run failed: ' + err.message);
+        renderFlow([]);
+        renderDiagram([]);
+        renderDebugTable(trace);
+        return;
+      }
+      logRun(trace, useTerms, terms);
       renderDebugTable(trace);
-      return;
     }
-    logRun(trace, useTerms, terms);
-    renderDebugTable(trace);
     const sessions = window.TraceFlow.summarize(flowRows);
     const noSid = flowRows.filter((r) => r.sessionId == null).length;
-    const anyNote = logs.some((l) => l.anySource)
-      ? ' File names that match no source are treated as every source.' : '';
     document.getElementById('flow-count').textContent = `${flowRows.length} rows`;
-    status.textContent = `${logs.map((l) => l.name).join(', ')}: ${flowRows.length} events, ${sessions.length} sessions`
-      + (noSid ? `, ${noSid} without a sessionId` : '') + '.' + anyNote;
+    if (imported) {
+      status.textContent = `${imported.name}: imported Splunk result, ${flowRows.length} rows, ${sessions.length} sessions`
+        + (imported.problems.length ? `; ${imported.problems.length} rows need attention (see Debug)` : '') + '.';
+    } else {
+      const anyNote = logs.some((l) => l.anySource)
+        ? ' File names that match no source are treated as every source.' : '';
+      status.textContent = `${logs.map((l) => l.name).join(', ')}: ${flowRows.length} events, ${sessions.length} sessions`
+        + (noSid ? `, ${noSid} without a sessionId` : '') + '.' + anyNote;
+    }
     renderFlowProblem(useTerms);
 
     const select = document.getElementById('session-filter');
@@ -347,6 +363,15 @@
     if (flowRows.length) return;
     const show = (...nodes) => { box.append(...nodes); box.hidden = false; };
 
+    if (imported) {
+      if (!imported.rows.length) {
+        show(el('p', {}, [`${imported.name}: no flow rows could be read. The file needs a header row with ServiceInfo (or Flow) and rows like "> Enterprise: /path [?]". See Debug.`]));
+        return;
+      }
+      if (useTerms) showTermsProblem(window.TraceFlow.summarize(imported.rows).map((s) => s.sessionId), show);
+      return;
+    }
+
     const parsed = logs.map((l) => ({ name: l.name, events: window.TraceFlow.parseEvents(l.name, l.text).length, first: l.text.split(/\r?\n/).find((x) => x.trim()) || '' }));
     if (parsed.every((p) => !p.events)) {
       show(el('p', {}, ['No log events found. Each event must start with a timestamp line like ',
@@ -361,7 +386,11 @@
     }
     const all = window.TraceFlow.summarize(window.TraceFlow.run(state, logs, []));
     if (!all.length) return;
-    const ids = all.map((s) => s.sessionId);
+    showTermsProblem(all.map((s) => s.sessionId), show);
+  }
+
+  // Search terms match none of the sessions found: list them, with one-click fixes.
+  function showTermsProblem(ids, show) {
     const showAll = el('button', { type: 'button' }, ['Show all sessions']);
     showAll.addEventListener('click', () => { document.getElementById('use-terms').checked = false; refreshFlow(); });
     const useIds = el('button', { type: 'button', class: 'primary' }, ['Use these IDs as Search terms']);
@@ -421,13 +450,14 @@
       return el('tr', { class: r.kept ? (r.warn ? 'dbg-warn' : 'dbg-ok') : 'dbg-out' }, [
         el('td', {}, [String(trace.indexOf(r) + 1)]),
         el('td', {}, [`${r.file}:${r.lineNo}`]),
-        el('td', {}, [new Date(ev.time).toISOString().slice(11, 23)]),
+        el('td', {}, [ev.EventTime && ev.source === 'import' ? ev.EventTime
+          : Number.isFinite(ev.time) ? new Date(ev.time).toISOString().slice(11, 23) : '']),
         el('td', {}, [result]),
         el('td', {}, [ev.LayerName ?? '']),
         el('td', {}, [ev.Direction ?? '']),
         el('td', {}, [ev.sessionId ?? '']),
         el('td', {}, [ev.API ?? ev.Endpoint ?? ev.URL ?? '']),
-        el('td', { class: 'dbg-head', title: ev.raw.slice(0, 2000) }, [r.head.slice(0, 160)]),
+        el('td', { class: 'dbg-head', title: (ev.raw || '').slice(0, 2000) }, [r.head.slice(0, 160)]),
       ]);
     }));
     document.getElementById('debug-table').replaceChildren(head, body);
@@ -573,8 +603,36 @@
     return [cols.join(sep), ...rows.map((r) => cols.map((c) => cell(r[c])).join(sep))].join('\r\n') + '\r\n';
   }
 
+  // Splunk result upload: Excel or CSV flow table -> rows for the summary, table and diagrams.
+  document.getElementById('flow-upload').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    logDebug('info', `Upload flow: ${file.name} (${file.size.toLocaleString()} bytes)`);
+    try {
+      const table = await window.TraceImport.readTable(file.name, await file.arrayBuffer());
+      const { rows, problems } = window.TraceImport.toFlowRows(table, state);
+      const byLine = new Map(problems.map((p) => [p.line, p]));
+      const trace = rows.map((r) => ({ file: file.name, lineNo: r.line, head: r.Flow, ev: r, kept: true, warn: byLine.get(r.line)?.reason || '' }));
+      problems.filter((p) => !rows.some((r) => r.line === p.line)).forEach((p) => {
+        trace.push({ file: file.name, lineNo: p.line, head: p.text || '', ev: { raw: p.text || '' }, kept: false, reason: 'Skipped: ' + p.reason });
+      });
+      trace.sort((a, b) => a.lineNo - b.lineNo);
+      imported = { name: file.name, rows, problems, trace };
+      logs = [];
+      logDebug(rows.length ? 'info' : 'error', `${file.name}: ${table.length - 1} table rows read, ${rows.length} flow rows, `
+        + `${new Set(rows.map((r) => r.sessionId)).size} sessions; header: ${(table[0] || []).join(', ')}`);
+      problems.forEach((p) => logDebug('warn', `${file.name} row ${p.line}: ${p.reason}: ${String(p.text).slice(0, 120)}`));
+      showView('table');
+      refreshFlow();
+    } catch (err) {
+      logDebug('error', `${file.name}: could not be read as a flow table (${err.message}).`);
+    }
+  });
+
   // Files that cannot hold log events (Excel, binary, no timestamped lines) are reported and skipped.
   function setLogs(files) {
+    imported = null;
     logs = [];
     for (const f of files) {
       const info = window.TraceFlow.describeLog(f.text);

@@ -278,14 +278,28 @@
         items.push({ t: 'note', who: s.who, lines: [{ text: 'No response' }, { text: s.row.API ?? 'N/A' }] });
         items.push({ t: 'deact', who: s.who });
       };
+      // Column order decides who can call whom: a request comes from an open call in an
+      // earlier column. With several candidates (overlapping calls), prefer one whose API
+      // shares its path with this one (/asv/x -> /dge-asv/asv/x), else the latest.
+      const rank = Object.fromEntries(order.map((l, i) => [l.name, i]));
+      const rankOf = (name) => rank[name] ?? order.length;
+      const norm = (api) => String(api ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '/').replace(/^\/|\/$/g, '');
+      const related = (a, b) => a.length > 3 && b.length > 3 && (a.includes(b) || b.includes(a));
       const stack = [];
       for (const r of rs) {
         const me = alias(r.LayerName);
         const key = r.Layer + '|' + r.PairKey;
         if (r.Direction === 'Request') {
-          const caller = stack.length ? stack[stack.length - 1].who : 'P_App';
+          const open = stack.filter((s) => rankOf(s.row.LayerName) < rankOf(r.LayerName));
+          const mine = norm(r.API);
+          const pick = [...open].reverse().find((s) => related(mine, norm(s.row.API))) || open[open.length - 1];
+          const caller = pick ? pick.who : 'P_App';
           items.push({ t: 'msg', from: caller, to: me, dashed: false, lines: label(r) }, { t: 'act', who: me });
           stack.push({ who: me, caller, key, row: r });
+          continue;
+        }
+        if (r.Direction !== 'Response') {
+          items.push({ t: 'note', who: me, lines: [{ text: 'Direction unknown' }, ...label(r, r.ElapsedMs)] });
           continue;
         }
         let idx = -1;
@@ -294,8 +308,8 @@
           items.push({ t: 'note', who: me, lines: [{ text: 'Response without a request' }, ...label(r, r.ElapsedMs)] });
           continue;
         }
-        while (stack.length - 1 > idx) noResponse(stack.pop());
-        const s = stack.pop();
+        // Only the matching call closes; calls opened after it may still be running (async work).
+        const [s] = stack.splice(idx, 1);
         items.push({ t: 'msg', from: me, to: s.caller, dashed: true, lines: label(r, r.ElapsedMs) }, { t: 'deact', who: me });
       }
       while (stack.length) noResponse(stack.pop());
@@ -303,7 +317,9 @@
         sessionId: sid,
         title: [`Session ${sid}`, `${rs.length} steps, ${total} ms`],
         participants: [{ id: 'P_App', name: 'App', actor: true },
-          ...order.filter((l) => used.has(l.name)).map((l) => ({ id: alias(l.name), name: l.name }))],
+          ...order.filter((l) => used.has(l.name)).map((l) => ({ id: alias(l.name), name: l.name })),
+          // Layers not in the settings (possible in an imported result) go after the known ones.
+          ...[...used].filter((n) => !order.some((l) => l.name === n)).map((n) => ({ id: alias(n), name: n }))],
         items,
       });
     }

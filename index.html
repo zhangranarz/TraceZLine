@@ -121,6 +121,7 @@
           </div>
           <span class="spacer"></span>
           <span class="view-actions" data-for="table">
+            <label class="btn" title="Load the flow table exported from Splunk (Step, EventTime, sessionId, ServiceInfo, Params, ElapsedMs) and build the diagrams from it">Upload flow (.xlsx/.csv)<input type="file" id="flow-upload" accept=".xlsx,.csv,.txt" hidden></label>
             <button type="button" id="btn-copy-flow" disabled>Copy table</button>
             <button type="button" id="btn-csv" disabled>Download CSV</button>
           </span>
@@ -165,6 +166,7 @@
   <script src="js/spl.js"></script>
   <script src="js/flow.js"></script>
   <script src="js/sequence.js"></script>
+  <script src="js/importer.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
