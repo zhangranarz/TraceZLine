@@ -17,11 +17,11 @@ The default settings reproduce the base query exactly (`tests/base.spl`, checked
 
 ## Flow tab (available now)
 
-In the **Flow** tab (next to **Splunk**), **Load log files** runs the generated query's logic over raw log
+In the **Flow** tab (next to **Splunk**), **Load Test** runs the generated query's logic over raw log
 files (or a Splunk EventTime/PopulatedLog export) in the browser and shows the flow
 table: per-session summary (steps, total time, slowest hop, requests with no
 response), then the rows grouped by session. **Copy table** pastes into Excel;
-**Download CSV** saves it. Files never leave the browser. The **Diagram** view
+**Download CSV** saves it. **Mock Test** loads the bundled mock logs. Files never leave the browser. The **Diagram** view
 turns the same rows into PlantUML (one diagram per session: App, eComm, Enterprise,
 WS, Host; request/response arrows with activation, elapsed times, Params and Host
 SvcCode pairs; an orange note where a request got no response). Copy it or download

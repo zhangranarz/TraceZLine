@@ -96,8 +96,8 @@
 
       <div class="pane" id="pane-flow" role="tabpanel" aria-labelledby="tab-flow" hidden>
         <div class="flow-bar">
-          <label class="btn primary-btn">Load log files<input type="file" id="log-files" multiple hidden></label>
-          <button type="button" id="btn-mock">Load mock logs</button>
+          <label class="btn primary-btn" title="Load raw log files (or a Splunk EventTime/PopulatedLog export) and run the query logic on them">Load Test<input type="file" id="log-files" multiple hidden></label>
+          <button type="button" id="btn-mock" title="Load the bundled mock logs (fake data)">Mock Test</button>
           <label class="check"><input type="checkbox" id="use-terms" autocomplete="off"> Only sessions in Search terms</label>
           <select id="session-filter" aria-label="Session"></select>
           <span class="spacer"></span>

@@ -672,7 +672,7 @@
     const files = [...e.target.files];
     e.target.value = '';
     if (!files.length) return;
-    logDebug('info', `Load log files: ${files.map((f) => `${f.name} (${f.size.toLocaleString()} bytes)`).join(', ')}`);
+    logDebug('info', `Load Test: ${files.map((f) => `${f.name} (${f.size.toLocaleString()} bytes)`).join(', ')}`);
     const read = [];
     for (const f of files) {
       try {
@@ -693,7 +693,7 @@
         return res.text();
       }));
       document.getElementById('use-terms').checked = false;
-      logDebug('info', 'Load mock logs: ' + names.join(', '));
+      logDebug('info', 'Mock Test: ' + names.join(', '));
       setLogs(names.map((name, i) => ({ name, text: texts[i] })));
     } catch (err) {
       logDebug('error', 'Could not load mock logs: ' + err.message);
