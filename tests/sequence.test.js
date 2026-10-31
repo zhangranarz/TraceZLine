@@ -13,16 +13,22 @@ const models = flow.sequenceModel(flow.run(spl.DEFAULT_CONFIG, logs, []), spl.DE
 
 test('sequence model: one diagram per session, App first, layers in order', () => {
   assert.strictEqual(models.length, 3);
-  assert.deepStrictEqual(models[0].participants.map((p) => p.name), ['App', 'eComm', 'Enterprise', 'WS', 'Host']);
-  assert.deepStrictEqual(models[2].participants.map((p) => p.name), ['App', 'eComm', 'Enterprise', 'WS']);
+  // WS is drawn on Enterprise's lifeline (Diagram as = Enterprise), so it has no column.
+  assert.deepStrictEqual(models[0].participants.map((p) => p.name), ['App', 'eComm', 'Enterprise', 'Host']);
+  assert.deepStrictEqual(models[2].participants.map((p) => p.name), ['App', 'eComm', 'Enterprise']);
+  const self = models[0].items.filter((i) => i.t === 'msg' && i.from === i.to);
+  assert.ok(self.length >= 4 && self.every((i) => i.from === 'P_Enterprise' && i.lines[0].text.startsWith('WS: ')));
 });
 
 test('SVG: one arrow per message, boxes top and bottom, bars balanced', () => {
   for (const d of models) {
     const svg = seq.render(d);
     assert.match(svg, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"[\s\S]*<\/svg>$/);
-    const msgs = d.items.filter((i) => i.t === 'msg').length;
-    assert.strictEqual((svg.match(/<line [^>]*stroke-width="1\.2"/g) || []).length, msgs);
+    const msgs = d.items.filter((i) => i.t === 'msg');
+    const selfCalls = msgs.filter((i) => i.from === i.to).length;
+    assert.strictEqual((svg.match(/<line [^>]*stroke-width="1\.2"/g) || []).length, msgs.length - selfCalls);
+    // a self-call is a 4-point polyline loop
+    assert.strictEqual((svg.match(/<polyline points="[^"]*( [\d.]+,[\d.]+){3}" fill="none" stroke="[^"]*" stroke-width="1\.2"/g) || []).length, selfCalls);
     assert.strictEqual((svg.match(/<rect [^>]*height="30"/g) || []).length, d.participants.length * 2);
     const acts = d.items.filter((i) => i.t === 'act').length;
     assert.strictEqual((svg.match(/<rect [^>]*width="10"/g) || []).length, acts);

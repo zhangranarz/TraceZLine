@@ -26,7 +26,9 @@ turns the same rows into PlantUML (one diagram per session: App, eComm, Enterpri
 WS, Host; request/response arrows with activation, elapsed times, Params and Host
 SvcCode pairs; an orange note where a request got no response). Copy it or download
 `.puml` and draw it locally; **Render image…** asks first, then uses plantuml.com. The **Sequence** view
-draws the same diagram as SVG in the browser (nothing is sent anywhere), with
+draws the same diagram as SVG in the browser (nothing is sent anywhere). A layer's
+**Diagram as** setting draws it on another layer's lifeline as internal processing
+(by default WS is drawn as self-calls on Enterprise). The Sequence view has
 **Fit to width** and **Download SVG**. The **Debug** view logs every file
 load and run (file format, events read, how many each filter excluded, the Search
 terms used) and lists every event with the decision taken for it; **Copy debug log**

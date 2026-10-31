@@ -247,13 +247,23 @@
   // request with the same Layer and PairKey. Requests that never get a response
   // are closed with a note.
   //
+  // A layer with "Diagram as" set (e.g. WS as Enterprise) is drawn on that layer's
+  // lifeline: its calls become self-calls labelled with the real layer name.
+  //
   // Returns [{ sessionId, title: [line], participants: [{ id, name, actor }], items }]
   // where items are { t: 'msg', from, to, dashed, lines }, { t: 'act' | 'deact', who }
-  // or { t: 'note', who, lines }, and a line is { text, small }.
+  // or { t: 'note', who, lines }, and a line is { text, small }. from === to is a self-call.
   function sequenceModel(rows, cfg) {
-    const order = cfg.layers.filter((l) => l.name.trim()).map((l, i) => ({ name: l.name.trim(), layer: Number(l.layer), i }))
+    const named = cfg.layers.filter((l) => l.name.trim());
+    const names = new Set(named.map((l) => l.name.trim()));
+    const drawAs = Object.fromEntries(named.map((l) => {
+      const as = (l.diagramAs || '').trim();
+      return [l.name.trim(), as && names.has(as) ? as : l.name.trim()];
+    }));
+    const order = named.map((l, i) => ({ name: l.name.trim(), layer: Number(l.layer), i }))
+      .filter((l) => drawAs[l.name] === l.name)
       .sort((a, b) => a.layer - b.layer || a.i - b.i);
-    const alias = (name) => 'P_' + name.replace(/\W/g, '_');
+    const alias = (name) => 'P_' + (drawAs[name] ?? name).replace(/\W/g, '_');
     const sessions = new Map();
     for (const r of rows) {
       if (r.sessionId == null || !r.LayerName) continue;
@@ -263,11 +273,12 @@
 
     const diagrams = [];
     for (const [sid, rs] of sessions) {
-      const used = new Set(rs.map((r) => r.LayerName));
+      const used = new Set(rs.map((r) => drawAs[r.LayerName] ?? r.LayerName));
       const total = Math.round(rs[rs.length - 1].time - rs[0].time);
       const items = [];
       const label = (r, ms) => {
-        const lines = [{ text: (r.API ?? 'N/A') + (ms != null ? ` (${ms} ms)` : '') }];
+        const prefix = (drawAs[r.LayerName] ?? r.LayerName) !== r.LayerName ? `${r.LayerName}: ` : '';
+        const lines = [{ text: prefix + (r.API ?? 'N/A') + (ms != null ? ` (${ms} ms)` : '') }];
         if (r.LayerName === 'Host' && Array.isArray(r.ServiceInfo)) {
           r.ServiceInfo.slice(1).forEach((s) => lines.push({ text: s.replace(/^- \[(.*)\] \[.\]$/, '$1') }));
         }
@@ -275,7 +286,7 @@
         return lines;
       };
       const noResponse = (s) => {
-        items.push({ t: 'note', who: s.who, lines: [{ text: 'No response' }, { text: s.row.API ?? 'N/A' }] });
+        items.push({ t: 'note', who: s.who, lines: [{ text: 'No response' }, label(s.row)[0]] });
         items.push({ t: 'deact', who: s.who });
       };
       const stack = [];

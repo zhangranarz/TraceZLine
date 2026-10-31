@@ -61,8 +61,11 @@ test('PlantUML: one diagram per session with nested calls and elapsed times', ()
   const s1 = blocks[0];
   assert.match(s1, /^actor App as P_App$/m);
   assert.match(s1, /^participant "Host" as P_Host$/m);
-  assert.match(s1, /^P_Enterprise -> P_WS : \/dge-idm\/idm\/user\/profile\/get\\n<size:10>TxnCode=SEC02<\/size>$/m);
-  assert.match(s1, /^P_Host --> P_WS : dge-enq\.enq\.customer\.portfolio\.VN\.V2\.3 \(1100 ms\)\\nAC_ACCT_SUM_X ~ AC_RBK_SUMM_N\\nAC_VSA_SUMM_N ~ AC_VSA_SUMM_N$/m);
+  // WS is drawn as internal processing of Enterprise (Diagram as = Enterprise).
+  assert.doesNotMatch(s1, /P_WS/);
+  assert.match(s1, /^P_Enterprise -> P_Enterprise : WS: \/dge-idm\/idm\/user\/profile\/get\\n<size:10>TxnCode=SEC02<\/size>$/m);
+  assert.match(s1, /^P_Enterprise --> P_Enterprise : WS: \/dge-idm\/idm\/user\/profile\/get \(45 ms\)/m);
+  assert.match(s1, /^P_Host --> P_Enterprise : dge-enq\.enq\.customer\.portfolio\.VN\.V2\.3 \(1100 ms\)\\nAC_ACCT_SUM_X ~ AC_RBK_SUMM_N\\nAC_VSA_SUMM_N ~ AC_VSA_SUMM_N$/m);
   assert.match(s1, /^P_eComm --> P_App : \/spl-banking\/services\/vn\/security\/auth\/v2\/login \(2110 ms\)$/m);
   // every activate has a matching deactivate
   for (const b of blocks) assert.strictEqual((b.match(/^activate /gm) || []).length, (b.match(/^deactivate /gm) || []).length);
@@ -70,8 +73,17 @@ test('PlantUML: one diagram per session with nested calls and elapsed times', ()
 
 test('PlantUML: a request without a response gets a note and is closed', () => {
   const s3 = simPuml().split(/(?=@startuml)/)[2];
-  assert.match(s3, /^note over P_WS #FFE0B2 : No response\\n\/dge-bfs\/bfs\/bp\/initiate\ndeactivate P_WS$/m);
+  assert.match(s3, /^note over P_Enterprise #FFE0B2 : No response\\nWS: \/dge-bfs\/bfs\/bp\/initiate\ndeactivate P_Enterprise$/m);
   assert.match(s3, /^P_Enterprise --> P_eComm : \/bfs\/quick\/bp\/initiate \(30006 ms\)/m);
+});
+
+test('PlantUML: with Diagram as cleared, WS gets its own participant again', () => {
+  const cfg = spl.clone(spl.DEFAULT_CONFIG);
+  cfg.layers.forEach((l) => { l.diagramAs = ''; });
+  const s1 = require('../js/flow.js').toPlantUml(rows, cfg).split(/(?=@startuml)/)[0];
+  assert.match(s1, /^participant "WS" as P_WS$/m);
+  assert.match(s1, /^P_Enterprise -> P_WS : \/dge-idm\/idm\/user\/profile\/get\\n/m);
+  assert.match(s1, /^P_Host --> P_WS : /m);
 });
 
 test('PlantUML server encoding uses its 64-character alphabet, 4 characters per 3 bytes', () => {
