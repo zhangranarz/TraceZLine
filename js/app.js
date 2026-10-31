@@ -588,7 +588,7 @@
 
   // Rendering sends the diagram text to plantuml.com, so it always asks first.
   document.getElementById('btn-render-puml').addEventListener('click', async () => {
-    if (!confirm('Render image sends the diagram text (endpoints, session IDs, Params values) to www.plantuml.com.\n\n'
+    if (!confirm('Render sends the diagram text (endpoints, session IDs, Params values) to www.plantuml.com.\n\n'
       + 'Only continue with mock or desensitised data. Continue?')) return;
     const host = document.getElementById('puml-images');
     host.replaceChildren();

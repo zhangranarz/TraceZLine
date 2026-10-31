@@ -25,7 +25,7 @@ response), then the rows grouped by session. **Copy table** pastes into Excel;
 turns the same rows into PlantUML (one diagram per session: App, eComm, Enterprise,
 WS, Host; request/response arrows with activation, elapsed times, Params and Host
 SvcCode pairs; an orange note where a request got no response). Copy it or download
-`.puml` and draw it locally; **Render image…** asks first, then uses plantuml.com. The **Sequence** view
+`.puml` and draw it locally; **Render** asks first, then uses plantuml.com. The **Sequence** view
 draws the same diagram as SVG in the browser (nothing is sent anywhere), with
 **Fit to width** and **Download SVG**. The **Debug** view logs every file
 load and run (file format, events read, how many each filter excluded, the Search
