@@ -971,7 +971,7 @@
     ['ServiceInfo', (r) => svcLines(r.x).join('\n'), 'multi'],
     ['Log', logEventText, 'log'],
     // On screen an expandable Parameter / Value table; in Copy/Download "path = value" lines.
-    ['Structure', (r) => {
+    ['Payload', (r) => {
       const s = r.l && structureOf(r.l);
       return s ? `${s.kind}\n` + s.rows.map(([p, v]) => `${p} = ${v}`).join('\n') : '';
     }, 'struct'],
@@ -1010,7 +1010,7 @@
               el('pre', {}, [r.l.raw.length > RAW_PREVIEW ? r.l.raw.slice(0, RAW_PREVIEW) + '\n…' : r.l.raw]),
             ])] : []);
           }
-          // Structure: the event's JSON ("JSON:") or XML ("XML:") expands to a Parameter / Value table.
+          // Payload: the event's JSON or XML body ("JSON ▸" / "XML ▸") expands to a Parameter / Value table.
           if (kind === 'struct') {
             const s = r.l && structureOf(r.l);
             return el('td', { class: 'cmp-log' }, s ? [el('details', { class: 'cmp-raw cmp-struct' }, [
