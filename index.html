@@ -177,17 +177,19 @@
           <label class="btn primary-btn" title="The flow table exported from Splunk (.xlsx or .csv)">Splunk result<input type="file" id="cmp-excel" accept=".xlsx,.csv,.txt" hidden></label>
           <label class="btn primary-btn" title="The raw request/response log files (or a Splunk EventTime/PopulatedLog export)">Log files<input type="file" id="cmp-logs" multiple hidden></label>
           <button type="button" id="cmp-mock" title="Compare the bundled mock flow with the mock logs">Mock pair</button>
-          <label class="check" title="How far apart (after the detected time offset) a row and its log event may be">Tolerance
+          <label class="check" title="How far apart (after the time offset) a Splunk line and its log event may be">Tolerance
             <input type="number" id="cmp-tolerance" min="0" step="100" value="1000" autocomplete="off" class="num"> ms</label>
+          <label class="check" title="Hours to subtract from the Splunk EventTime to get the log time, e.g. 1 or -7. Leave empty to detect it.">Offset
+            <input type="number" id="cmp-offset" step="0.5" placeholder="auto" autocomplete="off" class="num"> h</label>
           <span class="spacer"></span>
           <button type="button" class="wide-toggle" aria-pressed="false" title="Hide the settings while reading the result">Full width</button>
-          <button type="button" id="cmp-copy" disabled title="Copy the alignment table (paste into Excel)">Copy</button>
-          <button type="button" id="cmp-csv" disabled title="Save the alignment table as CSV">Download CSV</button>
+          <button type="button" id="cmp-copy" disabled title="Copy the mapping table (paste into Excel)">Copy</button>
+          <button type="button" id="cmp-csv" disabled title="Save the mapping table as CSV">Download CSV</button>
         </div>
-        <p class="note" id="cmp-status">Load the Splunk result and the raw log files it came from. Each Excel row is matched with its log event (same session, layer, direction and API, in order; then the nearest time within the tolerance), and problems between the two are listed. Files are read in this browser only.</p>
+        <p class="note" id="cmp-status">Load the Splunk result and the raw log files it came from. Each line of the Splunk result is mapped to the log event with the closest timestamp (after the time offset, within the tolerance); when several are equally close, the one with the same session, layer, direction and API wins. Expand a log event to see its raw text. Files are read in this browser only.</p>
         <div id="cmp-summary" class="summary"></div>
         <div id="cmp-quality" class="cmp-quality"></div>
-        <label class="check cmp-filter"><input type="checkbox" id="cmp-issues" autocomplete="off"> Only rows with issues</label>
+        <label class="check cmp-filter"><input type="checkbox" id="cmp-issues" autocomplete="off"> Only lines that differ or are not mapped</label>
         <div class="table-wrap"><table id="cmp-table" class="debug-table"></table></div>
       </div>
     </section>

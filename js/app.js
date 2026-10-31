@@ -889,77 +889,120 @@
   const cmp = { excel: null, logs: [] };
   let cmpResult = null;
   const base = (p) => String(p ?? '').split(/[\\/]/).pop();
+  const RAW_PREVIEW = 4000;
+
+  // Every log event, annotated by the query logic where it applies; the mapping uses them all.
+  function cmpEvents() {
+    const trace = [];
+    window.TraceFlow.run(state, cmp.logs, [], trace);
+    return trace.map((t) => Object.assign(t.ev, { head: t.head }));
+  }
+
+  // Offset field in hours (e.g. 1, -7, 0.5); empty means detect it.
+  function cmpOffsetMs() {
+    const v = document.getElementById('cmp-offset').value.trim();
+    return v === '' || !Number.isFinite(Number(v)) ? null : Math.round(Number(v) * 3600000);
+  }
 
   function runCompare() {
     const status = document.getElementById('cmp-status');
     if (!cmp.excel || !cmp.logs.length) {
-      const have = [cmp.excel && `Splunk result ${cmp.excel.name} (${cmp.excel.rows.length} rows)`,
+      const have = [cmp.excel && `Splunk result ${cmp.excel.name} (${cmp.excel.rows.length} lines)`,
         cmp.logs.length && `log files ${cmp.logs.map((l) => l.name).join(', ')}`].filter(Boolean);
       if (have.length) status.textContent = `Loaded: ${have.join('; ')}. Now load the ${cmp.excel ? 'log files' : 'Splunk result'}.`;
       return;
     }
-    let logRows;
+    let events;
     try {
-      logRows = window.TraceFlow.run(state, cmp.logs, []);
+      events = cmpEvents();
     } catch (err) {
-      status.textContent = 'Could not run the query logic on the log files: ' + err.message;
+      status.textContent = 'Could not read the log files with the current settings: ' + err.message;
       return;
     }
     const toleranceMs = Math.max(0, Number(document.getElementById('cmp-tolerance').value) || 0);
-    cmpResult = window.TraceCompare.compare(cmp.excel.rows, logRows, { toleranceMs });
+    cmpResult = window.TraceCompare.compare(cmp.excel.rows, events, { toleranceMs, offsetMs: cmpOffsetMs() });
     const r = cmpResult;
-    const total = r.pairs.length;
-    const withIssues = r.pairs.filter((p) => p.issues.length).length;
-    document.getElementById('count-compare').textContent = `${r.matched}/${total} matched`;
-    status.textContent = `${cmp.excel.name} (${total} rows) vs ${cmp.logs.map((l) => l.name).join(', ')} (${logRows.length} events), tolerance ${toleranceMs} ms.`
-      + (r.sessions.common ? '' : ' The two inputs share no sessionId: check that the log files belong to this Splunk result.');
-    const card = (title, lines) => el('div', { class: 'sum-card' }, [el('div', { class: 'sum-id' }, [title]), ...lines.map((t) => el('div', {}, [t]))]);
+    const total = r.rows.length;
+    const notMapped = r.rows.filter((x) => !x.l).length;
+    document.getElementById('count-compare').textContent = `${r.mapped}/${total} mapped`;
+    status.textContent = `${cmp.excel.name} (${total} lines) mapped by timestamp to ${cmp.logs.map((l) => l.name).join(', ')} (${events.length} log events), tolerance ${toleranceMs} ms.`;
+    const card = (title, lines, cls) => el('div', { class: 'sum-card' + (cls ? ' ' + cls : '') }, [el('div', { class: 'sum-id' }, [title]), ...lines.map((t) => el('div', {}, [t]))]);
+    const sidsX = new Set(cmp.excel.rows.map((x) => x.sessionId).filter(Boolean));
+    const sidsL = new Set(events.map((l) => l.sessionId).filter(Boolean));
     document.getElementById('cmp-summary').replaceChildren(
-      card('Splunk result', [`${total} rows, ${r.sessions.excel} sessions`]),
-      card('Log files', [`${logRows.length} events, ${r.sessions.log} sessions`, `${r.sessions.common} sessions in both`]),
-      card('Alignment', [`${r.matched} of ${total} rows matched (${r.pairs.filter((p) => p.kind === 'by order').length} by order, ${r.pairs.filter((p) => p.kind === 'nearest time').length} by nearest time)`,
-        `${r.unmatchedLog.length} log events not in the Excel`, `${withIssues} rows with issues`]),
-      card('Time offset', [`Excel EventTime vs log timestamp: ${r.offsetText}`, 'Removed before comparing times (e.g. a time-zone difference).']),
+      card('Splunk result', [`${total} lines, ${sidsX.size} sessions`]),
+      card('Log files', [`${events.length} events, ${sidsL.size} sessions`, `${r.sharedSessions} sessions in both`]),
+      card('Mapping', [`${r.mapped} of ${total} lines mapped: ${r.agreeing} agree, ${r.mapped - r.agreeing} differ`,
+        `${notMapped} lines without a log event in the window`, `${r.unmappedLog.length} log events not mapped`], r.unrelated ? 'card-bad' : ''),
+      card('Time offset', [`${r.offsetAuto ? 'Detected' : 'Set'}: Excel EventTime = log time ${r.offsetText}`,
+        r.offsetAuto ? 'Set Offset (hours) to override.' : 'Clear Offset to detect it again.']),
     );
     document.getElementById('cmp-quality').replaceChildren(
       el('h3', {}, ['Data quality']),
-      ...(r.quality.length ? r.quality.map((q) => el('details', { class: 'cmp-q' }, [
+      ...(r.quality.length ? r.quality.map((q, i) => el('details', { class: 'cmp-q', open: r.unrelated && i === 0 }, [
         el('summary', {}, [`${q.kind} (${q.count})`]),
-        el('ul', {}, [...q.items.slice(0, 200).map((i) => el('li', {}, [i])), ...(q.items.length > 200 ? [el('li', {}, [`… and ${q.items.length - 200} more`])] : [])]),
-      ])) : [el('p', { class: 'note' }, ['No problems found: every row matched a log event within the tolerance.'])]),
-      el('p', { class: 'note' }, ['Not checked: whether a HopStatus contradicts the raw response, because the flow has no response codes yet.']),
+        el('ul', {}, [...q.items.slice(0, 200).map((t) => el('li', {}, [t])), ...(q.items.length > 200 ? [el('li', {}, [`… and ${q.items.length - 200} more`])] : [])]),
+      ])) : [el('p', { class: 'note' }, ['Every line mapped to an agreeing log event within the tolerance.'])]),
     );
     renderCompareTable();
     ['cmp-copy', 'cmp-csv'].forEach((id) => { document.getElementById(id).disabled = false; });
   }
 
-  const CMP_COLS = ['Row', 'Step', 'EventTime', 'sessionId', 'Flow', 'Log event', 'Log time', 'Δ ms', 'Match', 'Issues'];
-  const cmpCells = (p) => [String(p.x.line), p.x.Step == null ? '' : String(p.x.Step), p.x.EventTime, p.x.sessionId ?? '', p.x.Flow,
-    p.l ? `${base(p.l.source)}:${p.l.lineNo}` : '', p.l ? new Date(p.l.time).toISOString().replace('T', ' ').slice(0, 23) : '',
-    p.delta == null ? '' : String(p.delta), p.kind, p.issues.join('; ')];
+  // The Splunk line (what it says) first, then where it maps in the log, then the rest of the row.
+  const svcLines = (x) => (Array.isArray(x.ServiceInfo) ? x.ServiceInfo : [x.ServiceInfo ?? x.Flow]);
+  const logTime = (l) => (l ? new Date(l.time).toISOString().replace('T', ' ').slice(0, 23) : '');
+  const CMP = [
+    ['Row', (r) => String(r.x.line)],
+    ['Step', (r) => (r.x.Step == null ? '' : String(r.x.Step))],
+    ['EventTime', (r) => r.x.EventTime],
+    ['ServiceInfo', (r) => svcLines(r.x).join('\n'), 'multi'],
+    ['Log time', (r) => logTime(r.l)],
+    ['Δ ms', (r) => (r.delta == null ? '' : String(r.delta))],
+    ['Log event', (r) => (r.l ? `${base(r.l.source)}:${r.l.lineNo}` : ''), 'log'],
+    ['Check', (r) => (r.status === 'mapped' ? 'agrees' : r.checks.join('; ')), 'issue'],
+    ['sessionId', (r) => r.x.sessionId ?? ''],
+    ['Params', (r) => (r.x.Params || []).join('\n'), 'multi'],
+    ['ElapsedMs', (r) => (r.x.ElapsedMs == null ? '' : String(r.x.ElapsedMs))],
+  ];
+  const CMP_COLS = CMP.map(([h]) => h);
+  const cmpCells = (r) => CMP.map(([, get]) => get(r));
 
   function renderCompareTable() {
     if (!cmpResult) return;
     const only = document.getElementById('cmp-issues').checked;
-    const pairs = only ? cmpResult.pairs.filter((p) => p.issues.length) : cmpResult.pairs;
+    const rows = only ? cmpResult.rows.filter((r) => r.status !== 'mapped') : cmpResult.rows;
+    const multi = (s) => String(s).split('\n').map((t, i) => el('div', { class: i ? 'sub' : '' }, [t]));
     document.getElementById('cmp-table').replaceChildren(
       el('thead', {}, [el('tr', {}, CMP_COLS.map((c) => el('th', {}, [c])))]),
-      el('tbody', {}, pairs.map((p) => el('tr', { class: !p.l ? 'dbg-out' : p.issues.length ? 'dbg-warn' : 'dbg-ok' },
-        cmpCells(p).map((c, i) => el('td', i === 9 ? { class: 'cmp-issue' } : {}, [c]))))),
+      el('tbody', {}, rows.map((r) => el('tr', { class: r.status === 'mapped' ? 'dbg-ok' : r.l ? 'dbg-warn' : 'dbg-out' },
+        CMP.map(([, get, kind]) => {
+          const text = get(r);
+          if (kind === 'multi') return el('td', {}, multi(text));
+          if (kind === 'issue') return el('td', { class: 'cmp-issue' }, [text]);
+          // Log event: file:line, expandable to the raw event text.
+          if (kind === 'log') {
+            return el('td', { class: 'cmp-log' }, r.l ? [el('details', { class: 'cmp-raw' }, [
+              el('summary', {}, [text]),
+              el('pre', {}, [r.l.raw.length > RAW_PREVIEW ? r.l.raw.slice(0, RAW_PREVIEW) + '\n…' : r.l.raw]),
+            ])] : ['']);
+          }
+          return el('td', {}, [text]);
+        })))),
     );
   }
 
   function cmpDelimited(sep) {
     const cell = (s) => (/[",\n\t]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s);
-    return [CMP_COLS, ...cmpResult.pairs.map(cmpCells)].map((r) => r.map(cell).join(sep)).join('\r\n') + '\r\n';
+    return [CMP_COLS, ...cmpResult.rows.map(cmpCells)].map((r) => r.map(cell).join(sep)).join('\r\n') + '\r\n';
   }
 
-  async function setCmpLogs(files) {
+  // Compare logs: every file with log events counts as every source, so nothing is filtered by name.
+  function setCmpLogs(files) {
     cmp.logs = [];
     for (const f of files) {
       const info = window.TraceFlow.describeLog(f.text);
       if (!info.events) { toast(`${f.name}: not a log file (${info.format}); skipped`); continue; }
-      cmp.logs.push({ ...f, anySource: !window.TraceFlow.matchesAnySource(state, f.name) });
+      cmp.logs.push({ ...f, anySource: true });
     }
     runCompare();
   }
@@ -1000,9 +1043,10 @@
   });
 
   document.getElementById('cmp-tolerance').addEventListener('input', runCompare);
+  document.getElementById('cmp-offset').addEventListener('input', runCompare);
   document.getElementById('cmp-issues').addEventListener('change', renderCompareTable);
   document.getElementById('cmp-copy').addEventListener('click', async () => {
-    try { await navigator.clipboard.writeText(cmpDelimited('\t')); toast('Alignment copied: paste into Excel'); } catch (e) { toast('Clipboard blocked: use Download CSV'); }
+    try { await navigator.clipboard.writeText(cmpDelimited('\t')); toast('Mapping copied: paste into Excel'); } catch (e) { toast('Clipboard blocked: use Download CSV'); }
   });
   document.getElementById('cmp-csv').addEventListener('click', () => {
     download('tracezline-compare.csv', '﻿' + cmpDelimited(','), 'text/csv');

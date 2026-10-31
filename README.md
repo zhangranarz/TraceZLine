@@ -39,13 +39,15 @@ with warnings, **Copy**, **Download** (`.spl`). Settings are saved in the browse
 **Mock Test** — the same views over bundled fake logs, loaded when the tab opens.
 
 **Compare** — load the Splunk result (`.xlsx`/`.csv`) and the raw log files it came from.
-Each Excel row is matched with its log event (same session, layer, direction and API, in
-order; otherwise the nearest time within the tolerance). The time offset between Splunk's
-EventTime and the log timestamps (e.g. a time-zone difference) is detected and removed.
-Data-quality checks list rows without a sessionId or direction, requests without a response
-and responses without a request, time differences beyond the tolerance, log events with no
-Excel row, and hops in the log that never appear in the Excel. **Mock pair** loads the mock
-flow and logs; **Copy** / **Download CSV** export the alignment table.
+Every line of the Splunk result is listed and mapped to the log event with the closest
+timestamp, within a tolerance; when several events are equally close (an Excel export keeps
+whole seconds), the one with the same session, layer, direction and API wins. The time
+offset between Splunk's EventTime and the log timestamps (e.g. a time-zone difference) is
+detected, or set in **Offset** (hours). Each line shows the log time, the difference in ms,
+the log event (`file:line`, expand it for the raw text) and whether it agrees. Data quality
+lists lines with no event in the window, lines mapped to another layer/direction/API, log
+events not mapped, and warns when the files share no session. **Mock pair** loads the mock
+flow and logs; **Copy** / **Download CSV** export the mapping.
 
 Views in Load File and Mock Test:
 
@@ -116,7 +118,7 @@ npm run security-scan                        # pre-push scan (also run in CI)
 | `js/sequence.js` | SVG sequence diagram renderer |
 | `js/importer.js` | Excel (`.xlsx`) and CSV reader for Splunk flow exports |
 | `js/rules.js` | Processing-rule analysis and Markdown export |
-| `js/compare.js` | Alignment of a Splunk result with the raw logs, data-quality checks |
+| `js/compare.js` | Timestamp mapping of a Splunk result to the raw logs, data-quality checks |
 | `js/app.js` | Page wiring |
 | `mock/` | Fake logs, flow exports and expected output ([details](mock/README.md)) |
 | `tests/` | `node --test` suites |

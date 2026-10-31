@@ -257,7 +257,31 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .cmp-q summary { cursor: pointer; font-size: 13px; padding: 2px 0; color: var(--warn-fg); font-weight: 600; }
 .cmp-q ul { margin: 2px 0 6px; padding-left: 22px; font: 12px/1.45 var(--mono); }
 .cmp-filter { margin: 4px 0 6px; }
-.debug-table td.cmp-issue { white-space: normal; min-width: 220px; }
+.debug-table td.cmp-issue { white-space: normal; min-width: 180px; }
+/* Compare reuses the debug table look; its status colour goes on the Check column (8th). */
+#cmp-table tr td:nth-child(4) { color: inherit; font-weight: 400; }
+#cmp-table tr.dbg-ok td:nth-child(8) { color: var(--accent); }
+#cmp-table tr.dbg-warn td:nth-child(8) { color: var(--warn-fg); font-weight: 600; }
+#cmp-table tr.dbg-out td:nth-child(8) { color: var(--danger); }
+.cmp-raw[open] pre { min-width: 520px; }
+/* Plain inline disclosure: not the boxed style of the settings sections. */
+.cmp-raw { border: 0; padding: 0; margin: 0; background: none; border-radius: 0; }
+.cmp-raw summary { cursor: pointer; color: var(--accent); font-weight: 400; padding: 0; }
+.cmp-raw pre {
+  margin: 4px 0 2px;
+  max-width: 640px;
+  max-height: 260px;
+  overflow: auto;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: var(--code-bg);
+  color: var(--code-fg);
+  font: 11.5px/1.4 var(--mono);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.sum-card.card-bad { border-color: var(--danger); }
+.sum-card.card-bad .sum-id { color: var(--danger); }
 #view-rules { overflow: auto; }
 .rules h3 { font-size: 14px; margin: 16px 0 2px; }
 .rules .note { margin: 0 0 6px; }

@@ -1,28 +1,21 @@
-// Aligns a Splunk flow result (Excel/CSV rows from TraceImport) with the raw log events
-// (rows from TraceFlow.run) and reports data-quality problems between the two.
+// Maps each line of a Splunk flow result (Excel/CSV rows from TraceImport) to a raw log
+// event by timestamp.
 //
-// Matching, in order:
-//   1. by order: the n-th Excel row with a given sessionId + layer + direction + API pairs
-//      with the n-th log event with the same key;
-//   2. nearest time: an unmatched Excel row pairs with the closest unmatched log event of
-//      the same sessionId + layer + direction within the tolerance (the API differs).
-// Splunk's EventTime and the log's own timestamp can differ by a time-zone offset; the
-// median difference of the by-order pairs is taken as that offset and removed before
-// times are compared.
+// Splunk's EventTime and the log's own timestamp can differ by a time-zone offset, and an
+// Excel export often keeps whole seconds only. So:
+//   1. the offset is the shift that lines up the most rows with a log event within the
+//      tolerance (or the one given);
+//   2. each row is mapped to the closest log event in time after that shift; when several
+//      events are equally close (same second), the one whose layer, direction and API
+//      agree with the row wins. Each log event is used once.
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.TraceCompare = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const key = (r) => [r.sessionId ?? '', r.LayerName ?? '', r.Direction ?? '', String(r.API ?? '').trim()].join('|');
   const hop = (r) => `${r.LayerName ?? '?'} ${r.API ?? 'N/A'}`;
-  const median = (xs) => {
-    if (!xs.length) return 0;
-    const s = [...xs].sort((a, b) => a - b);
-    const m = s.length >> 1;
-    return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2);
-  };
+  const same = (a, b) => a != null && b != null && String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
 
   // "+1h 0m 0.001s" style text for an offset in ms.
   function formatOffset(ms) {
@@ -33,90 +26,151 @@
     return `${sign}${h}h ${m}m ${(a / 1000).toFixed(3)}s`;
   }
 
-  // excel: rows from TraceImport.toFlowRows; log: rows from TraceFlow.run (time order).
-  function compare(excel, log, { toleranceMs = 1000 } = {}) {
-    const used = new Set();
-    const pool = new Map();
-    for (const l of log) {
-      const k = key(l);
-      if (!pool.has(k)) pool.set(k, []);
-      pool.get(k).push(l);
+  // A log event agrees with a row when layer, direction and (when both have one) sessionId
+  // are the same. The sessionId is what keeps unrelated files from lining up by chance.
+  const agrees = (x, l) => (!x.LayerName || same(x.LayerName, l.LayerName)) && (!x.Direction || same(x.Direction, l.Direction))
+    && (!x.sessionId || !l.sessionId || same(x.sessionId, l.sessionId));
+
+  // How many rows have an agreeing log event within the tolerance once the offset is
+  // removed, and how far those rows are from it in total (smaller is a better fit).
+  // Counting only agreeing events keeps a coincidental shift between unrelated files out.
+  function coverage(xs, sorted, offset, tol) {
+    let n = 0; let gap = 0;
+    for (const x of xs) {
+      const t = x.time - offset;
+      let lo = 0; let hi = sorted.length;
+      while (lo < hi) { const mid = (lo + hi) >> 1; if (sorted[mid].time < t - tol) lo = mid + 1; else hi = mid; }
+      let best = Infinity;
+      for (let k = lo; k < sorted.length && sorted[k].time <= t + tol; k++) {
+        if (agrees(x, sorted[k])) best = Math.min(best, Math.abs(sorted[k].time - t));
+      }
+      if (best <= tol) { n++; gap += best; }
+    }
+    return { n, gap };
+  }
+
+  // The shift that lines up the most rows with agreeing events: try the most common
+  // whole-second differences. Returns { offset, rows } (rows = rows it lines up).
+  function detectOffset(xs, logs, tol) {
+    const sorted = [...logs].sort((a, b) => a.time - b.time);
+    const freq = new Map();
+    const step = Math.max(1, Math.ceil((xs.length * logs.length) / 400000)); // keep big inputs fast
+    for (let i = 0; i < xs.length; i += step) {
+      for (const l of logs) {
+        if (!agrees(xs[i], l)) continue;
+        const d = Math.round((xs[i].time - l.time) / 1000) * 1000;
+        freq.set(d, (freq.get(d) || 0) + 1);
+      }
+    }
+    const candidates = [...freq].sort((a, b) => b[1] - a[1]).slice(0, 25).map(([d]) => d);
+    if (!candidates.includes(0)) candidates.push(0);
+    // most rows lined up, then the tightest fit, then the smallest shift
+    let best = 0; let bestFit = { n: -1, gap: Infinity };
+    for (const c of candidates) {
+      const fit = coverage(xs, sorted, c, tol);
+      if (fit.n > bestFit.n || (fit.n === bestFit.n && (fit.gap < bestFit.gap || (fit.gap === bestFit.gap && Math.abs(c) < Math.abs(best))))) {
+        best = c; bestFit = fit;
+      }
+    }
+    return bestFit.n > 0 ? { offset: best, rows: bestFit.n } : { offset: 0, rows: 0 };
+  }
+
+  // excel: rows from TraceImport.toFlowRows (with .time).
+  // logs: every parsed log event: { time, source, lineNo, raw, head, LayerName, Direction, API, sessionId }.
+  // offsetMs: number to force the offset, or null/undefined to detect it.
+  function compare(excel, logs, { toleranceMs = 1000, offsetMs = null } = {}) {
+    const xs = excel.filter((x) => Number.isFinite(x.time));
+    const ls = logs.filter((l) => Number.isFinite(l.time));
+    const auto = offsetMs == null;
+    // Both sides name their sessions but share none: unrelated files, so no offset is guessed.
+    const xSids = new Set(xs.map((x) => x.sessionId).filter(Boolean));
+    const lSids = new Set(ls.map((l) => l.sessionId).filter(Boolean));
+    const sharedSessions = [...xSids].filter((s) => lSids.has(s)).length;
+    const noSharedSession = xSids.size > 0 && lSids.size > 0 && sharedSessions === 0;
+    const detected = auto && xs.length && ls.length && !noSharedSession ? detectOffset(xs, ls, toleranceMs) : { offset: 0, rows: 0 };
+    const offset = auto ? detected.offset : offsetMs;
+
+    // every row/event pair within the tolerance, best first
+    const byTime = [...ls].sort((a, b) => a.time - b.time);
+    const cands = [];
+    xs.forEach((x) => {
+      const t = x.time - offset;
+      for (const l of byTime) {
+        if (l.time < t - toleranceMs) continue;
+        if (l.time > t + toleranceMs) break;
+        const layerOk = same(x.LayerName, l.LayerName);
+        const dirOk = same(x.Direction, l.Direction);
+        const apiOk = same(x.API, l.API);
+        const sidOk = !x.sessionId || !l.sessionId || same(x.sessionId, l.sessionId);
+        // Within the window, fewer mismatches (layer, direction, API; another session counts
+        // double) beat closeness: an Excel export keeps whole seconds, so a wrong event can sit
+        // nearer than the right one. Between equal mismatch counts, the closer event wins.
+        const w = Math.max(toleranceMs, 1) + 1;
+        const mismatches = (layerOk ? 0 : 1) + (dirOk ? 0 : 1) + (apiOk ? 0 : 1) + (sidOk ? 0 : 2);
+        const score = Math.abs(t - l.time) + mismatches * w;
+        cands.push({ x, l, score, delta: Math.round(t - l.time), layerOk, dirOk, apiOk, sidOk });
+      }
+    });
+    // Lines are mapped in time order, each taking its best still-free event, so that lines of
+    // one flow keep their order: with whole-second times, a later line can sit nearer to an
+    // earlier line's event than the earlier line does.
+    const perRow = new Map();
+    for (const c of cands) {
+      if (!perRow.has(c.x)) perRow.set(c.x, []);
+      perRow.get(c.x).push(c);
+    }
+    const mapOf = new Map(); const used = new Set();
+    for (const x of [...xs].sort((a, b) => a.time - b.time || a.line - b.line)) {
+      const pick = (perRow.get(x) || []).filter((c) => !used.has(c.l)).sort((a, b) => a.score - b.score || a.l.time - b.l.time)[0];
+      if (!pick) continue;
+      mapOf.set(x, pick);
+      used.add(pick.l);
     }
 
-    // 1. by order
-    const pairs = excel.map((x) => {
-      const l = (pool.get(key(x)) || []).find((c) => !used.has(c));
-      if (l) used.add(l);
-      return { x, l: l || null, kind: l ? 'by order' : 'none', issues: [] };
+    const rows = excel.map((x) => {
+      const c = mapOf.get(x);
+      const checks = [];
+      if (!Number.isFinite(x.time)) checks.push('EventTime not recognised');
+      if (!c) {
+        if (Number.isFinite(x.time)) checks.push(`no log event within ${toleranceMs} ms`);
+        return { x, l: null, delta: null, status: 'not mapped', checks };
+      }
+      if (!c.layerOk) checks.push(`log layer: ${c.l.LayerName ?? 'unknown'}`);
+      if (!c.dirOk) checks.push(`log direction: ${c.l.Direction ?? 'unknown'}`);
+      if (c.layerOk && !c.apiOk) checks.push(`log API: ${c.l.API ?? 'N/A'}`);
+      if (!c.sidOk) checks.push(`log sessionId: ${c.l.sessionId}`);
+      return { x, l: c.l, delta: c.delta, status: checks.length ? 'mapped, differs' : 'mapped', checks };
     });
 
-    const timed = pairs.filter((p) => p.l && Number.isFinite(p.x.time) && Number.isFinite(p.l.time));
-    const offsetMs = median(timed.map((p) => p.x.time - p.l.time));
-
-    // 2. nearest time for what is left
-    for (const p of pairs.filter((q) => !q.l && Number.isFinite(q.x.time))) {
-      let best = null; let bestGap = Infinity;
-      for (const l of log) {
-        if (used.has(l) || l.sessionId !== p.x.sessionId || l.LayerName !== p.x.LayerName || l.Direction !== p.x.Direction) continue;
-        const gap = Math.abs(p.x.time - offsetMs - l.time);
-        if (gap <= toleranceMs && gap < bestGap) { best = l; bestGap = gap; }
-      }
-      if (best) {
-        used.add(best);
-        p.l = best;
-        p.kind = 'nearest time';
-        p.issues.push(`API differs: log has ${best.API ?? 'N/A'}`);
-      }
-    }
-
-    // per-pair checks
-    for (const p of pairs) {
-      if (!p.x.sessionId) p.issues.push('no sessionId');
-      if (!p.x.Direction) p.issues.push('direction unknown ([?]/[!] missing)');
-      if (!p.l) { p.issues.push('no matching log event'); continue; }
-      if (Number.isFinite(p.x.time) && Number.isFinite(p.l.time)) {
-        p.delta = Math.round(p.x.time - offsetMs - p.l.time);
-        if (Math.abs(p.delta) > toleranceMs) p.issues.push(`time differs by ${p.delta} ms (after the ${formatOffset(offsetMs)} offset)`);
-      }
-    }
-
-    const unmatchedLog = log.filter((l) => !used.has(l));
-    const excelHops = new Set(excel.map(hop));
+    const unmappedLog = logs.filter((l) => !used.has(l));
     const quality = [];
     const add = (kind, items) => { if (items.length) quality.push({ kind, count: items.length, items }); };
+    add('Lines with no log event in the time window', rows.filter((r) => r.status === 'not mapped').map((r) => `row ${r.x.line}: ${r.x.EventTime} ${r.x.Flow}`));
+    add('Lines mapped to an event of another layer, direction or API', rows.filter((r) => r.status === 'mapped, differs').map((r) => `row ${r.x.line}: ${r.x.Flow} ↔ ${base(r.l.source)}:${r.l.lineNo} (${r.checks.join('; ')})`));
+    add('Lines with an unreadable EventTime', rows.filter((r) => !Number.isFinite(r.x.time)).map((r) => `row ${r.x.line}: "${r.x.EventTime}"`));
+    add('Log events not mapped to any line', unmappedLog.map((l) => `${base(l.source)}:${l.lineNo} ${l.head.slice(0, 120)}`));
+    add('Hops in the mapped log events that never appear in the Splunk result',
+      [...new Set(logs.filter((l) => l.LayerName).map(hop))].filter((h) => !excel.some((x) => hop(x) === h)));
 
-    add('Excel rows with no sessionId', pairs.filter((p) => !p.x.sessionId).map((p) => `row ${p.x.line}: ${p.x.Flow}`));
-    add('Excel rows with an unknown direction', pairs.filter((p) => !p.x.Direction).map((p) => `row ${p.x.line}: ${p.x.Flow}`));
-
-    // requests and responses per session and hop, from the Excel side
-    const counts = new Map();
-    for (const x of excel) {
-      if (!x.Direction) continue;
-      const k = `${x.sessionId ?? ''}\u0000${hop(x)}`;
-      if (!counts.has(k)) counts.set(k, { sid: x.sessionId, hop: hop(x), req: 0, res: 0 });
-      counts.get(k)[x.Direction === 'Request' ? 'req' : 'res']++;
+    // With no shift lining up a single agreeing pair, the files most likely cover other
+    // sessions or times; say so rather than present coincidental matches as an alignment.
+    const unrelated = xs.length > 0 && ls.length > 0 && (noSharedSession || (auto && detected.rows === 0));
+    if (unrelated) {
+      quality.unshift({ kind: 'The files do not seem to belong together', count: 1,
+        items: [noSharedSession
+          ? `The Splunk result has ${xSids.size} session(s) and the log files ${lSids.size}, with none in common. Load the log files of the same sessions.`
+          : 'No time offset lines up any Splunk line with a log event of the same session, layer and direction. Check that the log files cover the same sessions and time as the Splunk result, or set the offset yourself.'] });
     }
-    const cs = [...counts.values()];
-    add('Requests without a response (in the Excel)', cs.filter((c) => c.req > c.res).map((c) => `${c.sid}: ${c.hop} (${c.req} requests, ${c.res} responses)`));
-    add('Responses without a request (in the Excel)', cs.filter((c) => c.res > c.req).map((c) => `${c.sid}: ${c.hop} (${c.req} requests, ${c.res} responses)`));
-
-    add('Excel rows with no matching log event', pairs.filter((p) => !p.l).map((p) => `row ${p.x.line}: ${p.x.sessionId ?? ''} ${p.x.Flow}`));
-    add(`Time differences beyond ${toleranceMs} ms`, pairs.filter((p) => p.l && p.delta != null && Math.abs(p.delta) > toleranceMs)
-      .map((p) => `row ${p.x.line}: ${p.x.Flow} (Δ ${p.delta} ms)`));
-    add('Log events not mapped to any Excel row', unmatchedLog.map((l) => `${l.source ? String(l.source).split(/[\\/]/).pop() : ''}:${l.lineNo ?? '?'} ${l.sessionId ?? '(no sessionId)'} ${l.Flow ?? hop(l)}`));
-    add('Hops in the log that never appear in the Excel', [...new Set(log.map(hop))].filter((h) => !excelHops.has(h)));
 
     return {
-      pairs,
-      unmatchedLog,
-      offsetMs,
-      offsetText: formatOffset(offsetMs),
-      matched: pairs.filter((p) => p.l).length,
-      sessions: { excel: new Set(excel.map((x) => x.sessionId)).size, log: new Set(log.map((l) => l.sessionId)).size,
-        common: [...new Set(excel.map((x) => x.sessionId))].filter((s) => log.some((l) => l.sessionId === s)).length },
-      quality,
+      rows, unmappedLog, quality, unrelated, sharedSessions,
+      offsetMs: offset, offsetText: formatOffset(offset), offsetAuto: auto,
+      mapped: rows.filter((r) => r.l).length,
+      agreeing: rows.filter((r) => r.status === 'mapped').length,
     };
   }
 
-  return { compare, formatOffset };
+  const base = (p) => String(p ?? '').split(/[\\/]/).pop();
+
+  return { compare, detectOffset, formatOffset };
 });
