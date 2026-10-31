@@ -1006,7 +1006,7 @@
           // Log: the matched event as a short "Log:"; hover shows the event text, expanding the raw event.
           if (kind === 'log') {
             return el('td', { class: 'cmp-log' }, r.l ? [el('details', { class: 'cmp-raw' }, [
-              el('summary', { title: text }, ['Log:']),
+              el('summary', { title: text, class: 'icon-after' }, ['Log']),
               el('pre', {}, [r.l.raw.length > RAW_PREVIEW ? r.l.raw.slice(0, RAW_PREVIEW) + '\n…' : r.l.raw]),
             ])] : []);
           }
