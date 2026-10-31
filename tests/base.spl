@@ -19,10 +19,10 @@
 | rex field=_raw "(?<Endpoint2>[^\s]*\/[^\s]*Request[^\s]*)"
 | rex field=_raw "(?<Endpoint3>[^\s]+)"
 | eval Endpoint=coalesce(Endpoint1,Endpoint2,Endpoint3)
-| rex field=_raw "\[SPLMessage\].*?sessionId\"\s*:\s*\"(?<sidEcomm>[0-9a-fA-F-]{36})"
-| rex field=_raw "\[SPLHostMessage\].*?sessionIdentity\"\s*:\s*\"(?<sidEnterprise>[0-9a-fA-F-]{36})"
-| rex field=_raw "\|\s*WLS:\s*(?<sidWls>[0-9a-fA-F-]{36})\s*\|"
-| rex field=_raw "(?<sidAny>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})"
+| rex field=_raw "(?i)\[SPLMessage\]\[sessionId\]\s*:\s*\"?(?<sidEcomm>[0-9a-fA-F-]{36})"
+| rex field=_raw "(?i)\[SPLHostMessage\]\[sessionIdentity\]\s*:\s*\"?(?<sidEnterprise>[0-9a-fA-F-]{36})"
+| rex field=_raw "(?i)\[WLS\]:(?<sidWls>[0-9a-fA-F-]{36})"
+| rex field=_raw "(?<sidAny>[0-9a-fA-F-]{8}-[0-9a-fA-F-]{4}-[0-9a-fA-F-]{4}-[0-9a-fA-F-]{4}-[0-9a-fA-F-]{12})"
 | eval sessionId=coalesce(sidEcomm, sidEnterprise, sidWls, sidAny)
 | rex field=_raw "URL\:(?<is>s\+|s\:)\s+(?<URL>[^\s]+)"
 | rex field=_raw "SvcCode\>\s*(?<SvcCode>[^<]+)\<\/SvcCode\>"

@@ -97,11 +97,14 @@ test('validate flags an unnamed rex group and unknown layers', () => {
 
 test('sessionId rules extract a dashed UUID from each layer format', () => {
   const uuid = 'dddddddd-0000-4000-8000-000000000004';
-  // SPL rex strings use \" for a literal quote; JS regex needs named groups as-is.
-  const toJs = (rex) => new RegExp(rex.replace(/\\"/g, '"'));
+  // SPL rex strings use \" for a literal quote; a leading (?i) becomes the JS i flag.
+  const toJs = (rex) => {
+    const src = rex.replace(/\\"/g, '"');
+    return src.startsWith('(?i)') ? new RegExp(src.slice(4), 'i') : new RegExp(src);
+  };
   const [ecomm, ent, wls, any] = spl.DEFAULT_CONFIG.sessionRules.map((r) => toJs(r.rex));
-  assert.strictEqual(`[SPLMessage]x|{"sessionId" : "${uuid}"}`.match(ecomm).groups.sidEcomm, uuid);
-  assert.strictEqual(`[SPLHostMessage]{"sessionIdentity":"${uuid}"}`.match(ent).groups.sidEnterprise, uuid);
-  assert.strictEqual(`INFO | WLS: ${uuid} | rest`.match(wls).groups.sidWls, uuid);
+  assert.strictEqual(`[SPLMessage][sessionId]: "${uuid}"`.match(ecomm).groups.sidEcomm, uuid);
+  assert.strictEqual(`[splhostmessage][sessionIdentity] :${uuid}`.match(ent).groups.sidEnterprise, uuid);
+  assert.strictEqual(`INFO [WLS]:${uuid} rest`.match(wls).groups.sidWls, uuid);
   assert.strictEqual(`id=${uuid};`.match(any).groups.sidAny, uuid);
 });
