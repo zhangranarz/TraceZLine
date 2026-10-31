@@ -32,7 +32,8 @@
     ],
     // rex that extracts the direction word, and an optional raw first case() pair.
     dirWordRex: String.raw`(?i)\b(?<DirWord>Request|Response)\b`,
-    directionFirst: 'LayerName="eComm" OR LayerName="Enterprise",DirWord',
+    // DirWord keeps the log's case ("response" in eComm JSON); map it so Direction="Response" comparisons work.
+    directionFirst: 'LayerName="eComm" OR LayerName="Enterprise",case(lower(DirWord)="request","Request",lower(DirWord)="response","Response")',
     directions: [
       { layer: 'Host', pattern: '(?i)Request Message', direction: 'Request' },
       { layer: 'Host', pattern: '(?i)Response Message', direction: 'Response' },

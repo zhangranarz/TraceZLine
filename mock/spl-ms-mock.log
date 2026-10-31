@@ -1,14 +1,13 @@
 2026-10-26 09:30:03.008 [http-nio-9443-exec-2] [INFO ] [IDMWSAppLog] [feed0005000000000000000000000000] - [:dge-idm:idm.user.profile.get.VN.V7.6] - RestEndPointUFWAspect: | URL is /dge-idm/idm/user/profile/get request:
 {"serviceRequestHeader":{"requesterContext":{"applicationCode":"SPL","requesterUserIdentity":"MOCKUSER01","sessionIdentity":"aaaaaaaa-0000-4000-8000-000000000001","transactionCode":"SEC02"}}}
-2026-10-26 09:30:03.053 [http-nio-9443-exec-2] [INFO ] [IDMWSAppLog] [feed0006000000000000000000000000] - [:dge-idm.idm.user.profile.get.VN.V7.6] - WebLogUFWAspect: UId:MOCKUSER01 | JId:99900000000000000006 | CIF:MOCKCIF01 | WLS:aaaaaaaa-0000-4000-8000-000000000001 | SSO: | URL:/dge-idm/idm/user/profile/get | StartTime:1700000000000 |
-Response:{"serviceResponseHeader":{"responseContext":{"responseCode":"00000000","responseDescription":"Success"},"requesterContext":{"sessionIdentity":"aaaaaaaa-0000-4000-8000-000000000001","transactionCode":"SEC02","transactionReferenceNumber":"9990000000000101"}}}
+2026-10-26 09:30:03.053 [http-nio-9443-exec-2] [INFO ] [IDMWSAppLog] [feed0006000000000000000000000000] - [:dge-idm.idm.user.profile.get.VN.V7.6] - WebLogUFWAspect: UId:MOCKUSER01 | JId:99900000000000000006 | CIF:MOCKCIF01 | WLS:aaaaaaaa-0000-4000-8000-000000000001 | SSO: | URL:/dge-idm/idm/user/profile/get | StartTime:1700000000000 | Response Code:00000000 | Response:{"serviceResponseHeader":{"responseContext":{"responseCode":"00000000","responseDescription":"Success"},"requesterContext":{"sessionIdentity":"aaaaaaaa-0000-4000-8000-000000000001","transactionCode":"SEC02","transactionReferenceNumber":"9990000000000101"}}}
 2026-10-26 09:30:03.075 [http-nio-9443-exec-4] [INFO ] [ENQWSAppLog] [feed000a000000000000000000000000] - [:dge-enq:enq.customer.portfolio.VN.V2.3] - RestEndPointUFWAspect: | URL is /dge-enq/enq/customer/portfolio request:
 {"serviceRequestHeader":{"requesterContext":{"applicationCode":"SPL","requesterUserIdentity":"MOCKUSER01","sessionIdentity":"aaaaaaaa-0000-4000-8000-000000000001","transactionCode":"AES01"}}}
-2026-10-26 09:30:03.110 [http-nio-9443-exec-4] [INFO ] [ENQMQLog] [] - [:dge-enq:enq.customer.portfolio.VN.V2.3] - MQAdapterServiceOnlineImpl: UId:MOCKUSER01 | JId:99900000000000000010 | CIF:MOCKCIF01 | WLS:aaaaaaaa-0000-4000-8000-000000000001 |
+2026-10-26 09:30:03.110 [http-nio-9443-exec-4] [INFO ] [ENQMQLog] [] - [:dge-enq:enq.customer.portfolio.VN.V2.3] - MQAdapterServiceOnlineImpl: UId:MOCKUSER01 | JId:99900000000000000010 | CIF:MOCKCIF01 | WLS:aaaaaaaa-0000-4000-8000-000000000001 | SERVICE CODE:BA_ACCT_INFO_N3  USER ID:MOCKUSER01  Request Q
 Name::/MOCKQMGR/MOCK.EAI.REQ?targetClient=1&version=6
 Request Message:<?xml version="1.0" encoding="UTF-8" ?> <EAI>
 <SvcRq>
-<ChannelId>MOCK</ChannelId> <SvcCode>BA_ACCT_INFO_N3</SvcCode> <SvcRqId>83736260000010</SvcRqId>
+<ChannelId>MOCK</ChannelId> <SvcCode>BA_ACCT_INFO_N3</SvcCode> <SvcRqId>99900000000010</SvcRqId>
 <SvcRqHdr>
 <SubSvc>
 <SubSvcSeq>1</SubSvcSeq>
@@ -23,11 +22,11 @@ Request Message:<?xml version="1.0" encoding="UTF-8" ?> <EAI>
 </EAI>
 2026-10-26 09:30:03.206 [http-nio-9443-exec-7] [INFO ] [ENQWSAppLog] [feed0011000000000000000000000000] - [:dge-enq:enq.card.transactions.VN.V2.0] - RestEndPointUFWAspect: | URL is /dge-enq/enq/card/transactions request:
 {"serviceRequestHeader":{"requesterContext":{"applicationCode":"SPL","requesterUserIdentity":"MOCKUSER01","sessionIdentity":"bbbbbbbb-0000-4000-8000-000000000002","transactionCode":"AES06"}}}
-2026-10-26 09:30:03.230 [http-nio-9443-exec-7] [INFO ] [ENQMQLog] [] - [:dge-enq:enq.card.transactions.VN.V2.0] - MQAdapterServiceOnlineImpl: UId:MOCKUSER01 | JId:99900000000000000017 | CIF:MOCKCIF01 | WLS:bbbbbbbb-0000-4000-8000-000000000002 |
+2026-10-26 09:30:03.230 [http-nio-9443-exec-7] [INFO ] [ENQMQLog] [] - [:dge-enq:enq.card.transactions.VN.V2.0] - MQAdapterServiceOnlineImpl: UId:MOCKUSER01 | JId:99900000000000000017 | CIF:MOCKCIF01 | WLS:bbbbbbbb-0000-4000-8000-000000000002 | SERVICE CODE:CC_INFO_STMT_X  USER ID:MOCKUSER01  Request Q
 Name::/MOCKQMGR/MOCK.EAI.REQ?targetClient=1&version=6
 Request Message:<?xml version="1.0" encoding="UTF-8" ?> <EAI>
 <SvcRq>
-<ChannelId>MOCK</ChannelId> <SvcCode>CC_INFO_STMT_X</SvcCode> <SvcRqId>83736260000017</SvcRqId>
+<ChannelId>MOCK</ChannelId> <SvcCode>CC_INFO_STMT_X</SvcCode> <SvcRqId>99900000000017</SvcRqId>
 <SvcRqHdr>
 <SubSvc>
 <SubSvcSeq>1</SubSvcSeq>
@@ -40,7 +39,7 @@ Request Message:<?xml version="1.0" encoding="UTF-8" ?> <EAI>
 <UserId>MOCKUSER01</UserId> <CIFNo>MOCKCIF01</CIFNo>
 </SvcRq>
 </EAI>
-2026-10-26 09:30:03.507 [http-nio-9443-exec-4] [INFO ] [ENQMQLog] [] - [:dge-enq:enq.customer.portfolio.VN.V2.3] - MQAdapterServiceOnlineImpl: UId:MOCKUSER01 | JId:99900000000000000010 | CIF:MOCKCIF01 | WLS:aaaaaaaa-0000-4000-8000-000000000001 |
+2026-10-26 09:30:03.507 [http-nio-9443-exec-4] [INFO ] [ENQMQLog] [] - [:dge-enq:enq.customer.portfolio.VN.V2.3] - MQAdapterServiceOnlineImpl: UId:MOCKUSER01 | JId:99900000000000000010 | CIF:MOCKCIF01 | WLS:aaaaaaaa-0000-4000-8000-000000000001 | SERVICE_CODE:BA_ACCT_INFO_N3  USER ID:MOCKUSER01  RESPONSE Q
 NAME::queue://MOCKQMGR/MOCK.EAI.REPLY?targetClient=1&version=6
 Response Message:<?xml version="1.0" encoding="UTF-8"?> <EAI>
 <SvcRs>
@@ -55,11 +54,11 @@ Response Message:<?xml version="1.0" encoding="UTF-8"?> <EAI>
 </SubSvcRs>
 </SvcRs>
 </EAI>
-2026-10-26 09:30:03.520 [http-nio-9443-exec-4] [INFO ] [ENQMQLog] [] - [:dge-enq:enq.customer.portfolio.VN.V2.3] - MQAdapterServiceOnlineImpl: UId:MOCKUSER01 | JId:99900000000000000010 | CIF:MOCKCIF01 | WLS:aaaaaaaa-0000-4000-8000-000000000001 |
+2026-10-26 09:30:03.520 [http-nio-9443-exec-4] [INFO ] [ENQMQLog] [] - [:dge-enq:enq.customer.portfolio.VN.V2.3] - MQAdapterServiceOnlineImpl: UId:MOCKUSER01 | JId:99900000000000000010 | CIF:MOCKCIF01 | WLS:aaaaaaaa-0000-4000-8000-000000000001 | SERVICE CODE:AC_ACCT_SUM_X  USER ID:MOCKUSER01  Request Q
 Name::/MOCKQMGR/MOCK.EAI.REQ?targetClient=1&version=6
 Request Message:<?xml version="1.0" encoding="UTF-8" ?> <EAI>
 <SvcRq>
-<ChannelId>MOCK</ChannelId> <SvcCode>AC_ACCT_SUM_X</SvcCode> <SvcRqId>83736260000010</SvcRqId>
+<ChannelId>MOCK</ChannelId> <SvcCode>AC_ACCT_SUM_X</SvcCode> <SvcRqId>99900000000010</SvcRqId>
 <SvcRqHdr>
 <SubSvc>
 <SubSvcSeq>1</SubSvcSeq>
@@ -79,7 +78,7 @@ Request Message:<?xml version="1.0" encoding="UTF-8" ?> <EAI>
 <UserId>MOCKUSER01</UserId> <CIFNo>MOCKCIF01</CIFNo>
 </SvcRq>
 </EAI>
-2026-10-26 09:30:04.060 [http-nio-9443-exec-7] [INFO ] [ENQMQLog] [] - [:dge-enq:enq.card.transactions.VN.V2.0] - MQAdapterServiceOnlineImpl: UId:MOCKUSER01 | JId:99900000000000000017 | CIF:MOCKCIF01 | WLS:bbbbbbbb-0000-4000-8000-000000000002 |
+2026-10-26 09:30:04.060 [http-nio-9443-exec-7] [INFO ] [ENQMQLog] [] - [:dge-enq:enq.card.transactions.VN.V2.0] - MQAdapterServiceOnlineImpl: UId:MOCKUSER01 | JId:99900000000000000017 | CIF:MOCKCIF01 | WLS:bbbbbbbb-0000-4000-8000-000000000002 | SERVICE_CODE:CC_INFO_STMT_X  USER ID:MOCKUSER01  RESPONSE Q
 NAME::queue://MOCKQMGR/MOCK.EAI.REPLY?targetClient=1&version=6
 Response Message:<?xml version="1.0" encoding="UTF-8"?> <EAI>
 <SvcRs>
@@ -94,18 +93,18 @@ Response Message:<?xml version="1.0" encoding="UTF-8"?> <EAI>
 </SubSvcRs>
 </SvcRs>
 </EAI>
-2026-10-26 09:30:04.081 [http-nio-9443-exec-7] [INFO ] [ENQWSAppLog] [feed0012000000000000000000000000] - [:dge-enq.enq.card.transactions.VN.V2.0] - WebLogUFWAspect: UId:MOCKUSER01 | JId:99900000000000000018 | CIF:MOCKCIF01 | WLS:bbbbbbbb-0000-4000-8000-000000000002 | SSO: | URL:/dge-enq/enq/card/transactions | StartTime:1700000000000 |
+2026-10-26 09:30:04.081 [http-nio-9443-exec-7] [INFO ] [ENQWSAppLog] [feed0012000000000000000000000000] - [:dge-enq.enq.card.transactions.VN.V2.0] - WebLogUFWAspect: UId:MOCKUSER01 | JId:99900000000000000018 | CIF:MOCKCIF01 | WLS:bbbbbbbb-0000-4000-8000-000000000002 | SSO: | URL:/dge-enq/enq/card/transactions | StartTime:1700000000000 | Response Code:E0012 |
 Response:{"serviceResponseHeader":{"responseContext":{"responseCode":"E0012","responseDescription":"Downstream error"},"requesterContext":{"sessionIdentity":"bbbbbbbb-0000-4000-8000-000000000002","transactionCode":"AES06"}}}
-2026-10-26 09:30:04.620 [http-nio-9443-exec-4] [INFO ] [ENQMQLog] [] - [:dge-enq:enq.customer.portfolio.VN.V2.3] - MQAdapterServiceOnlineImpl: UId:MOCKUSER01 | JId:99900000000000000010 | CIF:MOCKCIF01 | WLS:aaaaaaaa-0000-4000-8000-000000000001 |
+2026-10-26 09:30:04.620 [http-nio-9443-exec-4] [INFO ] [ENQMQLog] [] - [:dge-enq:enq.customer.portfolio.VN.V2.3] - MQAdapterServiceOnlineImpl: UId:MOCKUSER01 | JId:99900000000000000010 | CIF:MOCKCIF01 | WLS:aaaaaaaa-0000-4000-8000-000000000001 | SERVICE_CODE:AC_ACCT_SUM_X  USER ID:MOCKUSER01  RESPONSE Q
 NAME::queue://MOCKQMGR/MOCK.EAI.REPLY?targetClient=1&version=6
 Response Message:<?xml version="1.0" encoding="UTF-8"?> <EAI>
 <SvcRs>
-<ChannelId>MOCK</ChannelId> <SvcCode>AC_ACCT_SUM_X</SvcCode> <StatusCode>00000000</StatusCode> <ErrorCode/> <ErrorDesc/>
+<ChannelId>MOCK</ChannelId> <SvcCode>AC_ACCT_SUM_X</SvcCode> <StatusCode>0005000</StatusCode> <ErrorCode/> <ErrorDesc/>
 <SubSvcRs>
 <SubSvcSeq>1</SubSvcSeq>
 <SubSvcRsHeader>
 <SvcCode>AC_RBK_SUMM_N</SvcCode>
-<StatusCode>00000000</StatusCode>
+<StatusCode>0005000</StatusCode>
 <ErrorCode/> <ErrorDesc/>
 </SubSvcRsHeader>
 </SubSvcRs>
@@ -113,17 +112,17 @@ Response Message:<?xml version="1.0" encoding="UTF-8"?> <EAI>
 <SubSvcSeq>2</SubSvcSeq>
 <SubSvcRsHeader>
 <SvcCode>AC_VSA_SUMM_N</SvcCode>
-<StatusCode>00000000</StatusCode>
+<StatusCode>0005000</StatusCode>
 <ErrorCode/> <ErrorDesc/>
 </SubSvcRsHeader>
 </SubSvcRs>
 </SvcRs>
 </EAI>
-2026-10-26 09:30:04.748 [http-nio-9443-exec-4] [INFO ] [ENQWSAppLog] [feed000b000000000000000000000000] - [:dge-enq.enq.customer.portfolio.VN.V2.3] - WebLogUFWAspect: UId:MOCKUSER01 | JId:99900000000000000011 | CIF:MOCKCIF01 | WLS:aaaaaaaa-0000-4000-8000-000000000001 | SSO: | URL:/dge-enq/enq/customer/portfolio | StartTime:1700000000000 |
+2026-10-26 09:30:04.748 [http-nio-9443-exec-4] [INFO ] [ENQWSAppLog] [feed000b000000000000000000000000] - [:dge-enq.enq.customer.portfolio.VN.V2.3] - WebLogUFWAspect: UId:MOCKUSER01 | JId:99900000000000000011 | CIF:MOCKCIF01 | WLS:aaaaaaaa-0000-4000-8000-000000000001 | SSO: | URL:/dge-enq/enq/customer/portfolio | StartTime:1700000000000 | Response Code:00000000 |
 Response:{"serviceResponseHeader":{"responseContext":{"responseCode":"00000000","responseDescription":"Success"},"requesterContext":{"sessionIdentity":"aaaaaaaa-0000-4000-8000-000000000001","transactionCode":"AES01"}}}
-2026-10-26 09:30:10.006 [http-nio-9443-exec-9] [INFO ] [BFSWSAppLog] [feed0018000000000000000000000000] - [:dge-bfs:bfs.payee.list.VN.V1.0] - RestEndPointUFWAspect: | URL is /dge-bfs/bfs/payee/list request:
+2026-10-26 09:30:10.006 [http-nio-9443-exec-9] [INFO ] [BFSWSAppLog] [feed0017000000000000000000000000] - [:dge-bfs:bfs.payee.list.VN.V1.0] - RestEndPointUFWAspect: | URL is /dge-bfs/bfs/payee/list request:
 {"serviceRequestHeader":{"requesterContext":{"applicationCode":"SPL","requesterUserIdentity":"MOCKUSER01","sessionIdentity":"cccccccc-0000-4000-8000-000000000003","transactionCode":"PMT02"}}}
-2026-10-26 09:30:10.042 [http-nio-9443-exec-9] [INFO ] [BFSWSAppLog] [feed0019000000000000000000000000] - [:dge-bfs.bfs.payee.list.VN.V1.0] - WebLogUFWAspect: UId:MOCKUSER01 | JId:99900000000000000025 | CIF:MOCKCIF01 | WLS:cccccccc-0000-4000-8000-000000000003 | SSO: | URL:/dge-bfs/bfs/payee/list | StartTime:1700000000000 |
+2026-10-26 09:30:10.042 [http-nio-9443-exec-9] [INFO ] [BFSWSAppLog] [feed0018000000000000000000000000] - [:dge-bfs.bfs.payee.list.VN.V1.0] - WebLogUFWAspect: UId:MOCKUSER01 | JId:99900000000000000024 | CIF:MOCKCIF01 | WLS:cccccccc-0000-4000-8000-000000000003 | SSO: | URL:/dge-bfs/bfs/payee/list | StartTime:1700000000000 | Response Code:00000000 |
 Response:{"serviceResponseHeader":{"responseContext":{"responseCode":"00000000","responseDescription":"Success"},"requesterContext":{"sessionIdentity":"cccccccc-0000-4000-8000-000000000003","transactionCode":"PMT02","transactionReferenceNumber":"9990000000000301"}}}
-2026-10-26 09:30:10.055 [http-nio-9443-exec-9] [INFO ] [BFSWSAppLog] [feed001d000000000000000000000000] - [:dge-bfs:bfs.quick.bp.initiate.VN.V1.0] - RestEndPointUFWAspect: | URL is /dge-bfs/bfs/bp/initiate request:
+2026-10-26 09:30:10.055 [http-nio-9443-exec-9] [INFO ] [BFSWSAppLog] [feed001b000000000000000000000000] - [:dge-bfs:bfs.quick.bp.initiate.VN.V1.0] - RestEndPointUFWAspect: | URL is /dge-bfs/bfs/bp/initiate request:
 {"serviceRequestHeader":{"requesterContext":{"applicationCode":"SPL","requesterUserIdentity":"MOCKUSER01","sessionIdentity":"cccccccc-0000-4000-8000-000000000003","transactionCode":"PMT20"}}}

@@ -14,7 +14,7 @@
     match(_raw,"<SvcCode>") AND match(_raw,"(?i)(request|response) message"),"Host", match(_raw,"WSAppLog"),"WS")
 | eval Layer=case(LayerName="eComm",1,LayerName="Enterprise",2,LayerName="WS",2,LayerName="Host",3)
 | rex field=_raw "(?i)\b(?<DirWord>Request|Response)\b"
-| eval Direction=case(LayerName="eComm" OR LayerName="Enterprise",DirWord,
+| eval Direction=case(LayerName="eComm" OR LayerName="Enterprise",case(lower(DirWord)="request","Request",lower(DirWord)="response","Response"),
     LayerName="Host" AND match(_raw,"(?i)Request Message"),"Request",
     LayerName="Host" AND match(_raw,"(?i)Response Message"),"Response",
     LayerName="WS" AND match(_raw,"(?i)request:"),"Request",

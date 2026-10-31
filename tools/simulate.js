@@ -67,6 +67,33 @@ function evalCond(expr, ev) {
   }));
 }
 
+// Index of the first comma outside quotes and parentheses.
+function topLevelComma(s) {
+  let depth = 0; let quoted = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (c === '"' && s[i - 1] !== '\\') quoted = !quoted;
+    else if (!quoted && c === '(') depth++;
+    else if (!quoted && c === ')') depth--;
+    else if (!quoted && depth === 0 && c === ',') return i;
+  }
+  return -1;
+}
+
+// eval value: "literal", a field name, or case(lower(F)="x","X",...).
+function evalValue(v, ev) {
+  if (v.startsWith('"')) return v.slice(1, -1);
+  const m = v.match(/^case\((.*)\)$/);
+  if (m) {
+    for (const [, field, test, out] of m[1].matchAll(/lower\((\w+)\)="([^"]*)","([^"]*)"/g)) {
+      if (ev[field] != null && ev[field].toLowerCase() === test) return out;
+    }
+    return null;
+  }
+  if (/^\w+$/.test(v)) return ev[v];
+  throw new Error('Unsupported value: ' + v);
+}
+
 // ---------- input ----------
 
 function readEvents(file) {
@@ -102,9 +129,9 @@ function run(cfg, files, terms) {
     ev.Layer = L ? Number(L.layer) : null;
     ev.DirWord = dirWordRe ? extract(dirWordRe, r).DirWord : undefined;
     const first = cfg.directionFirst.trim();
-    if (first && evalCond(first.slice(0, first.lastIndexOf(',')), ev)) {
-      const v = first.slice(first.lastIndexOf(',') + 1);
-      ev.Direction = v.startsWith('"') ? v.slice(1, -1) : ev[v];
+    const cut = topLevelComma(first);
+    if (first && cut > 0 && evalCond(first.slice(0, cut), ev)) {
+      ev.Direction = evalValue(first.slice(cut + 1).trim(), ev);
     } else {
       const d = cfg.directions.find((x) => ev.LayerName === x.layer && rx(x.pattern).test(r));
       ev.Direction = d ? d.direction : null;

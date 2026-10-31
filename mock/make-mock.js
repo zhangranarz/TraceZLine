@@ -37,20 +37,31 @@ function ecommReq(t, sid, p, thread) {
 function ecommRes(t, sid, p, thread, ms, code = '00000000', desc = 'Success', err = '') {
   return { t, file: 'banking', text: `${ts(t)} [http-nio-8443-exec-${thread}] INFO
 [SPLMessage][${sid}][${USER}][VN][9.14][${trace()}][Android-SPL][][${ms}ms] -${p} -
-Response: {"response":{"responseHeader":{"responseContext":{"responseCode":"${code}","responseDescription":"${desc}"${err}}},"requesterContext":{"sessionId":"${sid}"}}}` };
+{"response":{"responseHeader":{"responseContext":{"responseCode":"${code}","responseDescription":"${desc}"${err}}},"requesterContext":{"sessionId":"${sid}"}}}` };
 }
 
-function entReq(t, sid, p, thread, txnCode) {
+// Enterprise header styles from the sample:
+//   std   [SPLHostMessage][sid][user]...[Android-SPL][12ms] -/path - [Request]:
+//   split [SPLHostMessage] [sid]|[user]|... then [Android-SPL] - /path - [Request]: on the next line
+//   nosid [SPLHostMessage][VN][12ms] - /path - [Request]:  (sessionId only in the JSON body)
+function entHeader(style, sid, p, ms, dir) {
+  if (style === 'split') return `[SPLHostMessage] [${sid}]|[${USER}]|[VN]|[9.14][${trace()}]
+[Android-SPL] - ${p} - [${dir}]:`;
+  if (style === 'nosid') return `[SPLHostMessage][VN][${ms}] - ${p} - [${dir}]:`;
+  return `[SPLHostMessage][${sid}][${USER}][VN][9.14][${trace()}][Android-SPL][${ms}] -${p} - [${dir}]:`;
+}
+
+function entReq(t, sid, p, thread, txnCode, style = 'std') {
   const tc = txnCode ? `, "transactionCode": "${txnCode}"` : '';
   return { t, file: 'banking', text: `${ts(t)} [http-nio-8443-exec-${thread}] INFO
-[SPLHostMessage][${sid}][${USER}][VN][9.14][${trace()}][Android-SPL][] -${p} - [Request]: { "serviceRequestHeader": { "requesterContext": { "applicationCode": "SPL", "countryCode": "VN", "sessionIdentity": "${sid}"${tc} } }, "data": { } }` };
+${entHeader(style, sid, p, '', 'Request')} { "serviceRequestHeader": { "requesterContext": { "applicationCode": "SPL", "countryCode": "VN", "sessionIdentity": "${sid}"${tc} } }, "data": { } }` };
 }
 
-function entRes(t, sid, p, thread, ms, { code = '00000000', desc = 'Success', txnCode, txnRef, err = '' } = {}) {
+function entRes(t, sid, p, thread, ms, { code = '00000000', desc = 'Success', txnCode, txnRef, err = '', style = 'std' } = {}) {
   const tc = txnCode ? `,"transactionCode":"${txnCode}"` : '';
   const tr = txnRef ? `,"transactionReferenceNumber":"${txnRef}"` : '';
   return { t, file: 'banking', text: `${ts(t)} [http-nio-8443-exec-${thread}] INFO
-[SPLHostMessage][${sid}][${USER}][VN][9.14][${trace()}][Android-SPL][${ms}ms] -${p} - [Response]:
+${entHeader(style, sid, p, `${ms}ms`, 'Response')}
 {"traceId":"${trace()}","httpStatus":200,"serviceResponseHeader":{"responseContext":{"responseCode":"${code}","responseDescription":"${desc}"${err}},"requesterContext":{"sessionIdentity":"${sid}"${tc}${tr}}}}` };
 }
 
@@ -61,11 +72,10 @@ function wsReq(t, sid, w, thread, txnCode) {
 {"serviceRequestHeader":{"requesterContext":{"applicationCode":"SPL","requesterUserIdentity":"${USER}","sessionIdentity":"${sid}"${tc}}}}` };
 }
 
-function wsRes(t, sid, w, thread, { code = '00000000', desc = 'Success', txnCode, txnRef } = {}) {
+function wsRes(t, sid, w, thread, { code = '00000000', desc = 'Success', txnCode, txnRef, oneLine = false } = {}) {
   const tc = txnCode ? `,"transactionCode":"${txnCode}"` : '';
   const tr = txnRef ? `,"transactionReferenceNumber":"${txnRef}"` : '';
-  return { t, file: 'ms', text: `${ts(t)} [http-nio-9443-exec-${thread}] [INFO ] [${w.tag}WSAppLog] [${trace()}] - [:${w.dge.replace(':', '.')}] - WebLogUFWAspect: UId:${USER} | JId:${jid()} | CIF:${CIF} | WLS:${sid} | SSO: | URL:${w.url} | StartTime:1700000000000 |
-Response:{"serviceResponseHeader":{"responseContext":{"responseCode":"${code}","responseDescription":"${desc}"},"requesterContext":{"sessionIdentity":"${sid}"${tc}${tr}}}}` };
+  return { t, file: 'ms', text: `${ts(t)} [http-nio-9443-exec-${thread}] [INFO ] [${w.tag}WSAppLog] [${trace()}] - [:${w.dge.replace(':', '.')}] - WebLogUFWAspect: UId:${USER} | JId:${jid()} | CIF:${CIF} | WLS:${sid} | SSO: | URL:${w.url} | StartTime:1700000000000 | Response Code:${code} |${oneLine ? ' ' : '\n'}Response:{"serviceResponseHeader":{"responseContext":{"responseCode":"${code}","responseDescription":"${desc}"},"requesterContext":{"sessionIdentity":"${sid}"${tc}${tr}}}}` };
 }
 
 // Host/EAI: svc is the main SvcCode, subs the SubSvc codes (one or more).
@@ -77,11 +87,11 @@ function hostReq(t, sid, w, thread, svc, subs) {
 <TxnRef>99900000000${pad(seq * 10 + i, 5)}</TxnRef>
 </SubSvcRqHeader>
 </SubSvc>`).join('\n');
-  return { t, file: 'ms', text: `${ts(t)} [http-nio-9443-exec-${thread}] [INFO ] [${w.tag}MQLog] [] - [:${w.dge}] - MQAdapterServiceOnlineImpl: UId:${USER} | JId:${jid()} | CIF:${CIF} | WLS:${sid} |
+  return { t, file: 'ms', text: `${ts(t)} [http-nio-9443-exec-${thread}] [INFO ] [${w.tag}MQLog] [] - [:${w.dge}] - MQAdapterServiceOnlineImpl: UId:${USER} | JId:${jid()} | CIF:${CIF} | WLS:${sid} | SERVICE CODE:${svc}  USER ID:${USER}  Request Q
 Name::/MOCKQMGR/MOCK.EAI.REQ?targetClient=1&version=6
 Request Message:<?xml version="1.0" encoding="UTF-8" ?> <EAI>
 <SvcRq>
-<ChannelId>MOCK</ChannelId> <SvcCode>${svc}</SvcCode> <SvcRqId>8373626${pad(seq, 7)}</SvcRqId>
+<ChannelId>MOCK</ChannelId> <SvcCode>${svc}</SvcCode> <SvcRqId>9990${pad(seq, 10)}</SvcRqId>
 <SvcRqHdr>
 ${subXml}
 </SvcRqHdr>
@@ -100,7 +110,7 @@ function hostRes(t, sid, w, thread, svc, subs, { status = '00000000', errCode = 
 ${err}
 </SubSvcRsHeader>
 </SubSvcRs>`).join('\n');
-  return { t, file: 'ms', text: `${ts(t)} [http-nio-9443-exec-${thread}] [INFO ] [${w.tag}MQLog] [] - [:${w.dge}] - MQAdapterServiceOnlineImpl: UId:${USER} | JId:${jid()} | CIF:${CIF} | WLS:${sid} |
+  return { t, file: 'ms', text: `${ts(t)} [http-nio-9443-exec-${thread}] [INFO ] [${w.tag}MQLog] [] - [:${w.dge}] - MQAdapterServiceOnlineImpl: UId:${USER} | JId:${jid()} | CIF:${CIF} | WLS:${sid} | SERVICE_CODE:${svc}  USER ID:${USER}  RESPONSE Q
 NAME::queue://MOCKQMGR/MOCK.EAI.REPLY?targetClient=1&version=6
 Response Message:<?xml version="1.0" encoding="UTF-8"?> <EAI>
 <SvcRs>
@@ -135,15 +145,15 @@ const add = (...e) => events.push(...e);
     // B: Enterprise -> WS, no Host
     entReq(3001, s, '/idm/user/profile/get', 138, 'SEC02'),
     wsReq(3008, s, WS.idm, 2, 'SEC02'),
-    wsRes(3053, s, WS.idm, 2, { txnCode: 'SEC02', txnRef: '9990000000000101' }),
-    entRes(3065, s, '/idm/user/profile/get', 138, 64, { txnCode: 'SEC02', txnRef: '9990000000000101' }),
+    wsRes(3053, s, WS.idm, 2, { txnCode: 'SEC02', txnRef: '9990000000000101', oneLine: true }),
+    entRes(3065, s, '/idm/user/profile/get', 138, 64, { txnCode: 'SEC02', txnRef: '9990000000000101', style: 'split' }),
     // D + E: one EAI call with a single subservice, then one with multiple subservices
     entReq(3070, s, '/enq/customer/portfolio', 138, 'AES01'),
     wsReq(3075, s, WS.portfolio, 4, 'AES01'),
     hostReq(3110, s, WS.portfolio, 4, 'BA_ACCT_INFO_N3', ['BA_ACCT_INFO_N3']),
     hostRes(3507, s, WS.portfolio, 4, 'BA_ACCT_INFO_N3', ['BA_ACCT_INFO_N3']),
     hostReq(3520, s, WS.portfolio, 4, 'AC_ACCT_SUM_X', ['AC_RBK_SUMM_N', 'AC_VSA_SUMM_N']),
-    hostRes(4620, s, WS.portfolio, 4, 'AC_ACCT_SUM_X', ['AC_RBK_SUMM_N', 'AC_VSA_SUMM_N']),
+    hostRes(4620, s, WS.portfolio, 4, 'AC_ACCT_SUM_X', ['AC_RBK_SUMM_N', 'AC_VSA_SUMM_N'], { status: '0005000' }),
     wsRes(4748, s, WS.portfolio, 4, { txnCode: 'AES01' }),
     entRes(4757, s, '/enq/customer/portfolio', 138, 1687, { txnCode: 'AES01' }),
     ecommRes(5110, s, login, 138, 2110),
@@ -175,10 +185,10 @@ const add = (...e) => events.push(...e);
   const p = '/spl-banking/services/vn/payment/precapture';
   add(
     ecommReq(10000, s, p, 160),
-    entReq(10002, s, '/bfs/payee/list/bp', 160, 'PMT02'),
+    entReq(10002, s, '/bfs/payee/list/bp', 160, 'PMT02', 'nosid'),
     wsReq(10006, s, WS.payee, 9, 'PMT02'),
     wsRes(10042, s, WS.payee, 9, { txnCode: 'PMT02', txnRef: '9990000000000301' }),
-    entRes(10046, s, '/bfs/payee/list/bp', 160, 44, { txnCode: 'PMT02', txnRef: '9990000000000301' }),
+    entRes(10046, s, '/bfs/payee/list/bp', 160, 44, { txnCode: 'PMT02', txnRef: '9990000000000301', style: 'nosid' }),
     entReq(10050, s, '/bfs/quick/bp/initiate', 160, 'PMT20'),
     wsReq(10055, s, WS.bpInit, 9, 'PMT20'),
     // no WS response: timeout

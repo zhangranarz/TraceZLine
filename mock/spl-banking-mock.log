@@ -3,14 +3,15 @@
 {"data":{"device":{"deviceId":"MOCK-DEVICE","platform":"Android","version":"16"}},"meta":{"requestContext":{"appVersion":"19.14.0","countryCode":"VN","sessionId":"aaaaaaaa-0000-4000-8000-000000000001"}}}
 2026-10-26 09:30:00.004 [http-nio-8443-exec-149] INFO
 [SPLMessage][aaaaaaaa-0000-4000-8000-000000000001][MOCKUSER01][VN][9.14][feed0002000000000000000000000000][Android-SPL][][4ms] -/spl-banking/services/vn/security/preLogin -
-Response: {"response":{"responseHeader":{"responseContext":{"responseCode":"00000000","responseDescription":"Success"}},"requesterContext":{"sessionId":"aaaaaaaa-0000-4000-8000-000000000001"}}}
+{"response":{"responseHeader":{"responseContext":{"responseCode":"00000000","responseDescription":"Success"}},"requesterContext":{"sessionId":"aaaaaaaa-0000-4000-8000-000000000001"}}}
 2026-10-26 09:30:03.000 [http-nio-8443-exec-138] INFO
 [SPLMessage][aaaaaaaa-0000-4000-8000-000000000001][MOCKUSER01][VN][9.14][feed0003000000000000000000000000][Android-SPL][][] -/spl-banking/services/vn/security/auth/v2/login - Request -
 {"data":{"device":{"deviceId":"MOCK-DEVICE","platform":"Android","version":"16"}},"meta":{"requestContext":{"appVersion":"19.14.0","countryCode":"VN","sessionId":"aaaaaaaa-0000-4000-8000-000000000001"}}}
 2026-10-26 09:30:03.001 [http-nio-8443-exec-138] INFO
 [SPLHostMessage][aaaaaaaa-0000-4000-8000-000000000001][MOCKUSER01][VN][9.14][feed0004000000000000000000000000][Android-SPL][] -/idm/user/profile/get - [Request]: { "serviceRequestHeader": { "requesterContext": { "applicationCode": "SPL", "countryCode": "VN", "sessionIdentity": "aaaaaaaa-0000-4000-8000-000000000001", "transactionCode": "SEC02" } }, "data": { } }
 2026-10-26 09:30:03.065 [http-nio-8443-exec-138] INFO
-[SPLHostMessage][aaaaaaaa-0000-4000-8000-000000000001][MOCKUSER01][VN][9.14][feed0007000000000000000000000000][Android-SPL][64ms] -/idm/user/profile/get - [Response]:
+[SPLHostMessage] [aaaaaaaa-0000-4000-8000-000000000001]|[MOCKUSER01]|[VN]|[9.14][feed0007000000000000000000000000]
+[Android-SPL] - /idm/user/profile/get - [Response]:
 {"traceId":"feed0008000000000000000000000000","httpStatus":200,"serviceResponseHeader":{"responseContext":{"responseCode":"00000000","responseDescription":"Success"},"requesterContext":{"sessionIdentity":"aaaaaaaa-0000-4000-8000-000000000001","transactionCode":"SEC02","transactionReferenceNumber":"9990000000000101"}}}
 2026-10-26 09:30:03.070 [http-nio-8443-exec-138] INFO
 [SPLHostMessage][aaaaaaaa-0000-4000-8000-000000000001][MOCKUSER01][VN][9.14][feed0009000000000000000000000000][Android-SPL][] -/enq/customer/portfolio - [Request]: { "serviceRequestHeader": { "requesterContext": { "applicationCode": "SPL", "countryCode": "VN", "sessionIdentity": "aaaaaaaa-0000-4000-8000-000000000001", "transactionCode": "AES01" } }, "data": { } }
@@ -24,26 +25,26 @@ Response: {"response":{"responseHeader":{"responseContext":{"responseCode":"0000
 {"traceId":"feed0014000000000000000000000000","httpStatus":200,"serviceResponseHeader":{"responseContext":{"responseCode":"00000000","responseDescription":"Success","errorCode":"ENQ-4001","errorDescription":"Card statement not available"},"requesterContext":{"sessionIdentity":"bbbbbbbb-0000-4000-8000-000000000002","transactionCode":"AES06"}}}
 2026-10-26 09:30:04.090 [http-nio-8443-exec-151] INFO
 [SPLMessage][bbbbbbbb-0000-4000-8000-000000000002][MOCKUSER01][VN][9.14][feed0015000000000000000000000000][Android-SPL][][890ms] -/spl-banking/services/vn/pfm/enriched/transactions -
-Response: {"response":{"responseHeader":{"responseContext":{"responseCode":"40010001","responseDescription":"Failed","errorDescription":"Unable to load transactions"}},"requesterContext":{"sessionId":"bbbbbbbb-0000-4000-8000-000000000002"}}}
+{"response":{"responseHeader":{"responseContext":{"responseCode":"40010001","responseDescription":"Failed","errorDescription":"Unable to load transactions"}},"requesterContext":{"sessionId":"bbbbbbbb-0000-4000-8000-000000000002"}}}
 2026-10-26 09:30:04.757 [http-nio-8443-exec-138] INFO
 [SPLHostMessage][aaaaaaaa-0000-4000-8000-000000000001][MOCKUSER01][VN][9.14][feed000c000000000000000000000000][Android-SPL][1687ms] -/enq/customer/portfolio - [Response]:
 {"traceId":"feed000d000000000000000000000000","httpStatus":200,"serviceResponseHeader":{"responseContext":{"responseCode":"00000000","responseDescription":"Success"},"requesterContext":{"sessionIdentity":"aaaaaaaa-0000-4000-8000-000000000001","transactionCode":"AES01"}}}
 2026-10-26 09:30:05.110 [http-nio-8443-exec-138] INFO
 [SPLMessage][aaaaaaaa-0000-4000-8000-000000000001][MOCKUSER01][VN][9.14][feed000e000000000000000000000000][Android-SPL][][2110ms] -/spl-banking/services/vn/security/auth/v2/login -
-Response: {"response":{"responseHeader":{"responseContext":{"responseCode":"00000000","responseDescription":"Success"}},"requesterContext":{"sessionId":"aaaaaaaa-0000-4000-8000-000000000001"}}}
+{"response":{"responseHeader":{"responseContext":{"responseCode":"00000000","responseDescription":"Success"}},"requesterContext":{"sessionId":"aaaaaaaa-0000-4000-8000-000000000001"}}}
 2026-10-26 09:30:10.000 [http-nio-8443-exec-160] INFO
 [SPLMessage][cccccccc-0000-4000-8000-000000000003][MOCKUSER01][VN][9.14][feed0016000000000000000000000000][Android-SPL][][] -/spl-banking/services/vn/payment/precapture - Request -
 {"data":{"device":{"deviceId":"MOCK-DEVICE","platform":"Android","version":"16"}},"meta":{"requestContext":{"appVersion":"19.14.0","countryCode":"VN","sessionId":"cccccccc-0000-4000-8000-000000000003"}}}
 2026-10-26 09:30:10.002 [http-nio-8443-exec-160] INFO
-[SPLHostMessage][cccccccc-0000-4000-8000-000000000003][MOCKUSER01][VN][9.14][feed0017000000000000000000000000][Android-SPL][] -/bfs/payee/list/bp - [Request]: { "serviceRequestHeader": { "requesterContext": { "applicationCode": "SPL", "countryCode": "VN", "sessionIdentity": "cccccccc-0000-4000-8000-000000000003", "transactionCode": "PMT02" } }, "data": { } }
+[SPLHostMessage][VN][] - /bfs/payee/list/bp - [Request]: { "serviceRequestHeader": { "requesterContext": { "applicationCode": "SPL", "countryCode": "VN", "sessionIdentity": "cccccccc-0000-4000-8000-000000000003", "transactionCode": "PMT02" } }, "data": { } }
 2026-10-26 09:30:10.046 [http-nio-8443-exec-160] INFO
-[SPLHostMessage][cccccccc-0000-4000-8000-000000000003][MOCKUSER01][VN][9.14][feed001a000000000000000000000000][Android-SPL][44ms] -/bfs/payee/list/bp - [Response]:
-{"traceId":"feed001b000000000000000000000000","httpStatus":200,"serviceResponseHeader":{"responseContext":{"responseCode":"00000000","responseDescription":"Success"},"requesterContext":{"sessionIdentity":"cccccccc-0000-4000-8000-000000000003","transactionCode":"PMT02","transactionReferenceNumber":"9990000000000301"}}}
+[SPLHostMessage][VN][44ms] - /bfs/payee/list/bp - [Response]:
+{"traceId":"feed0019000000000000000000000000","httpStatus":200,"serviceResponseHeader":{"responseContext":{"responseCode":"00000000","responseDescription":"Success"},"requesterContext":{"sessionIdentity":"cccccccc-0000-4000-8000-000000000003","transactionCode":"PMT02","transactionReferenceNumber":"9990000000000301"}}}
 2026-10-26 09:30:10.050 [http-nio-8443-exec-160] INFO
-[SPLHostMessage][cccccccc-0000-4000-8000-000000000003][MOCKUSER01][VN][9.14][feed001c000000000000000000000000][Android-SPL][] -/bfs/quick/bp/initiate - [Request]: { "serviceRequestHeader": { "requesterContext": { "applicationCode": "SPL", "countryCode": "VN", "sessionIdentity": "cccccccc-0000-4000-8000-000000000003", "transactionCode": "PMT20" } }, "data": { } }
+[SPLHostMessage][cccccccc-0000-4000-8000-000000000003][MOCKUSER01][VN][9.14][feed001a000000000000000000000000][Android-SPL][] -/bfs/quick/bp/initiate - [Request]: { "serviceRequestHeader": { "requesterContext": { "applicationCode": "SPL", "countryCode": "VN", "sessionIdentity": "cccccccc-0000-4000-8000-000000000003", "transactionCode": "PMT20" } }, "data": { } }
 2026-10-26 09:30:40.056 [http-nio-8443-exec-160] INFO
-[SPLHostMessage][cccccccc-0000-4000-8000-000000000003][MOCKUSER01][VN][9.14][feed001e000000000000000000000000][Android-SPL][30006ms] -/bfs/quick/bp/initiate - [Response]:
-{"traceId":"feed001f000000000000000000000000","httpStatus":200,"serviceResponseHeader":{"responseContext":{"responseCode":"99999999","responseDescription":"Timeout","errorCode":"BFS-TIMEOUT","errorDescription":"Downstream timeout after 30000ms"},"requesterContext":{"sessionIdentity":"cccccccc-0000-4000-8000-000000000003","transactionCode":"PMT20"}}}
+[SPLHostMessage][cccccccc-0000-4000-8000-000000000003][MOCKUSER01][VN][9.14][feed001c000000000000000000000000][Android-SPL][30006ms] -/bfs/quick/bp/initiate - [Response]:
+{"traceId":"feed001d000000000000000000000000","httpStatus":200,"serviceResponseHeader":{"responseContext":{"responseCode":"99999999","responseDescription":"Timeout","errorCode":"BFS-TIMEOUT","errorDescription":"Downstream timeout after 30000ms"},"requesterContext":{"sessionIdentity":"cccccccc-0000-4000-8000-000000000003","transactionCode":"PMT20"}}}
 2026-10-26 09:30:40.060 [http-nio-8443-exec-160] INFO
-[SPLMessage][cccccccc-0000-4000-8000-000000000003][MOCKUSER01][VN][9.14][feed0020000000000000000000000000][Android-SPL][][30060ms] -/spl-banking/services/vn/payment/precapture -
-Response: {"response":{"responseHeader":{"responseContext":{"responseCode":"99999999","responseDescription":"Timeout","errorDescription":"Request timed out"}},"requesterContext":{"sessionId":"cccccccc-0000-4000-8000-000000000003"}}}
+[SPLMessage][cccccccc-0000-4000-8000-000000000003][MOCKUSER01][VN][9.14][feed001e000000000000000000000000][Android-SPL][][30060ms] -/spl-banking/services/vn/payment/precapture -
+{"response":{"responseHeader":{"responseContext":{"responseCode":"99999999","responseDescription":"Timeout","errorDescription":"Request timed out"}},"requesterContext":{"sessionId":"cccccccc-0000-4000-8000-000000000003"}}}

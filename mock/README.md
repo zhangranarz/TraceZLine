@@ -20,6 +20,13 @@ Regenerate with `npm run mock` (edit `make-mock.js` to change scenarios).
 
 Not covered: F (OPI, WAM, CUS downstream systems), because no sample of their log format exists yet.
 
+Format variants copied from the sample: eComm responses without a `Response:` label
+(the JSON starts with `{"response":`), Enterprise headers split over two lines
+(`[SPLHostMessage] [sid]|...` then `[Android-SPL] - /path - [Request]:`), Enterprise
+headers without a session ID (only `sessionIdentity` in the JSON), Host headers with
+`SERVICE CODE:`, WS responses with `Response:` on the same line, and a non-zero
+`StatusCode` `0005000` on `AC_ACCT_SUM_X`.
+
 Expected statuses, for when HopStatus / SessionStatus are added to the query:
 
 | Session | Failed hops | SessionStatus | FirstFailedHop |
