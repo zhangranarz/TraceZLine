@@ -26,7 +26,7 @@
       { name: 'eComm', match: String.raw`match(_raw,"\[SPLMessage\]")`, layer: 1 },
       { name: 'Enterprise', match: String.raw`match(_raw,"\[SPLHostMessage\]")`, layer: 2 },
       { name: 'Host', match: String.raw`match(_raw,"<SvcCode>") AND match(_raw,"(?i)(request|response message)")`, layer: 3 },
-      { name: 'WS', match: String.raw`match(_raw,"WSAppLog")`, layer: 3 },
+      { name: 'WS', match: String.raw`match(_raw,"WSAppLog")`, layer: 2 },
     ],
     directions: [
       { layer: 'Host', pattern: '(?i)Request Message', direction: 'Request' },
