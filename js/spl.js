@@ -9,15 +9,17 @@
 
   const DEFAULT_CONFIG = {
     version: 1,
+    // false: all sources inside one ( ) as in the base query; true: each source also in its own ( ).
+    groupSources: false,
     sources: [
       {
         enabled: true,
-        source: '/var/log/pods/spl-banking-*.log',
+        source: '/var/log/pods/spl-banking-*log',
         filter: '("[SPLMessage]" OR "[SPLHostMessage]")',
       },
       {
         enabled: true,
-        source: '/var/log/pods/spl-ms-*.log',
+        source: '/var/log/pods/spl-ms-*log',
         filter: '("WSAppLog" ("request:" OR "RESPONSE from" OR "Response:")) OR ("<EAI>" "<SvcCode>" ("Request Message" OR "Response Message"))',
       },
     ],
@@ -94,12 +96,13 @@ coalesce(LastWsURL,"N/A"), LayerName="Host",DGEEndpoint)
     const out = [];
 
     const sources = cfg.sources.filter((s) => s.enabled && s.source.trim());
-    out.push(sources.map((s) => {
-      const body = ['(', `  source="${s.source.trim()}"`];
-      if (s.filter.trim()) body.push('  ' + s.filter.trim());
-      body.push(')');
-      return body.join('\n');
-    }).join('\nOR\n'));
+    const indent = cfg.groupSources ? '  ' : '';
+    const blocks = sources.map((s) => {
+      const body = [`${indent}source="${s.source.trim()}"`];
+      if (s.filter.trim()) body.push(indent + s.filter.trim());
+      return cfg.groupSources ? ['(', ...body, ')'].join('\n') : body.join('\n');
+    });
+    out.push('(\n' + blocks.join('\nOR\n') + '\n)');
 
     const terms = cfg.terms.map((t) => t.trim()).filter(Boolean);
     if (terms.length) out.push('| ' + terms.map(quoteTerm).join(' OR '));
@@ -148,7 +151,13 @@ coalesce(LastWsURL,"N/A"), LayerName="Host",DGEEndpoint)
   function validate(cfg) {
     const warnings = [];
     const layerNames = new Set(cfg.layers.map((l) => l.name.trim()).filter(Boolean));
-    if (!cfg.sources.some((s) => s.enabled && s.source.trim())) warnings.push('No enabled source: the search has no base filter.');
+    const activeSources = cfg.sources.filter((s) => s.enabled && s.source.trim());
+    if (!activeSources.length) warnings.push('No enabled source: the search has no base filter.');
+    if (!cfg.groupSources && activeSources.length > 1 && activeSources.some((s) => s.filter.trim())) {
+      warnings.push('Sources are not grouped. Splunk evaluates OR before the implicit AND, so '
+        + 'source="A" filterA OR source="B" filterB reads as source="A" AND (filterA OR source="B") AND filterB. '
+        + 'Tick "Group each source" if events from the second source are missing.');
+    }
     if (!cfg.terms.some((t) => t.trim())) warnings.push('No search terms: the query will scan every event from the sources.');
     if (!layerNames.size) warnings.push('No layers defined: LayerName=case() is empty and Splunk will reject it.');
     cfg.layers.forEach((l) => {

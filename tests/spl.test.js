@@ -31,7 +31,7 @@ test('adding a source and removing a param', () => {
   cfg.sources.push({ enabled: true, source: '/var/log/pods/spl-opi-*.log', filter: '"OPIAppLog"' });
   cfg.params = cfg.params.slice(0, 1);
   const out = spl.generate(cfg);
-  assert.match(out, /\)\nOR\n\(\n  source="\/var\/log\/pods\/spl-opi-\*\.log"\n  "OPIAppLog"\n\)/);
+  assert.match(out, /\nOR\nsource="\/var\/log\/pods\/spl-opi-\*\.log"\n"OPIAppLog"\n\)\n/);
   assert.match(out, /\| eval Params=mvappend\(\nif\(isnotnull\(transactionRef\).*null\(\)\)\)$/m);
   assert.doesNotMatch(out, /transactionCode/);
 });
@@ -42,8 +42,21 @@ test('disabled sources are left out', () => {
   assert.doesNotMatch(spl.generate(cfg), /spl-ms/);
 });
 
-test('default config has no warnings', () => {
-  assert.deepStrictEqual(spl.validate(spl.DEFAULT_CONFIG), []);
+test('default config only warns about ungrouped sources', () => {
+  const w = spl.validate(spl.DEFAULT_CONFIG);
+  assert.strictEqual(w.length, 1);
+  assert.match(w[0], /not grouped/);
+  const cfg = spl.clone(spl.DEFAULT_CONFIG);
+  cfg.groupSources = true;
+  assert.deepStrictEqual(spl.validate(cfg), []);
+});
+
+test('groupSources wraps each source in its own parentheses inside the outer ones', () => {
+  const cfg = spl.clone(spl.DEFAULT_CONFIG);
+  cfg.groupSources = true;
+  const out = spl.generate(cfg);
+  assert.ok(out.startsWith('(\n(\n  source="/var/log/pods/spl-banking-*log"\n  ("[SPLMessage]" OR "[SPLHostMessage]")\n)\nOR\n(\n  source="/var/log/pods/spl-ms-*log"\n'));
+  assert.match(out, /Response Message"\)\)\n\)\n\)\n\| "/);
 });
 
 test('validate flags an unnamed rex group and unknown layers', () => {

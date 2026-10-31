@@ -88,6 +88,8 @@ summary { font-weight: 600; cursor: pointer; padding: 4px 0; }
 .hint { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 6px; }
 .note { margin: 4px 0 8px; color: var(--muted); font-size: 12px; }
 .empty { color: var(--muted); font-style: italic; margin: 4px 0; }
+.check { display: flex; gap: 6px; align-items: center; font-size: 13px; margin: 4px 0 6px; cursor: pointer; }
+.check input { width: 16px; height: 16px; margin: 0; }
 
 .row {
   display: flex;

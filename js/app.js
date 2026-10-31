@@ -74,11 +74,10 @@
     if (!cfg || typeof cfg !== 'object') throw new Error('Config must be a JSON object.');
     const out = clone(DEFAULT_CONFIG);
     Object.keys(out).forEach((k) => {
-      if (k === 'version') return;
-      if (cfg[k] !== undefined) {
-        if (!Array.isArray(cfg[k])) throw new Error(`"${k}" must be an array.`);
-        out[k] = cfg[k];
-      }
+      if (k === 'version' || cfg[k] === undefined) return;
+      if (Array.isArray(out[k]) && !Array.isArray(cfg[k])) throw new Error(`"${k}" must be an array.`);
+      if (typeof out[k] === 'boolean' && typeof cfg[k] !== 'boolean') throw new Error(`"${k}" must be true or false.`);
+      out[k] = cfg[k];
     });
     return out;
   }
@@ -164,6 +163,7 @@
   function renderAll() {
     Object.keys(SECTIONS).forEach(renderList);
     document.getElementById('terms').value = state.terms.join('\n');
+    document.getElementById('group-sources').checked = state.groupSources;
     refreshDatalists();
     update();
   }
@@ -200,6 +200,11 @@
 
   document.getElementById('terms').addEventListener('input', (e) => {
     state.terms = parseTerms(e.target.value);
+    update();
+  });
+
+  document.getElementById('group-sources').addEventListener('change', (e) => {
+    state.groupSources = e.target.checked;
     update();
   });
 

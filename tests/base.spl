@@ -1,11 +1,9 @@
 (
-  source="/var/log/pods/spl-banking-*.log"
-  ("[SPLMessage]" OR "[SPLHostMessage]")
-)
+source="/var/log/pods/spl-banking-*log"
+("[SPLMessage]" OR "[SPLHostMessage]")
 OR
-(
-  source="/var/log/pods/spl-ms-*.log"
-  ("WSAppLog" ("request:" OR "RESPONSE from" OR "Response:")) OR ("<EAI>" "<SvcCode>" ("Request Message" OR "Response Message"))
+source="/var/log/pods/spl-ms-*log"
+("WSAppLog" ("request:" OR "RESPONSE from" OR "Response:")) OR ("<EAI>" "<SvcCode>" ("Request Message" OR "Response Message"))
 )
 | "2576dfc8-495a-837a-8a2f291fd003d" OR "7f269c48-f03a-4fef-bc3007538ec1a2"
 | eval LayerName=case(
