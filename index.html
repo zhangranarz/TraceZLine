@@ -177,6 +177,8 @@
           <label class="btn primary-btn" title="The flow table exported from Splunk (.xlsx or .csv)">Excel<input type="file" id="cmp-excel" accept=".xlsx,.csv,.txt" hidden></label>
           <label class="btn primary-btn" title="The raw request/response log files (or a Splunk EventTime/PopulatedLog export)">Log<input type="file" id="cmp-logs" multiple hidden></label>
           <button type="button" id="cmp-mock" title="Compare the bundled mock flow with the mock logs">Mock</button>
+        </div>
+        <div class="flow-bar flow-bar-2">
           <label class="check" title="How far apart (after the time offset) a Splunk line and its log event may be">Tolerance
             <input type="number" id="cmp-tolerance" min="0" step="100" value="1000" autocomplete="off" class="num"> ms</label>
           <label class="check" title="Hours to subtract from the Splunk EventTime to get the log time, e.g. 1 or -7. Leave empty to detect it.">Offset

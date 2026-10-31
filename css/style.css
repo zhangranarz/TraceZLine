@@ -251,6 +251,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .log-preview .ln.ev { background: var(--warn-bg); color: var(--warn-fg); font-weight: 600; }
 #log-file-select { width: auto; max-width: 100%; font-family: inherit; }
 #pane-compare .flow-bar input.num { width: 80px; margin: 0 4px; }
+.flow-bar-2 { margin-top: 8px; }
 /* Compare: mapping table first, taking the space; the analysis sits below it and scrolls. */
 .cmp-table-wrap { flex: 1 1 auto; min-height: 220px; }
 .cmp-analysis { flex: 0 0 auto; max-height: 40vh; overflow: auto; margin-top: 10px; border-top: 1px solid var(--border); }
