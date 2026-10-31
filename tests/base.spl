@@ -45,11 +45,12 @@
 | eval Indent=case(Layer=1,"",Layer=2,"-->",Layer=3,"------>")
 | eval Flow=Indent.LayerName.": ".API." [".DirectionSymbol."]"
 | eval ServiceInfo=if(LayerName="Host" AND isnotnull(ServiceInfo), mvappend(Flow,ServiceInfo), Flow)
-| rex field=_raw "(?i)\?transactionReferenceNumber|transactionRef\"\:s*\"(?<transactionRef>[^\",]+)"
-| rex field=_raw "(?i)\?transactionCode\"\:s*\"(?<transactionCode>[^\",]+)"
+| rex field=_raw "(?i)\??:transactionReferenceNumber|transactionRef\s*[:=]\s*\"?(?<transactionRef>[^\",]+)"
+| rex field=_raw "(?i)\??transactionCode\s*[:=]\s*\"?(?<transactionCode>[^\",]+)"
 | eval Params=mvappend(
-if(isnotnull(transactionRef) AND len(trim(transactionRef))>0,"TxnRef=".transactionRef,null()),
-if(isnotnull(transactionCode) AND len(trim(transactionCode))>0,"TxnCode=".transactionCode,null()))
+    if(isnotnull(transactionRef) AND len(trim(transactionRef))>0,"TxnRefNo=".transactionRef, null()),
+    if(isnotnull(transactionCode) AND len(trim(transactionCode))>0,"TxnCode=".transactionCode, null())
+)
 | streamstats count as Step by sessionId
 | eval EventTime=strftime(_time,"%Y-%m-%d %H:%M:%S.%3N")
 | table Step EventTime sessionId Flow Params ElapsedMs

@@ -51,8 +51,8 @@
       { field: 'sidAny', rex: String.raw`(?<sidAny>[0-9a-fA-F-]{8}-[0-9a-fA-F-]{4}-[0-9a-fA-F-]{4}-[0-9a-fA-F-]{4}-[0-9a-fA-F-]{12})` },
     ],
     params: [
-      { field: 'transactionRef', label: 'TxnRef', rex: String.raw`(?i)\?transactionReferenceNumber|transactionRef\"\:s*\"(?<transactionRef>[^\",]+)` },
-      { field: 'transactionCode', label: 'TxnCode', rex: String.raw`(?i)\?transactionCode\"\:s*\"(?<transactionCode>[^\",]+)` },
+      { field: 'transactionRef', label: 'TxnRefNo', rex: String.raw`(?i)\??:transactionReferenceNumber|transactionRef\s*[:=]\s*\"?(?<transactionRef>[^\",]+)` },
+      { field: 'transactionCode', label: 'TxnCode', rex: String.raw`(?i)\??transactionCode\s*[:=]\s*\"?(?<transactionCode>[^\",]+)` },
     ],
     columns: ['Step', 'EventTime', 'sessionId', 'Flow', 'Params', 'ElapsedMs'],
   };
@@ -141,11 +141,11 @@
     const params = cfg.params.filter((p) => p.field.trim());
     params.filter((p) => p.rex.trim()).forEach((p) => out.push(`| rex field=_raw "${p.rex.trim()}"`));
     if (params.length) {
-      out.push('| eval Params=mvappend(\n' + params.map((p) => {
+      out.push('| eval Params=mvappend(\n    ' + params.map((p) => {
         const f = p.field.trim();
         const label = (p.label || f).trim();
-        return `if(isnotnull(${f}) AND len(trim(${f}))>0,"${label}=".${f},null())`;
-      }).join(',\n') + ')');
+        return `if(isnotnull(${f}) AND len(trim(${f}))>0,"${label}=".${f}, null())`;
+      }).join(',\n    ') + '\n)');
     } else {
       out.push('| eval Params=null()');
     }

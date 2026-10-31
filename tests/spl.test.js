@@ -46,7 +46,7 @@ test('adding a source and removing a param', () => {
   cfg.params = cfg.params.slice(0, 1);
   const out = spl.generate(cfg);
   assert.match(out, /\n\tOR\n\tsource="\/var\/log\/pods\/spl-opi-\*\.log"\n\t"OPIAppLog"\n\)\n/);
-  assert.match(out, /\| eval Params=mvappend\(\nif\(isnotnull\(transactionRef\).*null\(\)\)\)$/m);
+  assert.match(out, /\| eval Params=mvappend\(\n    if\(isnotnull\(transactionRef\).*"TxnRefNo="\.transactionRef, null\(\)\)\n\)$/m);
   assert.doesNotMatch(out, /transactionCode/);
 });
 
