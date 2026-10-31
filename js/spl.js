@@ -39,6 +39,11 @@
       { layer: 'WS', pattern: '(?i)request:', direction: 'Request' },
       { layer: 'WS', pattern: '(?i)(RESPONSE from|Response:)', direction: 'Response' },
     ],
+    endpointRules: [
+      { field: 'Endpoint1', rex: String.raw`(?<Endpoint1>[^ ]+)\s*\-\s*(?:'?Request|Response)'?\s*\-` },
+      { field: 'Endpoint2', rex: String.raw`\s\s\s(?<Endpoint2>[^ ]+)\s\-\s(?:'?Request|Response)'` },
+      { field: 'Endpoint3', rex: String.raw`(?i)endpoint\?s*[:=]\s*\"?(?<Endpoint3>[^\",]+)` },
+    ],
     sessionRules: [
       { field: 'sidEcomm', rex: String.raw`(?i)\[SPLMessage\]\[sessionId\]\s*:\s*\"?(?<sidEcomm>[0-9a-fA-F-]{36})` },
       { field: 'sidEnterprise', rex: String.raw`(?i)\[SPLHostMessage\]\[sessionIdentity\]\s*:\s*\"?(?<sidEnterprise>[0-9a-fA-F-]{36})` },
@@ -52,30 +57,27 @@
     columns: ['Step', 'EventTime', 'sessionId', 'Flow', 'Params', 'ElapsedMs'],
   };
 
-  const ENDPOINT_RULES = String.raw`| rex field=_raw "(?<Endpoint1>[^\s]+\/[^\s]*Request[^\s]*)"
-| rex field=_raw "(?<Endpoint2>[^\s]*\/[^\s]*Request[^\s]*)"
-| rex field=_raw "(?<Endpoint3>[^\s]+)"
-| eval Endpoint=coalesce(Endpoint1,Endpoint2,Endpoint3)`;
-
-  const FLOW_BLOCK = String.raw`| rex field=_raw "URL\:(?<is>s\+|s\:)\s+(?<URL>[^\s]+)"
-| rex field=_raw "SvcCode\>\s*(?<SvcCode>[^<]+)\<\/SvcCode\>"
-| where LayerName!="Host" OR mvcount(SvcCode)>=1
+  const FLOW_BLOCK = String.raw`| rex field=_raw "\[:<DGEEndpoint>([^]]+)\]"
+| rex field=_raw "URL\s*=\s*is\s*\:\s*(?<URL>\S+)"
+| rex field=_raw max_match=0 "<SvcCode>(?<SvcCode>[^<]+)</SvcCode>"
+| where LayerName="Host" OR mvcount(SvcCode)>=1
 | eval SortKey=if(Direction="Request",Layer,-Layer)
 | sort 0 _time SortKey
-| eval LastWSURL=if(LayerName="WS",URL,null())
-| streamstats last(LastWSURL) as LastWsURL by sessionId
-| eval pairIndex=mvzip(mvrange(mvcount(SvcCode)),"")
-| eval HostPairs=mvmap(pairIndex, mvindex(SvcCode,pairIndex*2) . "~" .coalesce(mvindex(SvcCode,pairIndex*2)+1),mvindex(SvcCode,pairIndex*2)))
-| eval API=case(LayerName="eComm",Endpoint, LayerName="Enterprise",Endpoint, LayerName="WS",
-coalesce(LastWsURL,"N/A"), LayerName="Host",DGEEndpoint)
-| eval ServiceInfo=if(LayerName="Host", mvmap(HostPairs,"-".HostPairs."|".DirectionSymbol,""),null())
-| eval PairKey=coalesce(API,coalesce(DGEEndpoint,"true"),API)
-| streamstats last(_time) as LastReqTime by sessionId Layer PairKey
+| eval WsURL=if(LayerName="WS",URL,null())
+| streamstats last(WsURL) as LastWsURL by sessionId
+| eval pairIndex=mvrange(0,ceil(mvcount(SvcCode)/2))
+| eval HostPairs=mvmap(pairIndex, mvindex(SvcCode,pairIndex*2) . " ~ ".coalesce(mvindex(SvcCode,pairIndex*2)+1,mvindex(SvcCode,pairIndex*2)))
+| eval API=case(LayerName="eComm",Endpoint,LayerName="Enterprise",Endpoint,LayerName="WS",
+    coalesce(URL,LastWsURL,DGEEndpoint,"N/A"),LayerName="Host",DGEEndpoint)
+| eval ServiceInfo=if(LayerName="Host", mvmap(HostPairs,"- [".HostPairs."] [".DirectionSymbol."]"),null())
+| eval PairKey=case(LayerName="Host",coalesce(DGEEndpoint,""),true,API)
+| eval ReqTime=if(Direction="Request",_time,null())
+| streamstats last(ReqTime) as LastReqTime by sessionId Layer PairKey
 | eval ElapsedMs=if(Direction="Response" AND isnotnull(LastReqTime),round((_time-LastReqTime)*1000,0),null())
 | eval DirectionSymbol=if(Direction="Request",">","<")
-| eval Indent=case(Layer=1,"Layer>",Layer=2,">>",Layer=3,">>>")
-| eval Flow=Indent.(LayerName." | ".API." | ".DirectionSymbol)
-| eval ServiceInfo=if(LayerName="Host" and isnull(ServiceInfo), mvappend(Flow,ServiceInfo),Flow)`;
+| eval Indent=case(Layer=1,"",Layer=2,"-->",Layer=3,"------>")
+| eval Flow=Indent.LayerName.": ".API." [".DirectionSymbol."]"
+| eval ServiceInfo=if(LayerName="Host" AND isnotnull(ServiceInfo), mvappend(Flow,ServiceInfo), Flow)`;
 
   const TAIL_BLOCK = String.raw`| streamstats count as Step by sessionId
 | eval EventTime=strftime(_time,"%Y-%m-%d %H:%M:%S.%3N")`;
@@ -126,7 +128,9 @@ coalesce(LastWsURL,"N/A"), LayerName="Host",DGEEndpoint)
     if (cfg.directionFirst.trim()) dirCases.unshift(cfg.directionFirst.trim());
     out.push('| eval Direction=case(' + dirCases.join(',\n    ') + ')');
 
-    out.push(ENDPOINT_RULES);
+    const eps = cfg.endpointRules.filter((r) => r.field.trim());
+    eps.filter((r) => r.rex.trim()).forEach((r) => out.push(`| rex field=_raw "${r.rex.trim()}"`));
+    out.push('| eval Endpoint=coalesce(' + eps.map((r) => r.field.trim()).join(',') + ')');
 
     const sids = cfg.sessionRules.filter((r) => r.field.trim());
     sids.filter((r) => r.rex.trim()).forEach((r) => out.push(`| rex field=_raw "${r.rex.trim()}"`));
@@ -191,10 +195,15 @@ coalesce(LastWsURL,"N/A"), LayerName="Host",DGEEndpoint)
       }
     }
     if (!cfg.sessionRules.some((r) => r.field.trim())) warnings.push('No sessionId rules: coalesce() is empty.');
-    const fields = [...cfg.sessionRules, ...cfg.params].map((r) => r.field.trim()).filter(Boolean);
+    if (!cfg.endpointRules.some((r) => r.field.trim())) warnings.push('No Endpoint rules: Endpoint=coalesce() is empty.');
+    // Splunk rejects a rex with no named group ("does not extract anything"), which fails the whole search.
+    generate(cfg).split('\n').filter((l) => /^\| rex /.test(l) && !l.includes('(?<')).forEach((l) => {
+      warnings.push('Splunk will reject this rex because it has no (?<name>...) group: ' + l);
+    });
+    const fields = [...cfg.endpointRules, ...cfg.sessionRules, ...cfg.params].map((r) => r.field.trim()).filter(Boolean);
     const dup = fields.filter((f, i) => fields.indexOf(f) !== i);
     if (dup.length) warnings.push('Duplicate field name(s): ' + [...new Set(dup)].join(', '));
-    cfg.sessionRules.concat(cfg.params).forEach((r) => {
+    cfg.endpointRules.concat(cfg.sessionRules, cfg.params).forEach((r) => {
       const f = r.field.trim();
       if (f && r.rex.trim() && !r.rex.includes(`(?<${f}>`)) warnings.push(`rex for "${f}" has no named group (?<${f}>...).`);
     });

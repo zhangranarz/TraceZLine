@@ -34,6 +34,13 @@
       ],
       blank: () => ({ layer: '', pattern: '', direction: 'Request' }),
     },
+    endpointRules: {
+      fields: [
+        { key: 'field', label: 'Field', placeholder: 'Endpoint4', size: 's' },
+        { key: 'rex', label: 'rex', placeholder: '(?<Endpoint4>/[^\\s]+)', size: 'l' },
+      ],
+      blank: () => ({ field: '', rex: '' }),
+    },
     sessionRules: {
       fields: [
         { key: 'field', label: 'Field', placeholder: 'sidOpi', size: 's' },

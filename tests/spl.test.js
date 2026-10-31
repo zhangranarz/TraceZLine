@@ -56,17 +56,30 @@ test('disabled sources are left out', () => {
   assert.doesNotMatch(spl.generate(cfg), /spl-ms/);
 });
 
-test('default config warns about grouping, DirWord and the Layer<=2 first rule', () => {
+test('default config warns about grouping, DirWord, Layer<=2 and rex lines without a named group', () => {
   const w = spl.validate(spl.DEFAULT_CONFIG);
-  assert.strictEqual(w.length, 3);
+  assert.strictEqual(w.length, 5);
   assert.ok(w.some((m) => /not grouped/.test(m)));
   assert.ok(w.some((m) => /no \(\?<DirWord>/.test(m)));
   assert.ok(w.some((m) => /Layer<=2\) also matches WS/.test(m)));
+  assert.ok(w.some((m) => /reject.*\(\?:DirWord=Request/.test(m)));
+  assert.ok(w.some((m) => /reject.*<DGEEndpoint>/.test(m)));
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
   cfg.groupSources = true;
   cfg.dirWordRex = String.raw`(?i)\b(?<DirWord>Request|Response)\b`;
   cfg.directionFirst = 'Layer<=1,DirWord';
-  assert.deepStrictEqual(spl.validate(cfg), []);
+  // The DGEEndpoint rex is part of the fixed query text, so its warning stays.
+  const left = spl.validate(cfg);
+  assert.strictEqual(left.length, 1);
+  assert.match(left[0], /<DGEEndpoint>/);
+});
+
+test('endpoint rules: add, remove and coalesce order', () => {
+  const cfg = spl.clone(spl.DEFAULT_CONFIG);
+  cfg.endpointRules = [cfg.endpointRules[2], { field: 'EpX', rex: '(?<EpX>\\S+)' }];
+  const out = spl.generate(cfg);
+  assert.match(out, /\| eval Endpoint=coalesce\(Endpoint3,EpX\)/);
+  assert.doesNotMatch(out, /Endpoint1/);
 });
 
 test('empty DirWord rex and first rule drop out of the query', () => {

@@ -53,6 +53,13 @@
       </details>
 
       <details open>
+        <summary>Endpoint rules <span class="hint">rex + Endpoint=coalesce()</span></summary>
+        <p class="note">Field order is coalesce() order. A rule with an empty rex is only added to coalesce().</p>
+        <div id="list-endpointRules"></div>
+        <button type="button" class="add" data-add="endpointRules">+ Add rule</button>
+      </details>
+
+      <details open>
         <summary>sessionId rules <span class="hint">rex + coalesce()</span></summary>
         <p class="note">Field order is coalesce() order. A rule with an empty rex is only added to coalesce().</p>
         <div id="list-sessionRules"></div>
