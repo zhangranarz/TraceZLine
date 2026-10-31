@@ -989,7 +989,8 @@
           if (kind === 'svc') {
             const ev = logEventText(r);
             return el('td', { class: 'cmp-svc' }, [...multi(text), ...(r.l ? [el('details', { class: 'cmp-raw' }, [
-              el('summary', { title: ev }, ['log: ' + (ev.length > 90 ? ev.slice(0, 90) + '…' : ev)]),
+              // short label; hover shows the event text, expanding shows the raw event
+              el('summary', { title: ev }, ['Log:']),
               el('pre', {}, [r.l.raw.length > RAW_PREVIEW ? r.l.raw.slice(0, RAW_PREVIEW) + '\n…' : r.l.raw]),
             ])] : [])]);
           }
