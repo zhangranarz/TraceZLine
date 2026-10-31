@@ -22,45 +22,19 @@ sequence diagrams, and the processing rules it observes. Nothing is uploaded.
 
 ## Features
 
-The left side holds the query settings; the right side has three tabs.
-
-**Splunk** — the generated SPL query. Edit sources, search terms (session IDs), layers
-(name, number, indent, match condition), direction rules, endpoint / sessionId / Params
-rex rules and output columns; the structure of the base query stays fixed. Live preview
-with warnings, **Copy**, **Download** (`.spl`). Settings are saved in the browser;
-**Export config** / **Import config** / **Reset to base** are at the bottom of the page.
-
-**Load File** — your own data, read in the browser only:
-- **Local File**: raw log files, or a Splunk EventTime/PopulatedLog export.
-- **Upload** (in the Flow view): the flow table exported from Splunk as `.xlsx` or `.csv`
-  (Step, EventTime, sessionId, ServiceInfo, Params, ElapsedMs). Rows with an empty Step
-  continue the row above (Host SvcCode lines).
-
-**Mock Test** — the same views over bundled fake logs, loaded when the tab opens.
-
-**Compare** — load the Splunk result with **Excel** (`.xlsx`/`.csv`) and the raw log files it came from with **Log**.
-Every line of the Splunk result is listed and mapped to the log event with the closest
-timestamp, within a tolerance; when several events are equally close (an Excel export keeps
-whole seconds), the one with the same session, layer, direction and API wins. The time
-offset between Splunk's EventTime and the log timestamps (e.g. a time-zone difference) is
-detected, or set in **Offset** (hours). Columns: Step, EventTime, ServiceInfo, Log (the matched log event as "Log ▸"; expand it for the raw text), Payload (the body the event carries: when it is JSON, "JSON ▸" expands to a Parameter / Value table, paths written like `responseHeader|responseContext|responseCode`; for XML such as Host/EAI messages, "XML ▸" does the same, e.g. `EAI|SvcRq|SubSvc[0]|SubSvcRqHeader|SvcCode`), LogRow (`file:line`), LogTime, sessionId, Params, ElapsedMs. Lines that differ or are not mapped have a coloured edge and say why on hover. Copy/Download also include Δ ms and Check, and the event text in Log. Each line shows the log time, the difference in ms,
-the log event (`file:line`, expand it for the raw text) and whether it agrees. Data quality
-lists lines with no event in the window, lines mapped to another layer/direction/API, log
-events not mapped, and warns when the files share no session. **Use Mock** loads the mock
-flow and logs; **Copy** / **Download** (CSV) export the mapping.
-
-Views in Load File and Mock Test:
-
-| View | What it shows |
+| Tab | What it does |
 |---|---|
-| **Flow** | Session summary (steps, total time, slowest hop, requests with no response) and the flow table grouped by session; **Copy table**, **Download CSV** |
-| **PlantUML** | One sequence diagram per session as PlantUML text; **Copy**, **Download**, **Render** (asks first, then uses plantuml.com) |
-| **Sequence** | The same diagrams drawn as SVG in the browser; **Fit to width**, **Download SVG** |
-| **Processing Rule** | Routing, caller → callee map with Host SvcCodes, call order (sequential / overlapping), gaps and latency baseline, each with its evidence (single-sample observations are labelled); **Copy**, **Download** as Markdown |
-| **Debug** | Execution log of every load and run, and every event with the decision taken for it; **Copy Log** |
-| **Log Files** | Mock Test only: preview each log file, event start lines highlighted |
+| **Splunk** | Generates the SPL query from editable sources, session IDs, layers and rex rules; copy or download it |
+| **Load File** | Runs the query logic over your raw logs (**Local File**) or a Splunk `.xlsx`/`.csv` export (**Upload**) |
+| **Mock Test** | The same views over bundled fake logs |
+| **Compare** | Maps each line of a Splunk result to its raw log event by timestamp, with the JSON/XML payload as a Parameter / Value table and a data-quality report |
 
-Demo links: `#mock`, `#mock/diagram`, `#mock/sequence`, `#mock/rules`, `#mock/debug`, `#mock/logs`, `#compare`.
+Views in Load File and Mock Test: **Flow** (session summary and flow table), **PlantUML**,
+**Sequence** (SVG diagram), **Processing Rule** (routing, call map, call order, gaps,
+latency), **Debug** and **Log Files**.
+
+Everything runs in the browser; settings are saved there too. Demo links: `#mock`,
+`#mock/sequence`, `#mock/rules`, `#compare`.
 
 ## How to install
 
@@ -106,7 +80,7 @@ npm run security-scan                        # pre-push scan (also run in CI)
 - Never commit real or undesensitised logs. `ToolBase/`, `*.log` and `*.xlsx` are
   git-ignored (only the fake files in `mock/` are tracked).
 - `npm run security-scan` blocks a push when it finds data files, secrets, values copied
-  from `ToolBase/` (in files or unpushed commits) or off-site network use by the page.
+  from your local (untracked or ignored) data files, or off-site network use by the page.
 
 ## Project layout
 
