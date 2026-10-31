@@ -909,7 +909,7 @@
     if (!cmp.excel || !cmp.logs.length) {
       const have = [cmp.excel && `Splunk result ${cmp.excel.name} (${cmp.excel.rows.length} lines)`,
         cmp.logs.length && `log files ${cmp.logs.map((l) => l.name).join(', ')}`].filter(Boolean);
-      if (have.length) status.textContent = `Loaded: ${have.join('; ')}. Now load the ${cmp.excel ? 'log files' : 'Splunk result'}.`;
+      if (have.length) status.textContent = `Loaded: ${have.join('; ')}. Now load the ${cmp.excel ? 'Log' : 'Excel'} file.`;
       return;
     }
     let events;
@@ -930,8 +930,8 @@
     const sidsX = new Set(cmp.excel.rows.map((x) => x.sessionId).filter(Boolean));
     const sidsL = new Set(events.map((l) => l.sessionId).filter(Boolean));
     document.getElementById('cmp-summary').replaceChildren(
-      card('Splunk result', [`${total} lines, ${sidsX.size} sessions`]),
-      card('Log files', [`${events.length} events, ${sidsL.size} sessions`, `${r.sharedSessions} sessions in both`]),
+      card('Excel', [`${total} lines, ${sidsX.size} sessions`]),
+      card('Log', [`${events.length} events, ${sidsL.size} sessions`, `${r.sharedSessions} sessions in both`]),
       card('Mapping', [`${r.mapped} of ${total} lines mapped: ${r.agreeing} agree, ${r.mapped - r.agreeing} differ`,
         `${notMapped} lines without a log event in the window`, `${r.unmappedLog.length} log events not mapped`], r.unrelated ? 'card-bad' : ''),
       card('Time offset', [`${r.offsetAuto ? 'Detected' : 'Set'}: Excel EventTime = log time ${r.offsetText}`,

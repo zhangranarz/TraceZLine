@@ -38,7 +38,7 @@ with warnings, **Copy**, **Download** (`.spl`). Settings are saved in the browse
 
 **Mock Test** — the same views over bundled fake logs, loaded when the tab opens.
 
-**Compare** — load the Splunk result (`.xlsx`/`.csv`) and the raw log files it came from.
+**Compare** — load the Splunk result with **Excel** (`.xlsx`/`.csv`) and the raw log files it came from with **Log**.
 Every line of the Splunk result is listed and mapped to the log event with the closest
 timestamp, within a tolerance; when several events are equally close (an Excel export keeps
 whole seconds), the one with the same session, layer, direction and API wins. The time
