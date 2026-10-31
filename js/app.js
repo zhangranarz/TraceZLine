@@ -955,12 +955,13 @@
   const logTime = (l) => (l ? new Date(l.time).toISOString().replace('T', ' ').slice(0, 23) : '');
   // The event on one line without its timestamp (LogTime shows it).
   const logEventText = (r) => (r.l ? r.l.raw.replace(/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{3}\s+/, '').replace(/\s+/g, ' ').slice(0, 300) : '');
-  // On screen the log event sits inside the ServiceInfo cell ('svc'); 'export' columns appear in Copy/Download only.
+  // On screen the Log column shows a short "Log:" that expands to the raw event ('log');
+  // the export gets the event text. 'export' columns appear in Copy/Download only.
   const CMP = [
     ['Step', (r) => (r.x.Step == null ? '' : String(r.x.Step))],
     ['EventTime', (r) => r.x.EventTime],
-    ['ServiceInfo', (r) => svcLines(r.x).join('\n'), 'svc'],
-    ['LogEvent', logEventText, 'export'],
+    ['ServiceInfo', (r) => svcLines(r.x).join('\n'), 'multi'],
+    ['Log', logEventText, 'log'],
     ['LogRow', (r) => (r.l ? `${base(r.l.source)}:${r.l.lineNo}` : '')],
     ['LogTime', (r) => logTime(r.l)],
     ['Δ ms', (r) => (r.delta == null ? '' : String(r.delta)), 'export'],
@@ -989,14 +990,12 @@
           const text = get(r);
           if (kind === 'multi') return el('td', {}, multi(text));
           if (kind === 'issue') return el('td', { class: 'cmp-issue' }, [text]);
-          // ServiceInfo, then the mapped log event: one line, expandable to the raw event text.
-          if (kind === 'svc') {
-            const ev = logEventText(r);
-            return el('td', { class: 'cmp-svc' }, [...multi(text), ...(r.l ? [el('details', { class: 'cmp-raw' }, [
-              // short label; hover shows the event text, expanding shows the raw event
-              el('summary', { title: ev }, ['Log:']),
+          // Log: the matched event as a short "Log:"; hover shows the event text, expanding the raw event.
+          if (kind === 'log') {
+            return el('td', { class: 'cmp-log' }, r.l ? [el('details', { class: 'cmp-raw' }, [
+              el('summary', { title: text }, ['Log:']),
               el('pre', {}, [r.l.raw.length > RAW_PREVIEW ? r.l.raw.slice(0, RAW_PREVIEW) + '\n…' : r.l.raw]),
-            ])] : [])]);
+            ])] : []);
           }
           return el('td', {}, [text]);
         })))),
