@@ -858,12 +858,13 @@
     }
   }
 
-  // Full width buttons (flow pane and Compare) share one page-wide setting.
+  // Expand / Collapse buttons (flow pane and Compare) share one page-wide setting.
   document.querySelectorAll('.wide-toggle').forEach((btn) => btn.addEventListener('click', () => {
     const wide = document.body.classList.toggle('flow-wide');
     document.querySelectorAll('.wide-toggle').forEach((b) => {
       b.setAttribute('aria-pressed', String(wide));
-      b.textContent = wide ? 'Show settings' : 'Full width';
+      b.textContent = wide ? 'Collapse' : 'Expand';
+      b.title = wide ? 'Show the settings again' : 'Hide the settings and use the full page width';
     });
   }));
 
