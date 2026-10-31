@@ -1,28 +1,32 @@
 (
-	source="/var/log/pods/spl-banking-*log"
-	("[SPLMessage]" OR "[SPLHostMessage]")
+	(
+		source="/var/log/pods/spl-banking-*log"
+		("[SPLMessage]" OR "[SPLHostMessage]")
+	)
 	OR
-	source="/var/log/pods/spl-ms-*log"
-	("WSAppLog" ("request:" OR "RESPONSE from" OR "Response:")) OR ("<EAI>" "<SvcCode>" ("Request Message" OR "Response Message"))
+	(
+		source="/var/log/pods/spl-ms-*log"
+		("WSAppLog" ("request:" OR "RESPONSE from" OR "Response:")) OR ("<EAI>" "<SvcCode>" ("Request Message" OR "Response Message"))
+	)
 )
 | "2576dfc8-495a-837a-8a2f291fd003d" OR "7f269c48-f03a-4fef-bc3007538ec1a2"
 | eval LayerName=case(match(_raw,"\[SPLMessage\]"),"eComm",match(_raw,"\[SPLHostMessage\]"),"Enterprise",
-    match(_raw,"<SvcCode>") AND match(_raw,"(request|response) message"),"Host", match(_raw,"WSAppLog"),"WS")
+    match(_raw,"<SvcCode>") AND match(_raw,"(?i)(request|response) message"),"Host", match(_raw,"WSAppLog"),"WS")
 | eval Layer=case(LayerName="eComm",1,LayerName="Enterprise",2,LayerName="WS",2,LayerName="Host",3)
 | rex field=_raw "(?i)\b(?<DirWord>Request|Response)\b"
-| eval Direction=case(Layer<=2,DirWord,
+| eval Direction=case(LayerName="eComm" OR LayerName="Enterprise",DirWord,
     LayerName="Host" AND match(_raw,"(?i)Request Message"),"Request",
     LayerName="Host" AND match(_raw,"(?i)Response Message"),"Response",
     LayerName="WS" AND match(_raw,"(?i)request:"),"Request",
     LayerName="WS" AND match(_raw,"(?i)(RESPONSE from|Response:)"),"Response")
 | rex field=_raw "(?<Endpoint1>[^ ]+)\s*\-\s*(?:'?Request|Response)'?\s*\-"
 | rex field=_raw "\s\s\s(?<Endpoint2>[^ ]+)\s\-\s(?:'?Request|Response)'"
-| rex field=_raw "(?i)endpoint\?s*[:=]\s*\"?(?<Endpoint3>[^\",]+)"
+| rex field=_raw "(?i)endpoint\"?\s*[:=]\s*\"?(?<Endpoint3>[^\",]+)"
 | eval Endpoint=coalesce(Endpoint1,Endpoint2,Endpoint3)
-| rex field=_raw "(?i)\[SPLMessage\]\[sessionId\]\s*:\s*\"?(?<sidEcomm>[0-9a-fA-F-]{36})"
-| rex field=_raw "(?i)\[SPLHostMessage\]\[sessionIdentity\]\s*:\s*\"?(?<sidEnterprise>[0-9a-fA-F-]{36})"
-| rex field=_raw "(?i)\[WLS\]:(?<sidWls>[0-9a-fA-F-]{36})"
-| rex field=_raw "(?<sidAny>[0-9a-fA-F-]{8}-[0-9a-fA-F-]{4}-[0-9a-fA-F-]{4}-[0-9a-fA-F-]{4}-[0-9a-fA-F-]{12})"
+| rex field=_raw "(?i)\[SPLMessage\]\[?(?<sidEcomm>[0-9a-fA-F-]{36})"
+| rex field=_raw "(?i)\[SPLHostMessage\]\[?(?<sidEnterprise>[0-9a-fA-F-]{36})"
+| rex field=_raw "(?i)\bWLS:\s*(?<sidWls>[0-9a-fA-F-]{36})"
+| rex field=_raw "(?<sidAny>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})"
 | eval sessionId=coalesce(sidEcomm, sidEnterprise, sidWls, sidAny)
 | rex field=_raw "\[:(?<DGEEndpoint>[^]]+)\]"
 | rex field=_raw "URL\s*=\s*is\s*\:\s*(?<URL>\S+)"

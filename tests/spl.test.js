@@ -45,7 +45,7 @@ test('adding a source and removing a param', () => {
   cfg.sources.push({ enabled: true, source: '/var/log/pods/spl-opi-*.log', filter: '"OPIAppLog"' });
   cfg.params = cfg.params.slice(0, 1);
   const out = spl.generate(cfg);
-  assert.match(out, /\n\tOR\n\tsource="\/var\/log\/pods\/spl-opi-\*\.log"\n\t"OPIAppLog"\n\)\n/);
+  assert.match(out, /\n\tOR\n\t\(\n\t\tsource="\/var\/log\/pods\/spl-opi-\*\.log"\n\t\t"OPIAppLog"\n\t\)\n\)\n/);
   assert.match(out, /\| eval Params=mvappend\(\n    if\(isnotnull\(transactionRef\).*"TxnRefNo="\.transactionRef, null\(\)\)\n\)$/m);
   assert.doesNotMatch(out, /transactionCode/);
 });
@@ -56,15 +56,24 @@ test('disabled sources are left out', () => {
   assert.doesNotMatch(spl.generate(cfg), /spl-ms/);
 });
 
-test('default config only warns about grouping and the Layer<=2 first rule', () => {
-  const w = spl.validate(spl.DEFAULT_CONFIG);
+test('default config has no warnings', () => {
+  assert.deepStrictEqual(spl.validate(spl.DEFAULT_CONFIG), []);
+});
+
+test('ungrouped sources and a Layer<=2 first rule are flagged', () => {
+  const cfg = spl.clone(spl.DEFAULT_CONFIG);
+  cfg.groupSources = false;
+  cfg.directionFirst = 'Layer<=2,DirWord';
+  const w = spl.validate(cfg);
   assert.strictEqual(w.length, 2);
   assert.ok(w.some((m) => /not grouped/.test(m)));
   assert.ok(w.some((m) => /Layer<=2\) also matches WS/.test(m)));
+});
+
+test('ungrouped sources share only the outer parentheses', () => {
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
-  cfg.groupSources = true;
-  cfg.directionFirst = 'Layer<=1,DirWord';
-  assert.deepStrictEqual(spl.validate(cfg), []);
+  cfg.groupSources = false;
+  assert.ok(spl.generate(cfg).startsWith('(\n\tsource="/var/log/pods/spl-banking-*log"\n\t("[SPLMessage]" OR "[SPLHostMessage]")\n\tOR\n\tsource="/var/log/pods/spl-ms-*log"\n'));
 });
 
 test('DirWord and rex lines without a named group are flagged', () => {
@@ -131,8 +140,10 @@ test('sessionId rules extract a dashed UUID from each layer format', () => {
     return src.startsWith('(?i)') ? new RegExp(src.slice(4), 'i') : new RegExp(src);
   };
   const [ecomm, ent, wls, any] = spl.DEFAULT_CONFIG.sessionRules.map((r) => toJs(r.rex));
-  assert.strictEqual(`[SPLMessage][sessionId]: "${uuid}"`.match(ecomm).groups.sidEcomm, uuid);
-  assert.strictEqual(`[splhostmessage][sessionIdentity] :${uuid}`.match(ent).groups.sidEnterprise, uuid);
-  assert.strictEqual(`INFO [WLS]:${uuid} rest`.match(wls).groups.sidWls, uuid);
+  assert.strictEqual(`INFO [SPLMessage][${uuid}][][VN]`.match(ecomm).groups.sidEcomm, uuid);
+  assert.strictEqual(`INFO [SPLMessage]${uuid}|[VN]`.match(ecomm).groups.sidEcomm, uuid);
+  assert.strictEqual(`INFO [SPLHostMessage][${uuid}][<<USER_ID>>]`.match(ent).groups.sidEnterprise, uuid);
+  assert.strictEqual(`| CIF:<<CIF_NUM>> | WLS:${uuid} | WS`.match(wls).groups.sidWls, uuid);
   assert.strictEqual(`id=${uuid};`.match(any).groups.sidAny, uuid);
+  assert.strictEqual('id=--------------------------------------;'.match(any), null);
 });

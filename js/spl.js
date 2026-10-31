@@ -9,8 +9,8 @@
 
   const DEFAULT_CONFIG = {
     version: 1,
-    // false: all sources inside one ( ) as in the base query; true: each source also in its own ( ).
-    groupSources: false,
+    // true: each source in its own ( ) inside the outer ( ); false: sources only share the outer ( ).
+    groupSources: true,
     sources: [
       {
         enabled: true,
@@ -27,12 +27,12 @@
     layers: [
       { name: 'eComm', match: String.raw`match(_raw,"\[SPLMessage\]")`, layer: 1 },
       { name: 'Enterprise', match: String.raw`match(_raw,"\[SPLHostMessage\]")`, layer: 2 },
-      { name: 'Host', match: String.raw`match(_raw,"<SvcCode>") AND match(_raw,"(request|response) message")`, layer: 3 },
+      { name: 'Host', match: String.raw`match(_raw,"<SvcCode>") AND match(_raw,"(?i)(request|response) message")`, layer: 3 },
       { name: 'WS', match: String.raw`match(_raw,"WSAppLog")`, layer: 2 },
     ],
     // rex that extracts the direction word, and an optional raw first case() pair.
     dirWordRex: String.raw`(?i)\b(?<DirWord>Request|Response)\b`,
-    directionFirst: 'Layer<=2,DirWord',
+    directionFirst: 'LayerName="eComm" OR LayerName="Enterprise",DirWord',
     directions: [
       { layer: 'Host', pattern: '(?i)Request Message', direction: 'Request' },
       { layer: 'Host', pattern: '(?i)Response Message', direction: 'Response' },
@@ -42,13 +42,13 @@
     endpointRules: [
       { field: 'Endpoint1', rex: String.raw`(?<Endpoint1>[^ ]+)\s*\-\s*(?:'?Request|Response)'?\s*\-` },
       { field: 'Endpoint2', rex: String.raw`\s\s\s(?<Endpoint2>[^ ]+)\s\-\s(?:'?Request|Response)'` },
-      { field: 'Endpoint3', rex: String.raw`(?i)endpoint\?s*[:=]\s*\"?(?<Endpoint3>[^\",]+)` },
+      { field: 'Endpoint3', rex: String.raw`(?i)endpoint\"?\s*[:=]\s*\"?(?<Endpoint3>[^\",]+)` },
     ],
     sessionRules: [
-      { field: 'sidEcomm', rex: String.raw`(?i)\[SPLMessage\]\[sessionId\]\s*:\s*\"?(?<sidEcomm>[0-9a-fA-F-]{36})` },
-      { field: 'sidEnterprise', rex: String.raw`(?i)\[SPLHostMessage\]\[sessionIdentity\]\s*:\s*\"?(?<sidEnterprise>[0-9a-fA-F-]{36})` },
-      { field: 'sidWls', rex: String.raw`(?i)\[WLS\]:(?<sidWls>[0-9a-fA-F-]{36})` },
-      { field: 'sidAny', rex: String.raw`(?<sidAny>[0-9a-fA-F-]{8}-[0-9a-fA-F-]{4}-[0-9a-fA-F-]{4}-[0-9a-fA-F-]{4}-[0-9a-fA-F-]{12})` },
+      { field: 'sidEcomm', rex: String.raw`(?i)\[SPLMessage\]\[?(?<sidEcomm>[0-9a-fA-F-]{36})` },
+      { field: 'sidEnterprise', rex: String.raw`(?i)\[SPLHostMessage\]\[?(?<sidEnterprise>[0-9a-fA-F-]{36})` },
+      { field: 'sidWls', rex: String.raw`(?i)\bWLS:\s*(?<sidWls>[0-9a-fA-F-]{36})` },
+      { field: 'sidAny', rex: String.raw`(?<sidAny>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})` },
     ],
     params: [
       { field: 'transactionRef', label: 'TxnRefNo', rex: String.raw`(?i)transactionRef(?:erenceNumber)?\"?\s*[:=]\s*\"?(?<transactionRef>[^\",]+)` },
