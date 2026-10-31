@@ -31,7 +31,7 @@ Expected statuses, for when HopStatus / SessionStatus are added to the query:
 
 | Session | Failed hops | SessionStatus | FirstFailedHop |
 |---|---|---|---|
-| 1 | none | SUCCESS | — |
+| 1 | none if `0005000` counts as success; otherwise Host `AC_ACCT_SUM_X` | SUCCESS, or PARTIAL if `0005000` is a failure | —, or Host `AC_ACCT_SUM_X` |
 | 2 | Host `CC_INFO_STMT_X`, WS `/dge-enq/enq/card/transactions`, Enterprise `/enq/card/transactions` (business error with `00000000`), eComm | FAILED | Host `CC_INFO_STMT_X` |
 | 3 | WS `/dge-bfs/bfs/bp/initiate` (no response), Enterprise `/bfs/quick/bp/initiate`, eComm | PARTIAL | WS `/dge-bfs/bfs/bp/initiate` |
 
