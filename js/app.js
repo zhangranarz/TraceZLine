@@ -1094,7 +1094,7 @@
   const MASK_KEY = 'tracezline.mask.v2';
   const MASK_TYPES = [['json', 'JSON key'], ['xml', 'XML tag'], ['text', 'Exact text'], ['prepost', 'Pre/Post']];
   const MASK_MODES = [['replace', 'Replace'], ['digits', 'Digits → *'], ['last4', 'Keep last 4'], ['consistent', 'Consistent']];
-  const MASK_FIND_HINT = { json: 'userId', xml: 'UserId', text: 'ABC Company', prepost: '"userId":"' };
+  const MASK_MATCH_HINT = { json: 'userId', xml: 'UserId', text: 'ABC Company', prepost: '"userId":"' };
   const MASK_PREVIEW_LINES = 3000;
   const randomKey = () => {
     const b = new Uint8Array(16);
@@ -1128,7 +1128,7 @@
       return s;
     };
     const dash = () => el('span', { class: 'hint' }, ['—']);
-    const head = el('thead', {}, [el('tr', {}, ['On', 'Name', 'Type', 'Find / Pre', 'Post', 'Mode', 'Mask', 'Found', ''].map((h) => el('th', {}, [h])))]);
+    const head = el('thead', {}, [el('tr', {}, ['On', 'Name', 'Type', 'Match', 'Post', 'Mode', 'Mask', 'Found', ''].map((h) => el('th', {}, [h])))]);
     const body = el('tbody', {}, mask.rules.map((rule, i) => {
       const type = rule.type || 'prepost';
       const on = el('input', { type: 'checkbox', checked: rule.on });
@@ -1136,7 +1136,7 @@
       const move = (d) => { const j = i + d; [mask.rules[i], mask.rules[j]] = [mask.rules[j], mask.rules[i]]; renderMaskRules(); onMaskRulesChanged(); };
       // An empty Mask shows what will be used, e.g. <<MASK_USERID>> for the JSON key userId.
       const maskInput = rule.mode === 'replace' ? field(rule, 'mask', { class: 'w-mask', placeholder: window.TraceMask.autoMask(rule) }) : null;
-      const find = field(rule, 'pre', { class: 'w-pre', placeholder: MASK_FIND_HINT[type] });
+      const find = field(rule, 'pre', { class: 'w-pre', placeholder: MASK_MATCH_HINT[type] });
       find.addEventListener('input', () => { if (maskInput) maskInput.placeholder = window.TraceMask.autoMask(rule); });
       return el('tr', { class: rule.on ? '' : 'off' }, [
         el('td', {}, [on]),
