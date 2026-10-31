@@ -136,9 +136,25 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
   border-radius: 8px;
   padding: 12px;
 }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: -4px 0 10px; }
+.tab {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  padding: 6px 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: -1px;
+}
+.tab:hover:not(:disabled) { color: var(--fg); border-color: transparent; border-bottom-color: var(--border); }
+.tab[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); }
+.tab .hint { margin-left: 4px; }
+.pane { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.pane[hidden] { display: none; }
 .preview-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
-.preview-bar h2 { margin: 0; font-size: 16px; }
-.preview-bar .hint { margin-right: auto; }
+.spacer { flex: 1; }
 #spl {
   margin: 0;
   flex: 1;
@@ -153,7 +169,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 }
 @media (max-width: 1000px) {
   .preview { position: static; max-height: none; }
-  #spl { max-height: 70vh; }
+  #spl, .table-wrap { max-height: 70vh; }
 }
 
 .warnings { margin: 0 0 8px; padding: 0; list-style: none; }
@@ -167,23 +183,17 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 }
 .warnings li::before { content: "⚠ "; }
 
-.flow {
-  margin: 0 16px 16px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px;
-}
+.flow-wide .layout { grid-template-columns: minmax(0, 1fr); }
+.flow-wide .config { display: none; }
 .flow-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.flow-bar h2 { margin: 0 8px 0 0; font-size: 16px; }
 .flow-bar .check { margin: 0; }
 .flow-bar select { width: auto; max-width: 100%; font-family: inherit; }
-.flow-bar .spacer { flex: 1; }
+#flow-status { margin: 8px 0 0; }
 .primary-btn { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
 
-.summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; max-height: 30vh; overflow: auto; flex-shrink: 0; }
 .sum-card {
-  flex: 1 1 280px;
+  flex: 1 1 240px;
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 6px 10px;
@@ -194,7 +204,8 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .sum-card .slow, td.slow { color: var(--warn-fg); font-weight: 600; }
 .sum-card .missing { color: var(--danger); }
 
-.table-wrap { overflow: auto; max-height: 75vh; border: 1px solid var(--border); border-radius: 6px; }
+.table-wrap { overflow: auto; flex: 1; min-height: 120px; border: 1px solid var(--border); border-radius: 6px; }
+.table-wrap:has(#flow-table:empty) { display: none; }
 #flow-table { border-collapse: collapse; width: 100%; font: 12.5px/1.45 var(--mono); }
 #flow-table:empty { display: none; }
 #flow-table th {

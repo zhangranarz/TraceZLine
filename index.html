@@ -84,32 +84,38 @@
     </section>
 
     <section class="preview">
-      <div class="preview-bar">
-        <h2>SPL</h2>
-        <span id="line-count" class="hint"></span>
-        <button type="button" id="btn-copy" class="primary">Copy</button>
-        <button type="button" id="btn-download">Download .spl</button>
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" class="tab" id="tab-spl" aria-controls="pane-spl" data-tab="spl">SPL <span id="line-count" class="hint"></span></button>
+        <button type="button" role="tab" class="tab" id="tab-flow" aria-controls="pane-flow" data-tab="flow">Flow result <span id="flow-count" class="hint"></span></button>
       </div>
-      <ul id="warnings" class="warnings"></ul>
-      <pre id="spl" tabindex="0"></pre>
+
+      <div class="pane" id="pane-spl" role="tabpanel" aria-labelledby="tab-spl">
+        <div class="preview-bar">
+          <span class="spacer"></span>
+          <button type="button" id="btn-copy" class="primary">Copy</button>
+          <button type="button" id="btn-download">Download .spl</button>
+        </div>
+        <ul id="warnings" class="warnings"></ul>
+        <pre id="spl" tabindex="0"></pre>
+      </div>
+
+      <div class="pane" id="pane-flow" role="tabpanel" aria-labelledby="tab-flow" hidden>
+        <div class="flow-bar">
+          <label class="btn primary-btn">Load log files<input type="file" id="log-files" multiple accept=".log,.txt,text/plain" hidden></label>
+          <button type="button" id="btn-mock">Load mock logs</button>
+          <label class="check"><input type="checkbox" id="use-terms"> Only sessions in Search terms</label>
+          <select id="session-filter" aria-label="Session"></select>
+          <span class="spacer"></span>
+          <button type="button" id="btn-wide" aria-pressed="false" title="Hide the settings while reading the result">Full width</button>
+          <button type="button" id="btn-copy-flow" disabled>Copy table</button>
+          <button type="button" id="btn-csv" disabled>Download CSV</button>
+        </div>
+        <p class="note" id="flow-status">Load the raw log files (or a Splunk EventTime/PopulatedLog export) to see the flow this query produces. Files are read in this browser only and are never uploaded. The result updates as you edit the settings on the left.</p>
+        <div id="flow-summary" class="summary"></div>
+        <div class="table-wrap"><table id="flow-table"></table></div>
+      </div>
     </section>
   </main>
-
-  <section class="flow" id="flow">
-    <div class="flow-bar">
-      <h2>Flow result</h2>
-      <label class="btn primary-btn">Load log files<input type="file" id="log-files" multiple accept=".log,.txt,text/plain" hidden></label>
-      <button type="button" id="btn-mock">Load mock logs</button>
-      <label class="check"><input type="checkbox" id="use-terms"> Only sessions in Search terms</label>
-      <select id="session-filter" aria-label="Session"></select>
-      <span class="spacer"></span>
-      <button type="button" id="btn-copy-flow" disabled>Copy table</button>
-      <button type="button" id="btn-csv" disabled>Download CSV</button>
-    </div>
-    <p class="note" id="flow-status">Load the raw log files (or a Splunk EventTime/PopulatedLog export) to see the flow the query produces. Files are read in this browser only and are never uploaded. The table updates as you edit the settings above.</p>
-    <div id="flow-summary" class="summary"></div>
-    <div class="table-wrap"><table id="flow-table"></table></div>
-  </section>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 

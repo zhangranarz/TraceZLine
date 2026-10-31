@@ -306,6 +306,7 @@
       flowRows = window.TraceFlow.run(state, logs, useTerms ? state.terms.filter((t) => t.trim()) : []);
     } catch (err) {
       flowRows = [];
+      document.getElementById('flow-count').textContent = 'error';
       status.textContent = 'Could not run the query logic: ' + err.message;
       renderFlow([]);
       return;
@@ -314,6 +315,7 @@
     const noSid = flowRows.filter((r) => r.sessionId == null).length;
     const anyNote = logs.some((l) => l.anySource)
       ? ' File names that match no source are treated as every source.' : '';
+    document.getElementById('flow-count').textContent = `${flowRows.length} rows`;
     status.textContent = `${logs.map((l) => l.name).join(', ')}: ${flowRows.length} events, ${sessions.length} sessions`
       + (noSid ? `, ${noSid} without a sessionId` : '') + '.' + anyNote
       + (!flowRows.length && useTerms ? ' Nothing matches the Search terms; untick "Only sessions in Search terms" to see everything.' : '');
@@ -343,8 +345,9 @@
   }
 
   // Rows are grouped by session (first appearance) and keep time order inside a session.
+  // Each group has a heading row, so the sessionId column is left out on screen (not in Copy/CSV).
   function renderFlow(rows) {
-    const cols = flowColumns();
+    const cols = flowColumns().filter((c) => c !== 'sessionId');
     const table = document.getElementById('flow-table');
     const order = [...new Set(rows.map((r) => r.sessionId ?? ''))];
     const grouped = order.flatMap((sid) => rows.filter((r) => (r.sessionId ?? '') === sid));
@@ -353,7 +356,7 @@
     let prev;
     for (const r of grouped) {
       const sid = r.sessionId ?? '';
-      if (sid !== prev && order.length > 1) {
+      if (sid !== prev) {
         body.append(el('tr', { class: 'group' }, [el('td', { colSpan: cols.length }, [sid || '(no sessionId)'])]));
       }
       prev = sid;
@@ -409,6 +412,12 @@
     }
   });
 
+  document.getElementById('btn-wide').addEventListener('click', (e) => {
+    const wide = document.body.classList.toggle('flow-wide');
+    e.target.setAttribute('aria-pressed', String(wide));
+    e.target.textContent = wide ? 'Show settings' : 'Full width';
+  });
+
   document.getElementById('use-terms').addEventListener('change', refreshFlow);
   document.getElementById('session-filter').addEventListener('change', refreshFlow);
 
@@ -425,7 +434,39 @@
     download('tracezline-flow.csv', '﻿' + toDelimited(selectedRows(), ','), 'text/csv');
   });
 
+  // ---------- tabs ----------
+
+  const TAB_KEY = 'tracezline.tab';
+
+  function showTab(name) {
+    document.querySelectorAll('.tab').forEach((t) => {
+      const on = t.dataset.tab === name;
+      t.setAttribute('aria-selected', String(on));
+      t.tabIndex = on ? 0 : -1;
+      document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+    });
+    try { localStorage.setItem(TAB_KEY, name); } catch (e) { /* ignore */ }
+  }
+
+  document.querySelectorAll('.tab').forEach((t) => {
+    t.addEventListener('click', () => showTab(t.dataset.tab));
+    t.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      const tabs = [...document.querySelectorAll('.tab')];
+      const next = tabs[(tabs.indexOf(t) + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+      showTab(next.dataset.tab);
+      next.focus();
+    });
+  });
+
+  let savedTab = 'spl';
+  try { savedTab = localStorage.getItem(TAB_KEY) || 'spl'; } catch (e) { /* ignore */ }
+  showTab(savedTab === 'flow' ? 'flow' : 'spl');
+
   renderAll();
-  // index.html#mock opens with the mock logs loaded (demo link).
-  if (location.hash === '#mock') document.getElementById('btn-mock').click();
+  // index.html#mock opens the Flow result tab with the mock logs loaded (demo link).
+  if (location.hash === '#mock') {
+    showTab('flow');
+    document.getElementById('btn-mock').click();
+  }
 })();
