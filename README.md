@@ -17,7 +17,7 @@ The default settings reproduce the base query exactly (`tests/base.spl`, checked
 
 ## Flow tab (available now)
 
-In the **Flow** tab (next to **Splunk**), **Load Test** runs the generated query's logic over raw log
+In the **Flow** tab (next to **Splunk**), **Local Test** runs the generated query's logic over raw log
 files (or a Splunk EventTime/PopulatedLog export) in the browser and shows the flow
 table: per-session summary (steps, total time, slowest hop, requests with no
 response), then the rows grouped by session. **Copy table** pastes into Excel;

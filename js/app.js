@@ -672,7 +672,7 @@
     const files = [...e.target.files];
     e.target.value = '';
     if (!files.length) return;
-    logDebug('info', `Load Test: ${files.map((f) => `${f.name} (${f.size.toLocaleString()} bytes)`).join(', ')}`);
+    logDebug('info', `Local Test: ${files.map((f) => `${f.name} (${f.size.toLocaleString()} bytes)`).join(', ')}`);
     const read = [];
     for (const f of files) {
       try {
