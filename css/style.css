@@ -148,6 +148,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
   color: var(--code-fg);
   font: 12.5px/1.5 var(--mono);
   white-space: pre;
+  tab-size: 4;
 }
 @media (max-width: 1000px) {
   .preview { position: static; max-height: none; }
