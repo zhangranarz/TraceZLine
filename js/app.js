@@ -22,7 +22,7 @@
       fields: [
         { key: 'name', label: 'Name', placeholder: 'OPI', size: 's' },
         { key: 'layer', label: 'Layer #', type: 'number', size: 'xs' },
-        { key: 'indent', label: 'Indent', placeholder: '>> ', size: 'xs' },
+        { key: 'indent', label: 'Indent', placeholder: '(none)', size: 'xs' },
         { key: 'match', label: 'Condition', placeholder: 'match(_raw,"OPIAppLog")', size: 'l' },
       ],
       blank: () => ({ name: '', layer: 3, indent: '', match: '' }),
@@ -188,6 +188,7 @@
     const warnings = validate(state);
     document.getElementById('warnings').replaceChildren(...warnings.map((w) => el('li', {}, [w])));
     save();
+    refreshFlow();
   }
 
   // ---------- actions ----------
@@ -281,5 +282,150 @@
     toast('Reset to base query');
   });
 
+  // ---------- flow result ----------
+
+  // Loaded log files stay in memory only: they may hold real data, so they are never stored.
+  let logs = [];
+  let flowRows = [];
+  const SLOW_MS = 1000;
+
+  function flowColumns() {
+    return state.columns.map((c) => c.trim()).filter(Boolean);
+  }
+
+  function selectedRows() {
+    const sid = document.getElementById('session-filter').value;
+    return sid ? flowRows.filter((r) => r.sessionId === sid) : flowRows;
+  }
+
+  function refreshFlow() {
+    const status = document.getElementById('flow-status');
+    if (!logs.length) return;
+    const useTerms = document.getElementById('use-terms').checked;
+    try {
+      flowRows = window.TraceFlow.run(state, logs, useTerms ? state.terms.filter((t) => t.trim()) : []);
+    } catch (err) {
+      flowRows = [];
+      status.textContent = 'Could not run the query logic: ' + err.message;
+      renderFlow([]);
+      return;
+    }
+    const sessions = window.TraceFlow.summarize(flowRows);
+    const noSid = flowRows.filter((r) => r.sessionId == null).length;
+    const anyNote = logs.some((l) => l.anySource)
+      ? ' File names that match no source are treated as every source.' : '';
+    status.textContent = `${logs.map((l) => l.name).join(', ')}: ${flowRows.length} events, ${sessions.length} sessions`
+      + (noSid ? `, ${noSid} without a sessionId` : '') + '.' + anyNote
+      + (!flowRows.length && useTerms ? ' Nothing matches the Search terms; untick "Only sessions in Search terms" to see everything.' : '');
+
+    const select = document.getElementById('session-filter');
+    const keep = select.value;
+    select.replaceChildren(
+      el('option', { value: '' }, [`All sessions (${sessions.length})`]),
+      ...sessions.map((s) => el('option', { value: s.sessionId }, [`${s.sessionId} (${s.steps})`])));
+    select.value = sessions.some((s) => s.sessionId === keep) ? keep : '';
+    renderSummary(sessions);
+    renderFlow(selectedRows());
+  }
+
+  function renderSummary(sessions) {
+    const sid = document.getElementById('session-filter').value;
+    const cards = sessions.filter((s) => !sid || s.sessionId === sid).map((s) => {
+      const lines = [
+        el('div', { class: 'sum-id' }, [s.sessionId]),
+        el('div', {}, [`${s.steps} steps · ${s.start} · ${(s.durationMs / 1000).toFixed(3)} s total`]),
+      ];
+      if (s.slowest) lines.push(el('div', { class: s.slowest.ms >= SLOW_MS ? 'slow' : '' }, [`Slowest: ${s.slowest.flow} ${s.slowest.ms} ms`]));
+      s.noResponse.forEach((f) => lines.push(el('div', { class: 'missing' }, [`No response: ${f}`])));
+      return el('div', { class: 'sum-card' }, lines);
+    });
+    document.getElementById('flow-summary').replaceChildren(...cards);
+  }
+
+  // Rows are grouped by session (first appearance) and keep time order inside a session.
+  function renderFlow(rows) {
+    const cols = flowColumns();
+    const table = document.getElementById('flow-table');
+    const order = [...new Set(rows.map((r) => r.sessionId ?? ''))];
+    const grouped = order.flatMap((sid) => rows.filter((r) => (r.sessionId ?? '') === sid));
+    const head = el('thead', {}, [el('tr', {}, cols.map((c) => el('th', { class: 'col-' + c }, [c])))]);
+    const body = el('tbody');
+    let prev;
+    for (const r of grouped) {
+      const sid = r.sessionId ?? '';
+      if (sid !== prev && order.length > 1) {
+        body.append(el('tr', { class: 'group' }, [el('td', { colSpan: cols.length }, [sid || '(no sessionId)'])]));
+      }
+      prev = sid;
+      const tr = el('tr', { class: [r.Direction === 'Request' ? 'req' : 'res', 'layer-' + (r.LayerName || 'none')].join(' ') });
+      for (const c of cols) {
+        const v = r[c];
+        const td = el('td', { class: 'col-' + c });
+        (Array.isArray(v) ? v : [v]).forEach((x, i) => td.append(el('div', { class: i ? 'sub' : '' }, [x == null ? '' : String(x)])));
+        if (c === 'ElapsedMs' && v >= SLOW_MS) td.classList.add('slow');
+        tr.append(td);
+      }
+      body.append(tr);
+    }
+    table.replaceChildren(head, body);
+    document.getElementById('btn-copy-flow').disabled = !rows.length;
+    document.getElementById('btn-csv').disabled = !rows.length;
+  }
+
+  // Multivalue cells become one cell with line breaks, quoted for Excel.
+  function toDelimited(rows, sep) {
+    const cols = flowColumns();
+    const cell = (v) => {
+      const s = (Array.isArray(v) ? v.join('\n') : v == null ? '' : String(v));
+      return /[",\n\t]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    return [cols.join(sep), ...rows.map((r) => cols.map((c) => cell(r[c])).join(sep))].join('\r\n') + '\r\n';
+  }
+
+  function setLogs(files) {
+    logs = files.map((f) => ({ ...f, anySource: !window.TraceFlow.matchesAnySource(state, f.name) }));
+    refreshFlow();
+  }
+
+  document.getElementById('log-files').addEventListener('change', async (e) => {
+    const files = [...e.target.files];
+    e.target.value = '';
+    if (!files.length) return;
+    setLogs(await Promise.all(files.map(async (f) => ({ name: f.name, text: await f.text() }))));
+  });
+
+  document.getElementById('btn-mock').addEventListener('click', async () => {
+    try {
+      const names = ['spl-banking-mock.log', 'spl-ms-mock.log'];
+      const texts = await Promise.all(names.map(async (n) => {
+        const res = await fetch('mock/' + n);
+        if (!res.ok) throw new Error(`${n}: HTTP ${res.status}`);
+        return res.text();
+      }));
+      document.getElementById('use-terms').checked = false;
+      setLogs(names.map((name, i) => ({ name, text: texts[i] })));
+    } catch (err) {
+      toast('Could not load mock logs: ' + err.message);
+    }
+  });
+
+  document.getElementById('use-terms').addEventListener('change', refreshFlow);
+  document.getElementById('session-filter').addEventListener('change', refreshFlow);
+
+  document.getElementById('btn-copy-flow').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(toDelimited(selectedRows(), '\t'));
+      toast('Table copied: paste into Excel');
+    } catch (e) {
+      toast('Clipboard blocked: use Download CSV');
+    }
+  });
+
+  document.getElementById('btn-csv').addEventListener('click', () => {
+    download('tracezline-flow.csv', '﻿' + toDelimited(selectedRows(), ','), 'text/csv');
+  });
+
   renderAll();
+  // index.html#mock opens with the mock logs loaded (demo link).
+  if (location.hash === '#mock') document.getElementById('btn-mock').click();
 })();

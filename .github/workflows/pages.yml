@@ -31,6 +31,7 @@ jobs:
         run: |
           mkdir _site
           cp -r index.html css js _site/
+          mkdir _site/mock && cp mock/*.log _site/mock/
       - uses: actions/upload-pages-artifact@v3
       - id: deployment
         uses: actions/deploy-pages@v4

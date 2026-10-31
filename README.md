@@ -15,6 +15,16 @@ Rebuilds the base flow query from editable values while keeping its structure fi
 
 The default settings reproduce the base query exactly (`tests/base.spl`, checked by `npm test`).
 
+## Flow result (available now)
+
+Below the generator, **Load log files** runs the generated query's logic over raw log
+files (or a Splunk EventTime/PopulatedLog export) in the browser and shows the flow
+table: per-session summary (steps, total time, slowest hop, requests with no
+response), then the rows grouped by session. **Copy table** pastes into Excel;
+**Download CSV** saves it. Files never leave the browser. `index.html#mock` opens
+with the mock logs loaded. The same logic runs from the command line:
+`node tools/simulate.js --all mock/*.log`.
+
 ## Planned
 
 - Import of the Splunk result (Excel/CSV) and the raw request/response log
