@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert');
-const { DEFAULT_RULES, ruleRegex, maskText, leftovers, maskedName, last4 } = require('../js/mask.js');
+const { DEFAULT_RULES, ruleRegex, autoMask, maskText, leftovers, maskedName, last4 } = require('../js/mask.js');
 
 const rule = (pre, post, mode, mask) => ({ on: true, name: 'r', pre, post, mode, mask });
 
@@ -57,7 +57,8 @@ test('default rules mask the sample formats (JSON, headers, XML)', async () => {
   for (const secret of ['abc123', '458169', 'jdoe', 'DEV-12345', '12345678', '12101984', 'j.doe@example.com', '203.0.113.41', '0f1e2d3c-4b5a-4968-8776-a5b4c3d2e1f0']) {
     assert.ok(!r.text.includes(secret), `still contains ${secret}`);
   }
-  assert.match(r.text, /<AcctId>XXXXXXXXX7890<\/AcctId>/);
+  assert.match(r.text, /<AcctId>\*{13}<\/AcctId>/);
+  assert.match(r.text, /<UserId><<MASK_USERID>><\/UserId>/);
   assert.match(r.text, /"mobileNumber":"\+XXXXXXX5678"/);
   assert.deepStrictEqual(leftovers(r.text, r.fakes), []);
 });
@@ -84,4 +85,27 @@ test('split headers, reference numbers and epoch times', async () => {
   assert.ok(r.text.includes('StartTime:1790000000123'), 'epoch time kept');
   assert.deepStrictEqual(leftovers('{"requestTimeInGMT":"20261026091055"} 20261399999999'), [{ kind: 'long number', line: 1, value: '20261399999999' }]);
   assert.deepStrictEqual(leftovers(r.text, r.fakes), []);
+});
+
+test('rule types: exact text, JSON key, XML tag, with the automatic <<MASK_NAME>>', async () => {
+  const t = (type, pre, mode, mask = '') => ({ on: true, name: 'r', type, pre, post: '', mode, mask });
+  const rules = [
+    t('text', 'ABC Company', 'replace', '<<MASKED_COMPANY_NAME>>'),
+    t('json', 'userId', 'replace'),
+    t('xml', '<UserId>', 'replace'),
+    t('json', 'accountNumber', 'digits'),
+    t('xml', 'AcctId', 'digits'),
+  ];
+  const text = 'ABC Company and ABC Companys\n'
+    + '{"userId":"jdoe","parentUserId":"keep","accountNumber": "2020-1234-5678","x":{"accountNumber":123456}}\n'
+    + '{\\"userId\\":\\"esc\\"}\n'
+    + '<UserId>jdoe</UserId> <ns:AcctId type="x">2021234567890</ns:AcctId> <AcctId>12<<ACCOUNT_NUM1>></AcctId> <UserId/>';
+  const r = await maskText(text, rules);
+  assert.strictEqual(r.text, '<<MASKED_COMPANY_NAME>> and ABC Companys\n'
+    + '{"userId":"<<MASK_USERID>>","parentUserId":"keep","accountNumber": "****-****-****","x":{"accountNumber":******}}\n'
+    + '{\\"userId\\":\\"<<MASK_USERID>>\\"}\n'
+    + '<UserId><<MASK_USERID>></UserId> <ns:AcctId type="x">*************</ns:AcctId> <AcctId>**<<ACCOUNT_NUM1>></AcctId> <UserId/>');
+  assert.deepStrictEqual(r.counts, [1, 2, 1, 2, 2]);
+  assert.strictEqual(autoMask(t('json', '"clientIpAddress"', 'replace')), '<<MASK_CLIENTIPADDRESS>>');
+  assert.strictEqual(autoMask(t('prepost', 'UId:', 'replace')), '***');
 });

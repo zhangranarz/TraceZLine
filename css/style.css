@@ -408,14 +408,14 @@ details[open] > summary.icon-after::after { content: " \25BE"; }
 .mask-rules-wrap { max-height: 34vh; flex: none; min-height: 0; }
 .mask-table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
 .mask-table th { position: sticky; top: 0; z-index: 1; background: var(--panel); text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border); font-weight: 600; }
-.mask-table td { padding: 3px 6px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.mask-table td { padding: 3px 4px; border-bottom: 1px solid var(--border); vertical-align: middle; }
 .mask-table td.num { text-align: right; font-family: var(--mono); }
 .mask-table tr.off td { opacity: .45; }
 .mask-table input[type=text] { font: 12px var(--mono); padding: 3px 5px; }
-.mask-table input.w-name { width: 150px; font-family: inherit; }
-.mask-table input.w-pre { width: 210px; }
-.mask-table input.w-post { width: 70px; }
-.mask-table input.w-mask { width: 170px; }
+.mask-table input.w-name { width: 130px; font-family: inherit; }
+.mask-table input.w-pre { width: 160px; }
+.mask-table input.w-post { width: 50px; }
+.mask-table input.w-mask { width: 165px; }
 .mask-table select { width: auto; font-family: inherit; padding: 3px 5px; }
 .mask-table .row-btns { margin: 0; white-space: nowrap; }
 .mask-preview-bar { display: flex; gap: 8px; align-items: center; margin: 6px 0; }

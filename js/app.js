@@ -1090,8 +1090,11 @@
   // ---------- mask ----------
 
   // Rules and key are kept in this browser; the files themselves stay in memory only.
-  const MASK_KEY = 'tracezline.mask.v1';
-  const MASK_MODES = [['replace', 'Replace'], ['last4', 'Keep last 4'], ['consistent', 'Consistent']];
+  // v2 added rule types; v1 rules are dropped (their key is kept).
+  const MASK_KEY = 'tracezline.mask.v2';
+  const MASK_TYPES = [['json', 'JSON key'], ['xml', 'XML tag'], ['text', 'Exact text'], ['prepost', 'Pre/Post']];
+  const MASK_MODES = [['replace', 'Replace'], ['digits', 'Digits → *'], ['last4', 'Keep last 4'], ['consistent', 'Consistent']];
+  const MASK_FIND_HINT = { json: 'userId', xml: 'UserId', text: 'ABC Company', prepost: '"userId":"' };
   const MASK_PREVIEW_LINES = 3000;
   const randomKey = () => {
     const b = new Uint8Array(16);
@@ -1103,7 +1106,9 @@
       const saved = JSON.parse(localStorage.getItem(MASK_KEY) || 'null');
       if (saved && Array.isArray(saved.rules) && typeof saved.key === 'string') return { ...saved, files: [], results: [] };
     } catch (e) { /* storage blocked or corrupt: defaults */ }
-    return { rules: clone(window.TraceMask.DEFAULT_RULES), key: randomKey(), files: [], results: [] };
+    let key = randomKey();
+    try { key = JSON.parse(localStorage.getItem('tracezline.mask.v1') || 'null')?.key || key; } catch (e) { /* ignore */ }
+    return { rules: clone(window.TraceMask.DEFAULT_RULES), key, files: [], results: [] };
   })();
   const saveMask = () => {
     try { localStorage.setItem(MASK_KEY, JSON.stringify({ rules: mask.rules, key: mask.key })); } catch (e) { /* ignore */ }
@@ -1117,20 +1122,30 @@
       input.addEventListener('input', () => { rule[key] = input.value; onMaskRulesChanged(); });
       return input;
     };
-    const head = el('thead', {}, [el('tr', {}, ['On', 'Name', 'Pre', 'Post', 'Mode', 'Mask', 'Found', ''].map((h) => el('th', {}, [h])))]);
+    const select = (rule, key, options) => {
+      const s = el('select', {}, options.map(([v, label]) => el('option', { value: v, selected: v === rule[key] }, [label])));
+      s.addEventListener('change', () => { rule[key] = s.value; renderMaskRules(); onMaskRulesChanged(); });
+      return s;
+    };
+    const dash = () => el('span', { class: 'hint' }, ['—']);
+    const head = el('thead', {}, [el('tr', {}, ['On', 'Name', 'Type', 'Find / Pre', 'Post', 'Mode', 'Mask', 'Found', ''].map((h) => el('th', {}, [h])))]);
     const body = el('tbody', {}, mask.rules.map((rule, i) => {
+      const type = rule.type || 'prepost';
       const on = el('input', { type: 'checkbox', checked: rule.on });
       on.addEventListener('change', () => { rule.on = on.checked; onMaskRulesChanged(); });
-      const mode = el('select', {}, MASK_MODES.map(([v, label]) => el('option', { value: v, selected: v === rule.mode }, [label])));
-      mode.addEventListener('change', () => { rule.mode = mode.value; renderMaskRules(); onMaskRulesChanged(); });
       const move = (d) => { const j = i + d; [mask.rules[i], mask.rules[j]] = [mask.rules[j], mask.rules[i]]; renderMaskRules(); onMaskRulesChanged(); };
+      // An empty Mask shows what will be used, e.g. <<MASK_USERID>> for the JSON key userId.
+      const maskInput = rule.mode === 'replace' ? field(rule, 'mask', { class: 'w-mask', placeholder: window.TraceMask.autoMask(rule) }) : null;
+      const find = field(rule, 'pre', { class: 'w-pre', placeholder: MASK_FIND_HINT[type] });
+      find.addEventListener('input', () => { if (maskInput) maskInput.placeholder = window.TraceMask.autoMask(rule); });
       return el('tr', { class: rule.on ? '' : 'off' }, [
         el('td', {}, [on]),
         el('td', {}, [field(rule, 'name', { class: 'w-name' })]),
-        el('td', {}, [field(rule, 'pre', { class: 'w-pre', placeholder: '"userId":"' })]),
-        el('td', {}, [field(rule, 'post', { class: 'w-post', placeholder: '"' })]),
-        el('td', {}, [mode]),
-        el('td', {}, [rule.mode === 'replace' ? field(rule, 'mask', { class: 'w-mask', placeholder: '***' }) : el('span', { class: 'hint' }, ['—'])]),
+        el('td', {}, [select(rule, 'type', MASK_TYPES)]),
+        el('td', {}, [find]),
+        el('td', {}, [type === 'prepost' ? field(rule, 'post', { class: 'w-post', placeholder: '"' }) : dash()]),
+        el('td', {}, [select(rule, 'mode', MASK_MODES)]),
+        el('td', {}, [maskInput || dash()]),
         el('td', { class: 'num' }, [mask.results.length ? String(counts[i]) : '']),
         el('td', { class: 'row-btns' }, [
           iconBtn('↑', 'Move up', i === 0, () => move(-1)),
@@ -1264,7 +1279,7 @@
   });
 
   document.getElementById('mask-add').addEventListener('click', () => {
-    mask.rules.push({ on: true, name: 'New rule', pre: '', post: '"', mode: 'replace', mask: '***' });
+    mask.rules.push({ on: true, name: 'New rule', type: 'json', pre: '', post: '', mode: 'replace', mask: '' });
     renderMaskRules();
     saveMask();
     const rows = document.querySelectorAll('#mask-rules tbody tr');

@@ -1,10 +1,18 @@
-// Masks sensitive values in log/text files with Pre/Post rules: the value between a rule's
-// Pre text and Post text is replaced. Runs in the browser (and Node for tests); nothing is
-// sent anywhere.
+// Masks sensitive values in log/text files with rules. Runs in the browser (and Node for
+// tests); nothing is sent anywhere.
 //
-// Modes:
-//   replace   the value becomes the rule's Mask text (e.g. <<USER_ID>>)
+// Rule types (what is found):
+//   prepost   the value between the rule's Pre text and Post text
+//   text      the exact text in Pre (e.g. ABC Company), case-sensitive, whole words
+//   json      the value of the JSON key in Pre (e.g. userId): "userId":"v", "userId": 123,
+//             and escaped JSON (\"userId\":\"v\")
+//   xml       the content of the XML tag in Pre (e.g. UserId): <UserId>v</UserId>, also with
+//             attributes or a namespace prefix
+// Modes (what it becomes):
+//   replace   the rule's Mask text; when empty, <<MASK_NAME>> for a JSON key or XML tag
+//             (userId -> <<MASK_USERID>>), else ***
 //   last4     every character but the last 4 letters/digits becomes X (length kept)
+//   digits    every digit becomes *
 //   consistent the same value always becomes the same fake value of the same shape
 //              (digits stay digits, hex stays hex, separators kept), from an HMAC with a
 //              local secret key, so a masked session ID still links the lines of a session.
@@ -14,67 +22,94 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const r = (name, pre, post, mode, mask = '') => ({ on: true, name, pre, post, mode, mask });
+  const rule = (type) => (name, pre, mode, mask = '') => ({ on: true, name, type, pre, post: '', mode, mask });
+  const j = rule('json');
+  const x = rule('xml');
+  const p = (name, pre, post, mode, mask = '') => ({ on: true, name, type: 'prepost', pre, post, mode, mask });
   const DEFAULT_RULES = [
-    r('Password', '"password":"', '"', 'replace', '***'),
-    r('Encrypted password', '"encryptedPassword":"', '"', 'replace', '<<ENCRYPTED_PASSWORD>>'),
-    r('OTP', '"twoFAotp":"', '"', 'replace', '***'),
-    r('Token data', '"tokenData":"', '"', 'replace', '***'),
-    r('Soft token serial', '"softTokenSerialNumber":"', '"', 'last4'),
-    r('User ID', '"userId":"', '"', 'replace', '<<USER_ID>>'),
-    r('User identity', '"userIdentity":"', '"', 'replace', '<<USER_ID>>'),
-    r('Requester user', '"requesterUserIdentity":"', '"', 'replace', '<<USER_ID>>'),
-    r('Customer name', '"customerName":"', '"', 'replace', '<<CUST_NAME>>'),
-    r('First name', '"firstName":"', '"', 'replace', '<<CUST_NAME>>'),
-    r('Birth date', '"birthDate":"', '"', 'replace', '<<DOB>>'),
-    r('Mobile number', '"mobileNumber":"', '"', 'last4'),
-    r('Email', '"email":"', '"', 'replace', '<<EMAIL>>'),
-    r('Legal identity', '"legalIdentity":"', '"', 'replace', '<<LEGAL_ID>>'),
-    r('CIF number', '"CIFNumber":"', '"', 'replace', '<<CIF_NUM>>'),
-    r('Account number', '"accountNumber":"', '"', 'last4'),
-    r('Card number', '"cardNumber":"', '"', 'last4'),
-    r('Device ID', '"deviceId":"', '"', 'consistent'),
-    r('Push token', '"pushToken":"', '"', 'replace', '<<PUSH_TOKEN>>'),
-    r('Client IP', '"clientIpAddress":"', '"', 'replace', '<<IP>>'),
-    r('Session ID', '"sessionId":"', '"', 'consistent'),
-    r('Session identity', '"sessionIdentity":"', '"', 'consistent'),
-    r('Parent session ID', '"parentSessionId":"', '"', 'consistent'),
-    r('SSO session identity', '"ssoSessionIdentity":"', '"', 'consistent'),
-    r('Session (eComm header)', '[SPLMessage][', ']', 'consistent'),
-    r('Session (Enterprise header)', '[SPLHostMessage][', ']', 'consistent'),
-    r('Session (WS header)', 'WLS:', ' |', 'consistent'),
-    r('User (WS header)', 'UId:', ' |', 'replace', '<<USER_ID>>'),
-    r('CIF (WS header)', 'CIF:', ' |', 'replace', '<<CIF_NUM>>'),
-    r('Journal ID (WS header)', 'JId:', ' |', 'consistent'),
-    r('WS request ID (WS header)', 'WSReqId:', ' |', 'consistent'),
-    r('Reference number', '"referenceNumber":"', '"', 'consistent'),
-    r('Transaction reference', '"transactionReferenceNumber":"', '"', 'consistent'),
-    r('Requester reference', '"requesterReferenceNumber":"', '"', 'consistent'),
-    r('Journal identity', '"journalIdentity":"', '"', 'consistent'),
-    r('API token', '"apiToken":"', '"', 'replace', '<<API_TOKEN>>'),
-    r('Transaction reference (XML)', '<TxnRef>', '</TxnRef>', 'consistent'),
-    r('Service request ID (XML)', '<SvcRqId>', '</SvcRqId>', 'consistent'),
-    r('User ID (XML)', '<UserId>', '</UserId>', 'replace', '<<USER_ID>>'),
-    r('CIF (XML)', '<CIFNo>', '</CIFNo>', 'replace', '<<CIF_NUM>>'),
-    r('Customer name (XML)', '<CustName1>', '</CustName1>', 'replace', '<<CUST_NAME>>'),
-    r('Account (XML)', '<AcctId>', '</AcctId>', 'last4'),
-    r('Birth date (XML)', '<DOB>', '</DOB>', 'replace', '<<DOB>>'),
+    { ...rule('text')('Company name (example)', 'ABC Company', 'replace', '<<MASKED_COMPANY_NAME>>'), on: false },
+    j('Password', 'password', 'replace'),
+    j('Encrypted password', 'encryptedPassword', 'replace'),
+    j('OTP', 'twoFAotp', 'replace'),
+    j('Token data', 'tokenData', 'replace'),
+    j('Soft token serial', 'softTokenSerialNumber', 'last4'),
+    j('User ID', 'userId', 'replace'),
+    j('User identity', 'userIdentity', 'replace'),
+    j('Requester user', 'requesterUserIdentity', 'replace'),
+    j('Customer name', 'customerName', 'replace'),
+    j('First name', 'firstName', 'replace'),
+    j('Birth date', 'birthDate', 'replace'),
+    j('Mobile number', 'mobileNumber', 'last4'),
+    j('Email', 'email', 'replace'),
+    j('Legal identity', 'legalIdentity', 'replace'),
+    j('CIF number', 'CIFNumber', 'replace'),
+    j('Account number', 'accountNumber', 'digits'),
+    j('Card number', 'cardNumber', 'last4'),
+    j('Device ID', 'deviceId', 'consistent'),
+    j('Push token', 'pushToken', 'replace'),
+    j('Client IP', 'clientIpAddress', 'replace'),
+    j('Session ID', 'sessionId', 'consistent'),
+    j('Session identity', 'sessionIdentity', 'consistent'),
+    j('Parent session ID', 'parentSessionId', 'consistent'),
+    j('SSO session identity', 'ssoSessionIdentity', 'consistent'),
+    j('Transaction reference', 'transactionReferenceNumber', 'consistent'),
+    j('Requester reference', 'requesterReferenceNumber', 'consistent'),
+    j('Reference number', 'referenceNumber', 'consistent'),
+    j('Journal identity', 'journalIdentity', 'consistent'),
+    j('API token', 'apiToken', 'replace'),
+    p('Session (eComm header)', '[SPLMessage][', ']', 'consistent'),
+    p('Session (Enterprise header)', '[SPLHostMessage][', ']', 'consistent'),
+    p('Session (WS header)', 'WLS:', ' |', 'consistent'),
+    p('User (WS header)', 'UId:', ' |', 'replace', '<<MASK_USERID>>'),
+    p('CIF (WS header)', 'CIF:', ' |', 'replace', '<<MASK_CIFNUMBER>>'),
+    p('Journal ID (WS header)', 'JId:', ' |', 'consistent'),
+    p('WS request ID (WS header)', 'WSReqId:', ' |', 'consistent'),
+    x('Transaction reference (XML)', 'TxnRef', 'consistent'),
+    x('Service request ID (XML)', 'SvcRqId', 'consistent'),
+    x('User ID (XML)', 'UserId', 'replace'),
+    x('CIF (XML)', 'CIFNo', 'replace'),
+    x('Customer name (XML)', 'CustName1', 'replace'),
+    x('Account (XML)', 'AcctId', 'digits'),
+    x('Birth date (XML)', 'DOB', 'replace'),
   ];
 
   const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-  // Pre and Post are literal text; whitespace after ':', '=', ']' or '>' and runs of spaces are
-  // flexible, so "tokenData":"x" and "tokenData": "x" both match, as do [SPLHostMessage][id] and
-  // [SPLHostMessage] [id]. Case is ignored. The value is the shortest text up to Post on the
-  // same line; with an empty Post, the next run of non-spaces.
+  // A JSON key or XML tag as typed, without quotes or angle brackets: "userId" / <UserId> -> userId
+  const keyName = (rule) => (rule.pre || '').trim().replace(/^<\/?|\/?>$/g, '').replace(/^"|"$/g, '');
+
+  // Every regex has two groups: (text kept before the value)(the value).
+  // Pre/Post: Pre and Post are literal text; whitespace after ':', '=', ']' or '>' and runs of
+  // spaces are flexible, so "tokenData":"x" and "tokenData": "x" both match, as do
+  // [SPLHostMessage][id] and [SPLHostMessage] [id]. Case is ignored. The value is the shortest
+  // text up to Post on the same line; with an empty Post, the next run of non-spaces.
   function ruleRegex(rule) {
+    const type = rule.type || 'prepost';
+    if (type === 'text') {
+      if (!rule.pre) return null;
+      const start = /^\w/.test(rule.pre) ? '(?<!\\w)' : '';
+      const end = /\w$/.test(rule.pre) ? '(?!\\w)' : '';
+      return new RegExp(`()${start}(${escapeRe(rule.pre)})${end}`, 'g');
+    }
+    if (type === 'json' || type === 'xml') {
+      const k = escapeRe(keyName(rule));
+      if (!k) return null;
+      // a string value (after an opening quote) or a number (no quote)
+      if (type === 'json') return new RegExp(String.raw`(\\?"${k}\\?"\s*:\s*\\?"?)((?<=")[^"\\\r\n]*(?=\\?")|(?<!")-?\d[\d.]*)`, 'gi');
+      return new RegExp(String.raw`(<(?:[\w.-]+:)?${k}(?:\s[^>]*)?(?<!/)>)([^\r\n]*?)(?=</(?:[\w.-]+:)?${k}\s*>)`, 'gi');
+    }
     const flex = (s) => escapeRe(s).replace(/\s+/g, '\\s*').replace(/([:=>]|\\\])(?!\\s\*)/g, '$1\\s*');
-    const pre = flex(rule.pre);
+    const pre = flex(rule.pre || '');
     if (!pre) return null;
     const value = rule.post ? '([^\\r\\n]*?)' : '(\\S+)';
     const post = rule.post ? `(?=${flex(rule.post)})` : '';
     return new RegExp(`(${pre})${value}${post}`, 'gi');
   }
+
+  // The Replace text when a rule's Mask is empty: <<MASK_USERID>> for the JSON key userId.
+  const autoMask = (rule) => ((rule.type === 'json' || rule.type === 'xml') && keyName(rule)
+    ? `<<MASK_${keyName(rule).toUpperCase().replace(/[^A-Z0-9_]/g, '_')}>>`
+    : '***');
 
   const isPlaceholder = (v) => /^<<[A-Za-z0-9_]+>>$/.test(v) || /^\*+$/.test(v);
 
@@ -136,7 +171,10 @@
       out = out.replace(re, (all, pre, v) => {
         if (!v || isPlaceholder(v) || /[\u0001\u0002]/.test(v)) return all;
         counts[i]++;
-        const masked = rule.mode === 'last4' ? last4(v) : rule.mode === 'consistent' ? fakes.get(v) : (rule.mask || '***');
+        const masked = rule.mode === 'last4' ? last4(v)
+          : rule.mode === 'digits' ? v.replace(/<<[A-Za-z0-9_]+>>|\d/g, (d) => (d.length > 1 ? d : '*')) // <<NAME1>> kept
+          : rule.mode === 'consistent' ? fakes.get(v)
+          : (rule.mask || autoMask(rule));
         return pre + '\u0001' + masked + '\u0002';
       });
     }
@@ -173,5 +211,5 @@
   // "app.log" -> "app.masked.log"
   const maskedName = (name) => (/\.[^./\\]+$/.test(name) ? name.replace(/(\.[^./\\]+)$/, '.masked$1') : name + '.masked');
 
-  return { DEFAULT_RULES, ruleRegex, maskText, leftovers, maskedName, last4 };
+  return { DEFAULT_RULES, ruleRegex, autoMask, maskText, leftovers, maskedName, last4 };
 });

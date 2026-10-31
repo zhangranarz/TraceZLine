@@ -213,7 +213,7 @@
           <span class="spacer"></span>
           <button type="button" class="wide-toggle" aria-pressed="false" title="Hide the settings and use the full page width">Expand</button>
         </div>
-        <p class="note" id="mask-status">Upload log or text files. Each rule masks the value between its Pre and Post text: Replace puts the Mask text in its place, Keep last 4 leaves only the last four characters, Consistent gives the same value the same fake value of the same shape (so masked session IDs still link up). Files never leave this browser.</p>
+        <p class="note" id="mask-status">Upload log or text files. Each rule finds a value by JSON key (userId), XML tag (UserId), exact text (ABC Company) or the text between Pre and Post. Replace puts the Mask text in its place (empty: &lt;&lt;MASK_USERID&gt;&gt; for a key or tag), Digits → * stars every digit, Keep last 4 leaves only the last four characters, Consistent gives the same value the same fake value of the same shape (so masked session IDs still link up). Files never leave this browser.</p>
 
         <details class="mask-rules" open>
           <summary>Rules <span class="hint" id="mask-rule-count"></span></summary>

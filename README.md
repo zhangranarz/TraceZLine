@@ -28,7 +28,7 @@ sequence diagrams, and the processing rules it observes. Nothing is uploaded.
 | **Load File** | Runs the query logic over your raw logs (**Local File**) or a Splunk `.xlsx`/`.csv` export (**Upload**) |
 | **Mock Test** | The same views over bundled fake logs |
 | **Compare** | Maps each line of a Splunk result to its raw log event by timestamp, with the JSON/XML payload as a Parameter / Value table and a data-quality report |
-| **Mask** | Masks sensitive values in log/text files with editable Pre/Post rules (replace, keep last 4, or consistent pseudonyms), flags what still looks sensitive, and downloads the masked files |
+| **Mask** | Masks sensitive values in log/text files by JSON key, XML tag, exact text or Pre/Post text (replace with `<<MASK_NAME>>` or your own text, digits to `*`, keep last 4, or consistent pseudonyms), flags what still looks sensitive, and downloads the masked files |
 
 Views in Load File and Mock Test: **Flow** (session summary and flow table), **PlantUML**,
 **Sequence** (SVG diagram), **Processing Rule** (routing, call map, call order, gaps,
@@ -96,7 +96,7 @@ npm run security-scan                        # pre-push scan (also run in CI)
 | `js/importer.js` | Excel (`.xlsx`) and CSV reader for Splunk flow exports |
 | `js/rules.js` | Processing-rule analysis and Markdown export |
 | `js/compare.js` | Timestamp mapping of a Splunk result to the raw logs, data-quality checks |
-| `js/mask.js` | Pre/Post masking rules and the leftover scan |
+| `js/mask.js` | Masking rules (JSON key, XML tag, exact text, Pre/Post) and the leftover scan |
 | `js/app.js` | Page wiring |
 | `mock/` | Fake logs, flow exports and expected output ([details](mock/README.md)) |
 | `tests/` | `node --test` suites |
