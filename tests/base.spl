@@ -53,4 +53,4 @@
 )
 | streamstats count as Step by sessionId
 | eval EventTime=strftime(_time,"%Y-%m-%d %H:%M:%S.%3N")
-| table Step EventTime sessionId Flow Params ElapsedMs
+| table Step EventTime sessionId ServiceInfo Params ElapsedMs
