@@ -318,8 +318,8 @@
       ? ' File names that match no source are treated as every source.' : '';
     document.getElementById('flow-count').textContent = `${flowRows.length} rows`;
     status.textContent = `${logs.map((l) => l.name).join(', ')}: ${flowRows.length} events, ${sessions.length} sessions`
-      + (noSid ? `, ${noSid} without a sessionId` : '') + '.' + anyNote
-      + (!flowRows.length && useTerms ? ' Nothing matches the Search terms; untick "Only sessions in Search terms" to see everything.' : '');
+      + (noSid ? `, ${noSid} without a sessionId` : '') + '.' + anyNote;
+    renderFlowProblem(useTerms);
 
     const select = document.getElementById('session-filter');
     const keep = select.value;
@@ -330,6 +330,45 @@
     renderSummary(sessions);
     renderFlow(selectedRows());
     renderDiagram(selectedRows());
+  }
+
+  // When nothing is shown, say why: unreadable files, or Search terms that match none
+  // of the sessions in the files (with one-click fixes).
+  function renderFlowProblem(useTerms) {
+    const box = document.getElementById('flow-problem');
+    box.replaceChildren();
+    box.hidden = true;
+    if (flowRows.length) return;
+    const show = (...nodes) => { box.append(...nodes); box.hidden = false; };
+
+    const parsed = logs.map((l) => ({ name: l.name, events: window.TraceFlow.parseEvents(l.name, l.text).length, first: l.text.split(/\r?\n/).find((x) => x.trim()) || '' }));
+    if (parsed.every((p) => !p.events)) {
+      show(el('p', {}, ['No log events found. Each event must start with a timestamp line like ',
+        el('code', {}, ['2026-10-26 09:10:34.535 [thread] INFO …']),
+        ' (or be a Splunk EventTime/PopulatedLog export). First line of ', el('b', {}, [parsed[0].name]), ':']),
+      el('pre', {}, [parsed[0].first.slice(0, 200)]));
+      return;
+    }
+    if (!useTerms) {
+      show(el('p', {}, [`${parsed.reduce((t, p) => t + p.events, 0)} events were read, but none matched the sources and layer rules on the left. Check Sources (file names are matched against source=) and Layers.`]));
+      return;
+    }
+    const all = window.TraceFlow.summarize(window.TraceFlow.run(state, logs, []));
+    if (!all.length) return;
+    const ids = all.map((s) => s.sessionId);
+    const showAll = el('button', { type: 'button' }, ['Show all sessions']);
+    showAll.addEventListener('click', () => { document.getElementById('use-terms').checked = false; refreshFlow(); });
+    const useIds = el('button', { type: 'button', class: 'primary' }, ['Use these IDs as Search terms']);
+    useIds.addEventListener('click', () => {
+      state.terms = ids;
+      document.getElementById('terms').value = ids.join('\n');
+      update();
+      toast('Search terms updated');
+    });
+    show(el('p', {}, [`No events match the Search terms (${state.terms.filter((t) => t.trim()).length}). The loaded files contain these sessions:`]),
+      el('ul', {}, ids.slice(0, 20).map((id) => el('li', {}, [el('code', {}, [id])]))),
+      ...(ids.length > 20 ? [el('p', {}, [`… and ${ids.length - 20} more.`])] : []),
+      el('div', { class: 'problem-actions' }, [showAll, useIds]));
   }
 
   // ---------- sequence diagram ----------

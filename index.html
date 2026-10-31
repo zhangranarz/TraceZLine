@@ -103,12 +103,13 @@
         <div class="flow-bar">
           <label class="btn primary-btn">Load log files<input type="file" id="log-files" multiple accept=".log,.txt,text/plain" hidden></label>
           <button type="button" id="btn-mock">Load mock logs</button>
-          <label class="check"><input type="checkbox" id="use-terms"> Only sessions in Search terms</label>
+          <label class="check"><input type="checkbox" id="use-terms" autocomplete="off"> Only sessions in Search terms</label>
           <select id="session-filter" aria-label="Session"></select>
           <span class="spacer"></span>
           <button type="button" id="btn-wide" aria-pressed="false" title="Hide the settings while reading the result">Full width</button>
         </div>
         <p class="note" id="flow-status">Load the raw log files (or a Splunk EventTime/PopulatedLog export) to see the flow this query produces. Files are read in this browser only and are never uploaded. The result updates as you edit the settings on the left.</p>
+        <div id="flow-problem" class="problem" role="alert" hidden></div>
         <div id="flow-summary" class="summary"></div>
 
         <div class="view-bar">
