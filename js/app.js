@@ -464,7 +464,7 @@
   showTab(savedTab === 'flow' ? 'flow' : 'spl');
 
   renderAll();
-  // index.html#mock opens the Flow result tab with the mock logs loaded (demo link).
+  // index.html#mock opens the Flow tab with the mock logs loaded (demo link).
   if (location.hash === '#mock') {
     showTab('flow');
     document.getElementById('btn-mock').click();
