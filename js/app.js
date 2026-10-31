@@ -294,7 +294,7 @@
   let mode = 'file';
   const ctx = { file: { logs: [], imported: null }, mock: { logs: [], imported: null } };
   const IDLE_STATUS = {
-    file: 'Local Test loads raw log files (or a Splunk EventTime/PopulatedLog export) and runs this query\'s logic on them; Upload in the Flow view loads the flow table exported from Splunk. Files are read in this browser only and never uploaded. The result updates as you edit the settings on the left.',
+    file: 'Local File loads raw log files (or a Splunk EventTime/PopulatedLog export) and runs this query\'s logic on them; Upload in the Flow view loads the flow table exported from Splunk. Files are read in this browser only and never uploaded. The result updates as you edit the settings on the left.',
     mock: 'Loading the bundled mock logs (fake data)…',
   };
 
@@ -685,7 +685,7 @@
     const files = [...e.target.files];
     e.target.value = '';
     if (!files.length) return;
-    logDebug('info', `Local Test: ${files.map((f) => `${f.name} (${f.size.toLocaleString()} bytes)`).join(', ')}`);
+    logDebug('info', `Local File: ${files.map((f) => `${f.name} (${f.size.toLocaleString()} bytes)`).join(', ')}`);
     const read = [];
     for (const f of files) {
       try {
