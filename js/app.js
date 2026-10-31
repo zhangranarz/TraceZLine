@@ -953,14 +953,12 @@
   // The Splunk line (what it says) first, then where it maps in the log, then the rest of the row.
   const svcLines = (x) => (Array.isArray(x.ServiceInfo) ? x.ServiceInfo : [x.ServiceInfo ?? x.Flow]);
   const logTime = (l) => (l ? new Date(l.time).toISOString().replace('T', ' ').slice(0, 23) : '');
-  // Parameter/value rows of the JSON a log event carries ([] when none), parsed once per event.
-  const jsonCache = new WeakMap();
-  function jsonParams(ev) {
-    if (!jsonCache.has(ev)) {
-      const value = window.TraceCompare.extractJson(ev.raw);
-      jsonCache.set(ev, value ? window.TraceCompare.flattenJson(value, { sep: '|' }) : []);
-    }
-    return jsonCache.get(ev);
+  // The JSON or XML a log event carries as { kind: 'JSON' | 'XML', rows: [[path, value]] },
+  // or null; parsed once per event.
+  const structCache = new WeakMap();
+  function structureOf(ev) {
+    if (!structCache.has(ev)) structCache.set(ev, window.TraceCompare.payloadStructure(ev.raw, { sep: '|' }));
+    return structCache.get(ev);
   }
 
   // The event on one line without its timestamp (LogTime shows it).
@@ -973,7 +971,10 @@
     ['ServiceInfo', (r) => svcLines(r.x).join('\n'), 'multi'],
     ['Log', logEventText, 'log'],
     // On screen an expandable Parameter / Value table; in Copy/Download "path = value" lines.
-    ['Structure', (r) => (r.l ? jsonParams(r.l).map(([p, v]) => `${p} = ${v}`).join('\n') : ''), 'struct'],
+    ['Structure', (r) => {
+      const s = r.l && structureOf(r.l);
+      return s ? `${s.kind}\n` + s.rows.map(([p, v]) => `${p} = ${v}`).join('\n') : '';
+    }, 'struct'],
     ['LogRow', (r) => (r.l ? `${base(r.l.source)}:${r.l.lineNo}` : '')],
     ['LogTime', (r) => logTime(r.l)],
     ['Δ ms', (r) => (r.delta == null ? '' : String(r.delta)), 'export'],
@@ -1009,14 +1010,14 @@
               el('pre', {}, [r.l.raw.length > RAW_PREVIEW ? r.l.raw.slice(0, RAW_PREVIEW) + '\n…' : r.l.raw]),
             ])] : []);
           }
-          // Structure: when the event carries JSON, "JSON:" expands to a Parameter / Value table.
+          // Structure: the event's JSON ("JSON:") or XML ("XML:") expands to a Parameter / Value table.
           if (kind === 'struct') {
-            const params = r.l ? jsonParams(r.l) : [];
-            return el('td', { class: 'cmp-log' }, params.length ? [el('details', { class: 'cmp-raw cmp-struct' }, [
-              el('summary', { title: `${params.length} parameters` }, ['JSON:']),
+            const s = r.l && structureOf(r.l);
+            return el('td', { class: 'cmp-log' }, s ? [el('details', { class: 'cmp-raw cmp-struct' }, [
+              el('summary', { title: `${s.rows.length} parameters` }, [`${s.kind}:`]),
               el('div', { class: 'cmp-struct-wrap' }, [el('table', {}, [
                 el('thead', {}, [el('tr', {}, [el('th', {}, ['Parameter']), el('th', {}, ['Value'])])]),
-                el('tbody', {}, params.map(([p, v]) => el('tr', {}, [el('td', {}, [p]), el('td', {}, [v])]))),
+                el('tbody', {}, s.rows.map(([p, v]) => el('tr', {}, [el('td', {}, [p]), el('td', {}, [v])]))),
               ])]),
             ])] : []);
           }

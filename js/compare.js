@@ -226,5 +226,86 @@
     return rows;
   }
 
-  return { compare, detectOffset, formatOffset, extractJson, flattenJson };
+  // ---------- XML payload of a log event ----------
+
+  const XML_ENTITIES = { lt: '<', gt: '>', amp: '&', quot: '"', apos: "'" };
+  const unescapeXml = (s) => s.replace(/&(lt|gt|amp|quot|apos|#\d+|#x[0-9a-fA-F]+);/g, (_, e) => XML_ENTITIES[e]
+    ?? String.fromCodePoint(e[1] === 'x' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10)));
+
+  // The XML a log event carries (e.g. "Request Message:<?xml ...?> <EAI>...</EAI>") as an element
+  // tree { name, attrs, children, text }, or null. Tolerant of log XML: desensitised placeholders
+  // like <<USER_ID>> stay text, a mismatched end tag closes up to its open element (or is
+  // ignored), and a truncated document keeps what was read.
+  function extractXml(raw) {
+    const s0 = String(raw ?? '');
+    let start = s0.indexOf('<?xml');
+    if (start < 0) {
+      // no declaration: the first element that is also closed later
+      const m = /<([A-Za-z_][\w.-]*)[\s>]/g;
+      let hit;
+      while ((hit = m.exec(s0))) {
+        if (s0.indexOf(`</${hit[1]}>`, hit.index) > 0) { start = hit.index; break; }
+      }
+      if (start < 0) return null;
+    }
+    const s = s0.slice(start).replace(/<<([A-Za-z0-9_]+)>>/g, '«$1»');
+    const restore = (t) => t.replace(/«([A-Za-z0-9_]+)»/g, '<<$1>>');
+    const root = { name: '#root', attrs: [], children: [], text: '' };
+    const stack = [root];
+    const re = /<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<!\[CDATA\[([\s\S]*?)\]\]>|<\/([A-Za-z_][\w.:-]*)\s*>|<([A-Za-z_][\w.:-]*)((?:\s+[\w.:-]+\s*=\s*(?:"[^"]*"|'[^']*'))*)\s*(\/?)>|([^<]+)|</g;
+    let m;
+    while ((m = re.exec(s))) {
+      const top = stack[stack.length - 1];
+      if (m[1] != null) top.text += m[1];
+      else if (m[2]) {
+        const i = stack.map((e) => e.name).lastIndexOf(m[2]);
+        if (i > 0) stack.length = i;
+      } else if (m[3]) {
+        const el = { name: m[3], attrs: [...(m[4] || '').matchAll(/([\w.:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g)].map((a) => [a[1], unescapeXml(a[2] ?? a[3] ?? '')]), children: [], text: '' };
+        top.children.push(el);
+        if (!m[5]) stack.push(el);
+      } else if (m[6] != null) top.text += m[6];
+      else top.text += '<';
+    }
+    const fix = (e) => { e.text = restore(unescapeXml(e.text)).trim(); e.attrs = e.attrs.map(([k, v]) => [k, restore(v)]); e.children.forEach(fix); };
+    fix(root);
+    return root.children.length ? (root.children.length === 1 ? root.children[0] : root) : null;
+  }
+
+  // Parameter paths and values of an element tree: EAI|SvcRq|SvcCode = BA_ACCT_INFO_N3.
+  // Repeated siblings get an index (SubSvc[0], SubSvc[1]); attributes are path@name; empty
+  // elements are listed with an empty value. At most `limit` rows.
+  function flattenXml(node, { sep = '|', limit = 1000 } = {}) {
+    const rows = [];
+    const walk = (e, p) => {
+      if (rows.length >= limit) return;
+      e.attrs.forEach(([k, v]) => rows.push([`${p}@${k}`, v]));
+      if (!e.children.length) { rows.push([p, e.text]); return; }
+      if (e.text) rows.push([p, e.text]);
+      const count = {};
+      e.children.forEach((c) => { count[c.name] = (count[c.name] || 0) + 1; });
+      const seen = {};
+      e.children.forEach((c) => {
+        const idx = count[c.name] > 1 ? `[${(seen[c.name] = (seen[c.name] ?? -1) + 1)}]` : '';
+        walk(c, `${p}${sep}${c.name}${idx}`);
+      });
+    };
+    if (node.name === '#root') node.children.forEach((c) => walk(c, c.name));
+    else walk(node, node.name);
+    return rows;
+  }
+
+  // The structure of an event's payload: JSON first, else XML. { kind: 'JSON' | 'XML', rows } or null.
+  function payloadStructure(raw, { sep = '|' } = {}) {
+    const json = extractJson(raw);
+    if (json) return { kind: 'JSON', rows: flattenJson(json, { sep }) };
+    const xml = extractXml(raw);
+    if (xml) {
+      const rows = flattenXml(xml, { sep });
+      if (rows.length) return { kind: 'XML', rows };
+    }
+    return null;
+  }
+
+  return { compare, detectOffset, formatOffset, extractJson, flattenJson, extractXml, flattenXml, payloadStructure };
 });

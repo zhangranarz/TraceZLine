@@ -96,3 +96,32 @@ test('JSON paths can use | between levels', () => {
     ['list[0]|id', '1'],
   ]);
 });
+
+test('XML payload of a log event: element paths with | , indexes for repeats, empties kept', () => {
+  const { payloadStructure } = require('../js/compare.js');
+  const host = events.find((e) => e.raw.includes('Request Message') && e.raw.includes('AC_ACCT_SUM_X'));
+  const s = payloadStructure(host.raw);
+  assert.strictEqual(s.kind, 'XML');
+  const get = (p) => (s.rows.find(([k]) => k === p) || [])[1];
+  assert.strictEqual(get('EAI|SvcRq|SvcCode'), 'AC_ACCT_SUM_X');
+  assert.strictEqual(get('EAI|SvcRq|SvcRqHdr|SubSvc[0]|SubSvcRqHeader|SvcCode'), 'AC_RBK_SUMM_N');
+  assert.strictEqual(get('EAI|SvcRq|SvcRqHdr|SubSvc[1]|SubSvcRqHeader|SvcCode'), 'AC_VSA_SUMM_N');
+  const res = payloadStructure(events.find((e) => e.raw.includes('Response Message')).raw);
+  assert.ok(res.rows.some(([k, v]) => k === 'EAI|SvcRs|ErrorCode' && v === ''));
+  // JSON events stay JSON
+  assert.strictEqual(payloadStructure(events.find((e) => e.raw.includes('[SPLMessage]')).raw).kind, 'JSON');
+});
+
+test('XML from real logs: placeholders, attributes, a mismatched end tag and truncation are tolerated', () => {
+  const { extractXml, flattenXml } = require('../js/compare.js');
+  const raw = 'INFO Request Message:<?xml version="1.0" ?> <EAI><SvcRq id="7"><UserId><<USER_ID>></UserId>'
+    + '<Info><LastLoginTime>091056</LastLogin><Next>x</Next></Info><Cut>abc';
+  const rows = flattenXml(extractXml(raw));
+  const get = (p) => (rows.find(([k]) => k === p) || [])[1];
+  assert.strictEqual(get('EAI|SvcRq@id'), '7');
+  assert.strictEqual(get('EAI|SvcRq|UserId'), '<<USER_ID>>');
+  assert.strictEqual(get('EAI|SvcRq|Info|LastLoginTime'), '091056');
+  assert.strictEqual(get('EAI|SvcRq|Info|LastLoginTime|Next'), 'x');
+  assert.strictEqual(get('EAI|SvcRq|Cut'), 'abc'); // </Info> closed back up to Info
+  assert.strictEqual(extractXml('no markup here'), null);
+});
