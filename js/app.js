@@ -77,6 +77,7 @@
       if (k === 'version' || cfg[k] === undefined) return;
       if (Array.isArray(out[k]) && !Array.isArray(cfg[k])) throw new Error(`"${k}" must be an array.`);
       if (typeof out[k] === 'boolean' && typeof cfg[k] !== 'boolean') throw new Error(`"${k}" must be true or false.`);
+      if (typeof out[k] === 'string' && typeof cfg[k] !== 'string') throw new Error(`"${k}" must be text.`);
       out[k] = cfg[k];
     });
     return out;
@@ -164,6 +165,8 @@
     Object.keys(SECTIONS).forEach(renderList);
     document.getElementById('terms').value = state.terms.join('\n');
     document.getElementById('group-sources').checked = state.groupSources;
+    document.getElementById('dir-word-rex').value = state.dirWordRex;
+    document.getElementById('dir-first').value = state.directionFirst;
     refreshDatalists();
     update();
   }
@@ -206,6 +209,13 @@
   document.getElementById('group-sources').addEventListener('change', (e) => {
     state.groupSources = e.target.checked;
     update();
+  });
+
+  [['dir-word-rex', 'dirWordRex'], ['dir-first', 'directionFirst']].forEach(([id, key]) => {
+    document.getElementById(id).addEventListener('input', (e) => {
+      state[key] = e.target.value;
+      update();
+    });
   });
 
   document.querySelectorAll('[data-add]').forEach((btn) => {

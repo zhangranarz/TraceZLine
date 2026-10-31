@@ -43,7 +43,11 @@
 
       <details open>
         <summary>Direction rules <span class="hint">Direction=case()</span></summary>
-        <p class="note">Regex is inserted into match(_raw,"…") as typed.</p>
+        <div class="row single">
+          <label class="field size-l"><span>DirWord rex <em>| rex field=_raw "…"</em></span><input type="text" id="dir-word-rex" spellcheck="false" placeholder="(?i)\b(?&lt;DirWord&gt;Request|Response)\b"></label>
+          <label class="field size-m"><span>First rule <em>raw condition,value</em></span><input type="text" id="dir-first" spellcheck="false" placeholder="Layer&lt;=2,DirWord"></label>
+        </div>
+        <p class="note">Rules below: regex is inserted into match(_raw,"…") as typed. case() uses the first rule that matches.</p>
         <div id="list-directions"></div>
         <button type="button" class="add" data-add="directions">+ Add rule</button>
       </details>

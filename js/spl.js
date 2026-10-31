@@ -30,6 +30,9 @@
       { name: 'Host', match: String.raw`match(_raw,"<SvcCode>") AND match(_raw,"(request|response) message")`, layer: 3 },
       { name: 'WS', match: String.raw`match(_raw,"WSAppLog")`, layer: 2 },
     ],
+    // rex that extracts the direction word, and an optional raw first case() pair.
+    dirWordRex: String.raw`(?i)\b(?:DirWord=Request|Response)\b`,
+    directionFirst: 'Layer<=2,DirWord',
     directions: [
       { layer: 'Host', pattern: '(?i)Request Message', direction: 'Request' },
       { layer: 'Host', pattern: '(?i)Response Message', direction: 'Response' },
@@ -48,8 +51,6 @@
     ],
     columns: ['Step', 'EventTime', 'sessionId', 'Flow', 'Params', 'ElapsedMs'],
   };
-
-  const ENDPOINT_BLOCK = String.raw`| rex field=_raw "(?i)\b(?<DirWord>Request|Response)\b"`;
 
   const ENDPOINT_RULES = String.raw`| rex field=_raw "(?<Endpoint1>[^\s]+\/[^\s]*Request[^\s]*)"
 | rex field=_raw "(?<Endpoint2>[^\s]*\/[^\s]*Request[^\s]*)"
@@ -119,11 +120,11 @@ coalesce(LastWsURL,"N/A"), LayerName="Host",DGEEndpoint)
       + byNumber.map((l) => `LayerName="${l.name.trim()}",${l.layer}`).join(',')
       + ')');
 
-    out.push(ENDPOINT_BLOCK);
-    const dirs = cfg.directions.filter((d) => d.layer.trim() && d.pattern.trim());
-    out.push('| eval Direction=case(\n'
-      + dirs.map((d) => `    LayerName="${d.layer.trim()}" AND match(_raw,"${d.pattern.trim()}"),"${d.direction}"`).join(',\n')
-      + ')');
+    if (cfg.dirWordRex.trim()) out.push(`| rex field=_raw "${cfg.dirWordRex.trim()}"`);
+    const dirCases = cfg.directions.filter((d) => d.layer.trim() && d.pattern.trim())
+      .map((d) => `LayerName="${d.layer.trim()}" AND match(_raw,"${d.pattern.trim()}"),"${d.direction}"`);
+    if (cfg.directionFirst.trim()) dirCases.unshift(cfg.directionFirst.trim());
+    out.push('| eval Direction=case(' + dirCases.join(',\n    ') + ')');
 
     out.push(ENDPOINT_RULES);
 
@@ -171,7 +172,24 @@ coalesce(LastWsURL,"N/A"), LayerName="Host",DGEEndpoint)
     cfg.directions.forEach((d) => {
       if (d.layer.trim() && !layerNames.has(d.layer.trim())) warnings.push(`Direction rule refers to unknown layer "${d.layer}".`);
     });
-    if (!cfg.directions.some((d) => d.layer.trim() && d.pattern.trim())) warnings.push('No direction rules: Direction=case() is empty.');
+    if (!cfg.directionFirst.trim() && !cfg.directions.some((d) => d.layer.trim() && d.pattern.trim())) warnings.push('No direction rules: Direction=case() is empty.');
+    if (/\bDirWord\b/.test(cfg.directionFirst) && !cfg.dirWordRex.includes('(?<DirWord>')) {
+      warnings.push('The first direction rule uses DirWord, but the DirWord rex has no (?<DirWord>...) named group, '
+        + 'so DirWord is always null and Direction is empty for those events. Did you mean (?i)\\b(?<DirWord>Request|Response)\\b ?');
+    }
+    // case() stops at the first true pair, so a Layer<=N first rule hides later rules for layers it covers.
+    const firstLayer = cfg.directionFirst.match(/^\s*Layer\s*(<=|<|=)\s*(\d+)\s*,/);
+    if (firstLayer) {
+      const [, op, n] = firstLayer;
+      const covered = (num) => (op === '<=' ? num <= n : op === '<' ? num < n : num === Number(n));
+      const shadowed = [...new Set(cfg.directions
+        .filter((d) => cfg.layers.some((l) => l.name.trim() === d.layer.trim() && covered(Number(l.layer))))
+        .map((d) => d.layer.trim()))];
+      if (shadowed.length) {
+        warnings.push(`The first direction rule (Layer${op}${n}) also matches ${shadowed.join(', ')}, `
+          + `so the ${shadowed.join(', ')} direction rules below it are never used.`);
+      }
+    }
     if (!cfg.sessionRules.some((r) => r.field.trim())) warnings.push('No sessionId rules: coalesce() is empty.');
     const fields = [...cfg.sessionRules, ...cfg.params].map((r) => r.field.trim()).filter(Boolean);
     const dup = fields.filter((f, i) => fields.indexOf(f) !== i);

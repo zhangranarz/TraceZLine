@@ -56,13 +56,26 @@ test('disabled sources are left out', () => {
   assert.doesNotMatch(spl.generate(cfg), /spl-ms/);
 });
 
-test('default config only warns about ungrouped sources', () => {
+test('default config warns about grouping, DirWord and the Layer<=2 first rule', () => {
   const w = spl.validate(spl.DEFAULT_CONFIG);
-  assert.strictEqual(w.length, 1);
-  assert.match(w[0], /not grouped/);
+  assert.strictEqual(w.length, 3);
+  assert.ok(w.some((m) => /not grouped/.test(m)));
+  assert.ok(w.some((m) => /no \(\?<DirWord>/.test(m)));
+  assert.ok(w.some((m) => /Layer<=2\) also matches WS/.test(m)));
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
   cfg.groupSources = true;
+  cfg.dirWordRex = String.raw`(?i)\b(?<DirWord>Request|Response)\b`;
+  cfg.directionFirst = 'Layer<=1,DirWord';
   assert.deepStrictEqual(spl.validate(cfg), []);
+});
+
+test('empty DirWord rex and first rule drop out of the query', () => {
+  const cfg = spl.clone(spl.DEFAULT_CONFIG);
+  cfg.dirWordRex = '';
+  cfg.directionFirst = '';
+  const out = spl.generate(cfg);
+  assert.doesNotMatch(out, /DirWord/);
+  assert.match(out, /\| eval Direction=case\(LayerName="Host" AND/);
 });
 
 test('groupSources wraps each source in its own parentheses inside the outer ones', () => {
