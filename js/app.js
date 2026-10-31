@@ -1128,7 +1128,7 @@
       return s;
     };
     const dash = () => el('span', { class: 'hint' }, ['—']);
-    const head = el('thead', {}, [el('tr', {}, ['On', 'Name', 'Type', 'Match', 'Post', 'Mode', 'Mask', 'Found', ''].map((h) => el('th', {}, [h])))]);
+    const head = el('thead', {}, [el('tr', {}, ['On', 'Name', 'Type', 'Match', 'Mode', 'Mask', 'Found', ''].map((h) => el('th', {}, [h])))]);
     const body = el('tbody', {}, mask.rules.map((rule, i) => {
       const type = rule.type || 'prepost';
       const on = el('input', { type: 'checkbox', checked: rule.on });
@@ -1136,14 +1136,16 @@
       const move = (d) => { const j = i + d; [mask.rules[i], mask.rules[j]] = [mask.rules[j], mask.rules[i]]; renderMaskRules(); onMaskRulesChanged(); };
       // An empty Mask shows what will be used, e.g. <<MASK_USERID>> for the JSON key userId.
       const maskInput = rule.mode === 'replace' ? field(rule, 'mask', { class: 'w-mask', placeholder: window.TraceMask.autoMask(rule) }) : null;
-      const find = field(rule, 'pre', { class: 'w-pre', placeholder: MASK_MATCH_HINT[type] });
+      // Pre/Post rules show both texts in the Match cell: [Pre] … [Post]
+      const find = field(rule, 'pre', { class: type === 'prepost' ? 'w-pre short' : 'w-pre', placeholder: MASK_MATCH_HINT[type], title: type === 'prepost' ? 'Pre: text before the value' : '' });
       find.addEventListener('input', () => { if (maskInput) maskInput.placeholder = window.TraceMask.autoMask(rule); });
       return el('tr', { class: rule.on ? '' : 'off' }, [
         el('td', {}, [on]),
         el('td', {}, [field(rule, 'name', { class: 'w-name' })]),
         el('td', {}, [select(rule, 'type', MASK_TYPES)]),
-        el('td', {}, [find]),
-        el('td', {}, [type === 'prepost' ? field(rule, 'post', { class: 'w-post', placeholder: '"' }) : dash()]),
+        el('td', { class: 'match' }, type === 'prepost'
+          ? [find, el('span', { class: 'hint' }, ['…']), field(rule, 'post', { class: 'w-post', placeholder: '"', title: 'Post: text after the value' })]
+          : [find]),
         el('td', {}, [select(rule, 'mode', MASK_MODES)]),
         el('td', {}, [maskInput || dash()]),
         el('td', { class: 'num' }, [mask.results.length ? String(counts[i]) : '']),

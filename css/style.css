@@ -414,7 +414,10 @@ details[open] > summary.icon-after::after { content: " \25BE"; }
 .mask-table input[type=text] { font: 12px var(--mono); padding: 3px 5px; }
 .mask-table input.w-name { width: 130px; font-family: inherit; }
 .mask-table input.w-pre { width: 160px; }
-.mask-table input.w-post { width: 50px; }
+.mask-table input.w-pre.short { width: 116px; }
+.mask-table input.w-post { width: 44px; }
+.mask-table td.match { white-space: nowrap; }
+.mask-table td.match .hint { margin: 0 3px; }
 .mask-table input.w-mask { width: 165px; }
 .mask-table select { width: auto; font-family: inherit; padding: 3px 5px; }
 .mask-table .row-btns { margin: 0; white-space: nowrap; }
