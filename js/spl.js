@@ -31,7 +31,7 @@
       { name: 'WS', match: String.raw`match(_raw,"WSAppLog")`, layer: 2 },
     ],
     // rex that extracts the direction word, and an optional raw first case() pair.
-    dirWordRex: String.raw`(?i)\b(?:DirWord=Request|Response)\b`,
+    dirWordRex: String.raw`(?i)\b(?<DirWord>Request|Response)\b`,
     directionFirst: 'Layer<=2,DirWord',
     directions: [
       { layer: 'Host', pattern: '(?i)Request Message', direction: 'Request' },
@@ -51,30 +51,30 @@
       { field: 'sidAny', rex: String.raw`(?<sidAny>[0-9a-fA-F-]{8}-[0-9a-fA-F-]{4}-[0-9a-fA-F-]{4}-[0-9a-fA-F-]{4}-[0-9a-fA-F-]{12})` },
     ],
     params: [
-      { field: 'transactionRef', label: 'TxnRefNo', rex: String.raw`(?i)\??:transactionReferenceNumber|transactionRef\s*[:=]\s*\"?(?<transactionRef>[^\",]+)` },
-      { field: 'transactionCode', label: 'TxnCode', rex: String.raw`(?i)\??transactionCode\s*[:=]\s*\"?(?<transactionCode>[^\",]+)` },
+      { field: 'transactionRef', label: 'TxnRefNo', rex: String.raw`(?i)transactionRef(?:erenceNumber)?\"?\s*[:=]\s*\"?(?<transactionRef>[^\",]+)` },
+      { field: 'transactionCode', label: 'TxnCode', rex: String.raw`(?i)transactionCode\"?\s*[:=]\s*\"?(?<transactionCode>[^\",]+)` },
     ],
     columns: ['Step', 'EventTime', 'sessionId', 'ServiceInfo', 'Params', 'ElapsedMs'],
   };
 
-  const FLOW_BLOCK = String.raw`| rex field=_raw "\[:<DGEEndpoint>([^]]+)\]"
+  const FLOW_BLOCK = String.raw`| rex field=_raw "\[:(?<DGEEndpoint>[^]]+)\]"
 | rex field=_raw "URL\s*=\s*is\s*\:\s*(?<URL>\S+)"
 | rex field=_raw max_match=0 "<SvcCode>(?<SvcCode>[^<]+)</SvcCode>"
-| where LayerName="Host" OR mvcount(SvcCode)>=1
+| where LayerName!="Host" OR mvcount(SvcCode)>=1
 | eval SortKey=if(Direction="Request",Layer,-Layer)
 | sort 0 _time SortKey
 | eval WsURL=if(LayerName="WS",URL,null())
 | streamstats last(WsURL) as LastWsURL by sessionId
 | eval pairIndex=mvrange(0,ceil(mvcount(SvcCode)/2))
-| eval HostPairs=mvmap(pairIndex, mvindex(SvcCode,pairIndex*2) . " ~ ".coalesce(mvindex(SvcCode,pairIndex*2)+1,mvindex(SvcCode,pairIndex*2)))
+| eval HostPairs=mvmap(pairIndex, mvindex(SvcCode,pairIndex*2) . " ~ ".coalesce(mvindex(SvcCode,pairIndex*2+1),mvindex(SvcCode,pairIndex*2)))
 | eval API=case(LayerName="eComm",Endpoint,LayerName="Enterprise",Endpoint,LayerName="WS",
     coalesce(URL,LastWsURL,DGEEndpoint,"N/A"),LayerName="Host",DGEEndpoint)
+| eval DirectionSymbol=if(Direction="Request",">","<")
 | eval ServiceInfo=if(LayerName="Host", mvmap(HostPairs,"- [".HostPairs."] [".DirectionSymbol."]"),null())
-| eval PairKey=case(LayerName="Host",coalesce(DGEEndpoint,""),true,API)
+| eval PairKey=case(LayerName="Host",coalesce(DGEEndpoint,""),true(),API)
 | eval ReqTime=if(Direction="Request",_time,null())
 | streamstats last(ReqTime) as LastReqTime by sessionId Layer PairKey
 | eval ElapsedMs=if(Direction="Response" AND isnotnull(LastReqTime),round((_time-LastReqTime)*1000,0),null())
-| eval DirectionSymbol=if(Direction="Request",">","<")
 | eval Indent=case(Layer=1,"",Layer=2,"-->",Layer=3,"------>")
 | eval Flow=Indent.LayerName.": ".API." [".DirectionSymbol."]"
 | eval ServiceInfo=if(LayerName="Host" AND isnotnull(ServiceInfo), mvappend(Flow,ServiceInfo), Flow)`;

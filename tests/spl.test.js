@@ -56,22 +56,37 @@ test('disabled sources are left out', () => {
   assert.doesNotMatch(spl.generate(cfg), /spl-ms/);
 });
 
-test('default config warns about grouping, DirWord, Layer<=2 and rex lines without a named group', () => {
+test('default config only warns about grouping and the Layer<=2 first rule', () => {
   const w = spl.validate(spl.DEFAULT_CONFIG);
-  assert.strictEqual(w.length, 5);
+  assert.strictEqual(w.length, 2);
   assert.ok(w.some((m) => /not grouped/.test(m)));
-  assert.ok(w.some((m) => /no \(\?<DirWord>/.test(m)));
   assert.ok(w.some((m) => /Layer<=2\) also matches WS/.test(m)));
-  assert.ok(w.some((m) => /reject.*\(\?:DirWord=Request/.test(m)));
-  assert.ok(w.some((m) => /reject.*<DGEEndpoint>/.test(m)));
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
   cfg.groupSources = true;
-  cfg.dirWordRex = String.raw`(?i)\b(?<DirWord>Request|Response)\b`;
   cfg.directionFirst = 'Layer<=1,DirWord';
-  // The DGEEndpoint rex is part of the fixed query text, so its warning stays.
-  const left = spl.validate(cfg);
-  assert.strictEqual(left.length, 1);
-  assert.match(left[0], /<DGEEndpoint>/);
+  assert.deepStrictEqual(spl.validate(cfg), []);
+});
+
+test('DirWord and rex lines without a named group are flagged', () => {
+  const cfg = spl.clone(spl.DEFAULT_CONFIG);
+  cfg.dirWordRex = String.raw`(?i)\b(?:DirWord=Request|Response)\b`;
+  const w = spl.validate(cfg);
+  assert.ok(w.some((m) => /no \(\?<DirWord>/.test(m)));
+  assert.ok(w.some((m) => /reject.*\(\?:DirWord=Request/.test(m)));
+});
+
+test('Params rules extract from the JSON key formats seen in the logs', () => {
+  const toJs = (rex) => new RegExp(rex.replace(/\\"/g, '"').replace(/^\(\?i\)/, ''), 'i');
+  const [ref, code] = spl.DEFAULT_CONFIG.params.map((p) => toJs(p.rex));
+  assert.strictEqual('"transactionReferenceNumber":"9990000000000201"'.match(ref).groups.transactionRef, '9990000000000201');
+  assert.strictEqual('{"transactionRef": "ABC123",'.match(ref).groups.transactionRef, 'ABC123');
+  assert.strictEqual('{ "transactionCode": "AES01"'.match(code).groups.transactionCode, 'AES01');
+  assert.strictEqual(':{"transactionCode":"SEC02"'.match(code).groups.transactionCode, 'SEC02');
+});
+
+test('DirectionSymbol is set before ServiceInfo uses it', () => {
+  const out = spl.generate(spl.DEFAULT_CONFIG);
+  assert.ok(out.indexOf('| eval DirectionSymbol=') < out.indexOf('| eval ServiceInfo='));
 });
 
 test('endpoint rules: add, remove and coalesce order', () => {
