@@ -953,13 +953,14 @@
   const svcLines = (x) => (Array.isArray(x.ServiceInfo) ? x.ServiceInfo : [x.ServiceInfo ?? x.Flow]);
   const logTime = (l) => (l ? new Date(l.time).toISOString().replace('T', ' ').slice(0, 23) : '');
   const CMP = [
-    ['Row', (r) => String(r.x.line)],
     ['Step', (r) => (r.x.Step == null ? '' : String(r.x.Step))],
     ['EventTime', (r) => r.x.EventTime],
     ['ServiceInfo', (r) => svcLines(r.x).join('\n'), 'multi'],
-    ['Log time', (r) => logTime(r.l)],
+    ['LogRow', (r) => (r.l ? `${base(r.l.source)}:${r.l.lineNo}` : '')],
+    ['LogTime', (r) => logTime(r.l)],
+    // the event on one line without its timestamp (LogTime shows it); the table expands it to the raw text
+    ['LogEvent', (r) => (r.l ? r.l.raw.replace(/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{3}\s+/, '').replace(/\s+/g, ' ').slice(0, 300) : ''), 'log'],
     ['Δ ms', (r) => (r.delta == null ? '' : String(r.delta))],
-    ['Log event', (r) => (r.l ? `${base(r.l.source)}:${r.l.lineNo}` : ''), 'log'],
     ['Check', (r) => (r.status === 'mapped' ? 'agrees' : r.checks.join('; ')), 'issue'],
     ['sessionId', (r) => r.x.sessionId ?? ''],
     ['Params', (r) => (r.x.Params || []).join('\n'), 'multi'],
@@ -980,10 +981,10 @@
           const text = get(r);
           if (kind === 'multi') return el('td', {}, multi(text));
           if (kind === 'issue') return el('td', { class: 'cmp-issue' }, [text]);
-          // Log event: file:line, expandable to the raw event text.
+          // LogEvent: the event's first line, expandable to the raw event text.
           if (kind === 'log') {
             return el('td', { class: 'cmp-log' }, r.l ? [el('details', { class: 'cmp-raw' }, [
-              el('summary', {}, [text]),
+              el('summary', { title: text }, [text.length > 90 ? text.slice(0, 90) + '…' : text]),
               el('pre', {}, [r.l.raw.length > RAW_PREVIEW ? r.l.raw.slice(0, RAW_PREVIEW) + '\n…' : r.l.raw]),
             ])] : ['']);
           }
