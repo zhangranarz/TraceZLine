@@ -250,6 +250,14 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .log-preview .ln-no { display: inline-block; padding: 0 10px 0 8px; margin-right: 8px; color: var(--muted); border-right: 1px solid var(--border); user-select: none; }
 .log-preview .ln.ev { background: var(--warn-bg); color: var(--warn-fg); font-weight: 600; }
 #log-file-select { width: auto; max-width: 100%; font-family: inherit; }
+#pane-compare .flow-bar input.num { width: 80px; margin: 0 4px; }
+.cmp-quality { flex-shrink: 0; max-height: 28vh; overflow: auto; margin-bottom: 6px; }
+.cmp-quality h3 { font-size: 14px; margin: 4px 0; }
+.cmp-quality .note { margin: 4px 0; }
+.cmp-q summary { cursor: pointer; font-size: 13px; padding: 2px 0; color: var(--warn-fg); font-weight: 600; }
+.cmp-q ul { margin: 2px 0 6px; padding-left: 22px; font: 12px/1.45 var(--mono); }
+.cmp-filter { margin: 4px 0 6px; }
+.debug-table td.cmp-issue { white-space: normal; min-width: 220px; }
 #view-rules { overflow: auto; }
 .rules h3 { font-size: 14px; margin: 16px 0 2px; }
 .rules .note { margin: 0 0 6px; }

@@ -38,6 +38,15 @@ with warnings, **Copy**, **Download** (`.spl`). Settings are saved in the browse
 
 **Mock Test** — the same views over bundled fake logs, loaded when the tab opens.
 
+**Compare** — load the Splunk result (`.xlsx`/`.csv`) and the raw log files it came from.
+Each Excel row is matched with its log event (same session, layer, direction and API, in
+order; otherwise the nearest time within the tolerance). The time offset between Splunk's
+EventTime and the log timestamps (e.g. a time-zone difference) is detected and removed.
+Data-quality checks list rows without a sessionId or direction, requests without a response
+and responses without a request, time differences beyond the tolerance, log events with no
+Excel row, and hops in the log that never appear in the Excel. **Mock pair** loads the mock
+flow and logs; **Copy** / **Download CSV** export the alignment table.
+
 Views in Load File and Mock Test:
 
 | View | What it shows |
@@ -49,7 +58,7 @@ Views in Load File and Mock Test:
 | **Debug** | Execution log of every load and run, and every event with the decision taken for it; **Copy Log** |
 | **Log Files** | Mock Test only: preview each log file, event start lines highlighted |
 
-Demo links: `#mock`, `#mock/diagram`, `#mock/sequence`, `#mock/rules`, `#mock/debug`, `#mock/logs`.
+Demo links: `#mock`, `#mock/diagram`, `#mock/sequence`, `#mock/rules`, `#mock/debug`, `#mock/logs`, `#compare`.
 
 ## How to install
 
@@ -107,6 +116,7 @@ npm run security-scan                        # pre-push scan (also run in CI)
 | `js/sequence.js` | SVG sequence diagram renderer |
 | `js/importer.js` | Excel (`.xlsx`) and CSV reader for Splunk flow exports |
 | `js/rules.js` | Processing-rule analysis and Markdown export |
+| `js/compare.js` | Alignment of a Splunk result with the raw logs, data-quality checks |
 | `js/app.js` | Page wiring |
 | `mock/` | Fake logs, flow exports and expected output ([details](mock/README.md)) |
 | `tests/` | `node --test` suites |

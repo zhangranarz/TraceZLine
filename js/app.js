@@ -189,6 +189,8 @@
     document.getElementById('warnings').replaceChildren(...warnings.map((w) => el('li', {}, [w])));
     save();
     refreshFlow();
+    // Settings change how the logs are read, so the comparison is redone too.
+    if (cmp.excel && cmp.logs.length) runCompare();
   }
 
   // ---------- actions ----------
@@ -856,11 +858,14 @@
     }
   }
 
-  document.getElementById('btn-wide').addEventListener('click', (e) => {
+  // Full width buttons (flow pane and Compare) share one page-wide setting.
+  document.querySelectorAll('.wide-toggle').forEach((btn) => btn.addEventListener('click', () => {
     const wide = document.body.classList.toggle('flow-wide');
-    e.target.setAttribute('aria-pressed', String(wide));
-    e.target.textContent = wide ? 'Show settings' : 'Full width';
-  });
+    document.querySelectorAll('.wide-toggle').forEach((b) => {
+      b.setAttribute('aria-pressed', String(wide));
+      b.textContent = wide ? 'Show settings' : 'Full width';
+    });
+  }));
 
   document.getElementById('use-terms').addEventListener('change', refreshFlow);
   document.getElementById('session-filter').addEventListener('change', refreshFlow);
@@ -876,6 +881,131 @@
 
   document.getElementById('btn-csv').addEventListener('click', () => {
     download('tracezline-flow.csv', '﻿' + toDelimited(selectedRows(), ','), 'text/csv');
+  });
+
+  // ---------- compare ----------
+
+  // The Compare tab's own inputs; kept in memory only, like the other loaded files.
+  const cmp = { excel: null, logs: [] };
+  let cmpResult = null;
+  const base = (p) => String(p ?? '').split(/[\\/]/).pop();
+
+  function runCompare() {
+    const status = document.getElementById('cmp-status');
+    if (!cmp.excel || !cmp.logs.length) {
+      const have = [cmp.excel && `Splunk result ${cmp.excel.name} (${cmp.excel.rows.length} rows)`,
+        cmp.logs.length && `log files ${cmp.logs.map((l) => l.name).join(', ')}`].filter(Boolean);
+      if (have.length) status.textContent = `Loaded: ${have.join('; ')}. Now load the ${cmp.excel ? 'log files' : 'Splunk result'}.`;
+      return;
+    }
+    let logRows;
+    try {
+      logRows = window.TraceFlow.run(state, cmp.logs, []);
+    } catch (err) {
+      status.textContent = 'Could not run the query logic on the log files: ' + err.message;
+      return;
+    }
+    const toleranceMs = Math.max(0, Number(document.getElementById('cmp-tolerance').value) || 0);
+    cmpResult = window.TraceCompare.compare(cmp.excel.rows, logRows, { toleranceMs });
+    const r = cmpResult;
+    const total = r.pairs.length;
+    const withIssues = r.pairs.filter((p) => p.issues.length).length;
+    document.getElementById('count-compare').textContent = `${r.matched}/${total} matched`;
+    status.textContent = `${cmp.excel.name} (${total} rows) vs ${cmp.logs.map((l) => l.name).join(', ')} (${logRows.length} events), tolerance ${toleranceMs} ms.`
+      + (r.sessions.common ? '' : ' The two inputs share no sessionId: check that the log files belong to this Splunk result.');
+    const card = (title, lines) => el('div', { class: 'sum-card' }, [el('div', { class: 'sum-id' }, [title]), ...lines.map((t) => el('div', {}, [t]))]);
+    document.getElementById('cmp-summary').replaceChildren(
+      card('Splunk result', [`${total} rows, ${r.sessions.excel} sessions`]),
+      card('Log files', [`${logRows.length} events, ${r.sessions.log} sessions`, `${r.sessions.common} sessions in both`]),
+      card('Alignment', [`${r.matched} of ${total} rows matched (${r.pairs.filter((p) => p.kind === 'by order').length} by order, ${r.pairs.filter((p) => p.kind === 'nearest time').length} by nearest time)`,
+        `${r.unmatchedLog.length} log events not in the Excel`, `${withIssues} rows with issues`]),
+      card('Time offset', [`Excel EventTime vs log timestamp: ${r.offsetText}`, 'Removed before comparing times (e.g. a time-zone difference).']),
+    );
+    document.getElementById('cmp-quality').replaceChildren(
+      el('h3', {}, ['Data quality']),
+      ...(r.quality.length ? r.quality.map((q) => el('details', { class: 'cmp-q' }, [
+        el('summary', {}, [`${q.kind} (${q.count})`]),
+        el('ul', {}, [...q.items.slice(0, 200).map((i) => el('li', {}, [i])), ...(q.items.length > 200 ? [el('li', {}, [`… and ${q.items.length - 200} more`])] : [])]),
+      ])) : [el('p', { class: 'note' }, ['No problems found: every row matched a log event within the tolerance.'])]),
+      el('p', { class: 'note' }, ['Not checked: whether a HopStatus contradicts the raw response, because the flow has no response codes yet.']),
+    );
+    renderCompareTable();
+    ['cmp-copy', 'cmp-csv'].forEach((id) => { document.getElementById(id).disabled = false; });
+  }
+
+  const CMP_COLS = ['Row', 'Step', 'EventTime', 'sessionId', 'Flow', 'Log event', 'Log time', 'Δ ms', 'Match', 'Issues'];
+  const cmpCells = (p) => [String(p.x.line), p.x.Step == null ? '' : String(p.x.Step), p.x.EventTime, p.x.sessionId ?? '', p.x.Flow,
+    p.l ? `${base(p.l.source)}:${p.l.lineNo}` : '', p.l ? new Date(p.l.time).toISOString().replace('T', ' ').slice(0, 23) : '',
+    p.delta == null ? '' : String(p.delta), p.kind, p.issues.join('; ')];
+
+  function renderCompareTable() {
+    if (!cmpResult) return;
+    const only = document.getElementById('cmp-issues').checked;
+    const pairs = only ? cmpResult.pairs.filter((p) => p.issues.length) : cmpResult.pairs;
+    document.getElementById('cmp-table').replaceChildren(
+      el('thead', {}, [el('tr', {}, CMP_COLS.map((c) => el('th', {}, [c])))]),
+      el('tbody', {}, pairs.map((p) => el('tr', { class: !p.l ? 'dbg-out' : p.issues.length ? 'dbg-warn' : 'dbg-ok' },
+        cmpCells(p).map((c, i) => el('td', i === 9 ? { class: 'cmp-issue' } : {}, [c]))))),
+    );
+  }
+
+  function cmpDelimited(sep) {
+    const cell = (s) => (/[",\n\t]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s);
+    return [CMP_COLS, ...cmpResult.pairs.map(cmpCells)].map((r) => r.map(cell).join(sep)).join('\r\n') + '\r\n';
+  }
+
+  async function setCmpLogs(files) {
+    cmp.logs = [];
+    for (const f of files) {
+      const info = window.TraceFlow.describeLog(f.text);
+      if (!info.events) { toast(`${f.name}: not a log file (${info.format}); skipped`); continue; }
+      cmp.logs.push({ ...f, anySource: !window.TraceFlow.matchesAnySource(state, f.name) });
+    }
+    runCompare();
+  }
+
+  document.getElementById('cmp-excel').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const table = await window.TraceImport.readTable(file.name, await file.arrayBuffer());
+      cmp.excel = { name: file.name, ...window.TraceImport.toFlowRows(table, state) };
+      runCompare();
+    } catch (err) {
+      toast(`${file.name}: could not be read as a flow table (${err.message})`);
+    }
+  });
+
+  document.getElementById('cmp-logs').addEventListener('change', async (e) => {
+    const files = [...e.target.files];
+    e.target.value = '';
+    const read = [];
+    for (const f of files) {
+      try { read.push({ name: f.name, text: await f.text() }); } catch (err) { toast(`${f.name}: could not be read`); }
+    }
+    if (read.length) setCmpLogs(read);
+  });
+
+  document.getElementById('cmp-mock').addEventListener('click', async () => {
+    try {
+      const get = async (n) => { const res = await fetch('mock/' + n); if (!res.ok) throw new Error(`${n}: HTTP ${res.status}`); return res; };
+      const csv = await (await get('mock-flow.csv')).arrayBuffer();
+      cmp.excel = { name: 'mock-flow.csv', ...window.TraceImport.toFlowRows(await window.TraceImport.readTable('mock-flow.csv', csv), state) };
+      const names = ['spl-banking-mock.log', 'spl-ms-mock.log'];
+      setCmpLogs(await Promise.all(names.map(async (n) => ({ name: n, text: await (await get(n)).text() }))));
+    } catch (err) {
+      toast('Could not load the mock files: ' + err.message);
+    }
+  });
+
+  document.getElementById('cmp-tolerance').addEventListener('input', runCompare);
+  document.getElementById('cmp-issues').addEventListener('change', renderCompareTable);
+  document.getElementById('cmp-copy').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(cmpDelimited('\t')); toast('Alignment copied: paste into Excel'); } catch (e) { toast('Clipboard blocked: use Download CSV'); }
+  });
+  document.getElementById('cmp-csv').addEventListener('click', () => {
+    download('tracezline-compare.csv', '﻿' + cmpDelimited(','), 'text/csv');
   });
 
   // ---------- tabs ----------
@@ -911,15 +1041,18 @@
   clearFlow();
 
   // Demo links: index.html#mock opens the Mock Test tab; #mock/diagram, #mock/sequence, #mock/logs
-  // and #mock/debug open it on that view. Otherwise reopen the last tab (the old
-  // single Flow tab maps to Load File).
+  // and #mock/debug open it on that view; #compare opens Compare with the mock pair loaded.
+  // Otherwise reopen the last tab (the old single Flow tab maps to Load File).
   let savedTab = 'spl';
   try { savedTab = localStorage.getItem(TAB_KEY) || 'spl'; } catch (e) { /* ignore */ }
   if (location.hash.startsWith('#mock')) {
     const view = location.hash.split('/')[1];
     if (['diagram', 'sequence', 'rules', 'debug', 'logs'].includes(view)) showView(view);
     showTab('mock');
+  } else if (location.hash === '#compare') {
+    showTab('compare');
+    document.getElementById('cmp-mock').click();
   } else {
-    showTab({ flow: 'file', file: 'file', mock: 'mock' }[savedTab] || 'spl');
+    showTab({ flow: 'file', file: 'file', mock: 'mock', compare: 'compare' }[savedTab] || 'spl');
   }
 })();

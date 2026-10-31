@@ -83,6 +83,7 @@
         <button type="button" role="tab" class="tab" id="tab-spl" aria-controls="pane-spl" data-tab="spl">Splunk <span id="line-count" class="hint"></span></button>
         <button type="button" role="tab" class="tab" id="tab-file" aria-controls="pane-flow" data-tab="file">Load File <span id="count-file" class="hint"></span></button>
         <button type="button" role="tab" class="tab" id="tab-mock" aria-controls="pane-flow" data-tab="mock">Mock Test <span id="count-mock" class="hint"></span></button>
+        <button type="button" role="tab" class="tab" id="tab-compare" aria-controls="pane-compare" data-tab="compare">Compare <span id="count-compare" class="hint"></span></button>
       </div>
 
       <div class="pane" id="pane-spl" role="tabpanel" aria-labelledby="tab-spl">
@@ -102,7 +103,7 @@
           <label class="check"><input type="checkbox" id="use-terms" autocomplete="off"> Only sessions in Search terms</label>
           <select id="session-filter" aria-label="Session"></select>
           <span class="spacer"></span>
-          <button type="button" id="btn-wide" aria-pressed="false" title="Hide the settings while reading the result">Full width</button>
+          <button type="button" id="btn-wide" class="wide-toggle" aria-pressed="false" title="Hide the settings while reading the result">Full width</button>
         </div>
         <p class="note" id="flow-status"></p>
         <div id="flow-problem" class="problem" role="alert" hidden></div>
@@ -170,6 +171,25 @@
           <div id="sequence" class="sequence"></div>
         </div>
       </div>
+
+      <div class="pane" id="pane-compare" role="tabpanel" aria-labelledby="tab-compare" hidden>
+        <div class="flow-bar">
+          <label class="btn primary-btn" title="The flow table exported from Splunk (.xlsx or .csv)">Splunk result<input type="file" id="cmp-excel" accept=".xlsx,.csv,.txt" hidden></label>
+          <label class="btn primary-btn" title="The raw request/response log files (or a Splunk EventTime/PopulatedLog export)">Log files<input type="file" id="cmp-logs" multiple hidden></label>
+          <button type="button" id="cmp-mock" title="Compare the bundled mock flow with the mock logs">Mock pair</button>
+          <label class="check" title="How far apart (after the detected time offset) a row and its log event may be">Tolerance
+            <input type="number" id="cmp-tolerance" min="0" step="100" value="1000" autocomplete="off" class="num"> ms</label>
+          <span class="spacer"></span>
+          <button type="button" class="wide-toggle" aria-pressed="false" title="Hide the settings while reading the result">Full width</button>
+          <button type="button" id="cmp-copy" disabled title="Copy the alignment table (paste into Excel)">Copy</button>
+          <button type="button" id="cmp-csv" disabled title="Save the alignment table as CSV">Download CSV</button>
+        </div>
+        <p class="note" id="cmp-status">Load the Splunk result and the raw log files it came from. Each Excel row is matched with its log event (same session, layer, direction and API, in order; then the nearest time within the tolerance), and problems between the two are listed. Files are read in this browser only.</p>
+        <div id="cmp-summary" class="summary"></div>
+        <div id="cmp-quality" class="cmp-quality"></div>
+        <label class="check cmp-filter"><input type="checkbox" id="cmp-issues" autocomplete="off"> Only rows with issues</label>
+        <div class="table-wrap"><table id="cmp-table" class="debug-table"></table></div>
+      </div>
     </section>
   </main>
 
@@ -189,6 +209,7 @@
   <script src="js/sequence.js"></script>
   <script src="js/importer.js"></script>
   <script src="js/rules.js"></script>
+  <script src="js/compare.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
