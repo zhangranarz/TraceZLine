@@ -222,18 +222,21 @@
     }));
   }
 
-  // ---------- PlantUML sequence diagram ----------
+  // ---------- sequence diagram ----------
 
-  // One @startuml block per session. Callers come from a call stack: a request is
-  // sent by the participant whose request is still open (App when none), and a
-  // response closes the latest open request with the same Layer and PairKey.
-  // Requests that never get a response are closed with an orange note.
-  function toPlantUml(rows, cfg) {
+  // One diagram per session, shared by the PlantUML text and the SVG view.
+  // Callers come from a call stack: a request is sent by the participant whose
+  // request is still open (App when none), and a response closes the latest open
+  // request with the same Layer and PairKey. Requests that never get a response
+  // are closed with a note.
+  //
+  // Returns [{ sessionId, title: [line], participants: [{ id, name, actor }], items }]
+  // where items are { t: 'msg', from, to, dashed, lines }, { t: 'act' | 'deact', who }
+  // or { t: 'note', who, lines }, and a line is { text, small }.
+  function sequenceModel(rows, cfg) {
     const order = cfg.layers.filter((l) => l.name.trim()).map((l, i) => ({ name: l.name.trim(), layer: Number(l.layer), i }))
       .sort((a, b) => a.layer - b.layer || a.i - b.i);
     const alias = (name) => 'P_' + name.replace(/\W/g, '_');
-    // Labels are single-line PlantUML text: lines are joined with a literal \n, so real newlines are dropped.
-    const esc = (s) => String(s).replace(/[\r\n]+/g, ' ');
     const sessions = new Map();
     for (const r of rows) {
       if (r.sessionId == null || !r.LayerName) continue;
@@ -241,30 +244,22 @@
       sessions.get(r.sessionId).push(r);
     }
 
-    const blocks = [];
+    const diagrams = [];
     for (const [sid, rs] of sessions) {
       const used = new Set(rs.map((r) => r.LayerName));
       const total = Math.round(rs[rs.length - 1].time - rs[0].time);
-      const out = [
-        '@startuml',
-        `title Session ${sid}\\n${rs.length} steps, ${total} ms`,
-        'skinparam responseMessageBelowArrow true',
-        'skinparam sequenceMessageAlign center',
-        'actor App as P_App',
-        ...order.filter((l) => used.has(l.name)).map((l) => `participant "${l.name}" as ${alias(l.name)}`),
-        '',
-      ];
+      const items = [];
       const label = (r, ms) => {
-        const lines = [esc(r.API ?? 'N/A') + (ms != null ? ` (${ms} ms)` : '')];
+        const lines = [{ text: (r.API ?? 'N/A') + (ms != null ? ` (${ms} ms)` : '') }];
         if (r.LayerName === 'Host' && Array.isArray(r.ServiceInfo)) {
-          r.ServiceInfo.slice(1).forEach((s) => lines.push(esc(s.replace(/^- \[(.*)\] \[.\]$/, '$1'))));
+          r.ServiceInfo.slice(1).forEach((s) => lines.push({ text: s.replace(/^- \[(.*)\] \[.\]$/, '$1') }));
         }
-        (r.Params || []).forEach((p) => lines.push(`<size:10>${esc(p)}</size>`));
-        return lines.join('\\n');
+        (r.Params || []).forEach((p) => lines.push({ text: p, small: true }));
+        return lines;
       };
       const noResponse = (s) => {
-        out.push(`note over ${s.who} #FFE0B2 : No response\\n${esc(s.row.API ?? 'N/A')}`);
-        out.push(`deactivate ${s.who}`);
+        items.push({ t: 'note', who: s.who, lines: [{ text: 'No response' }, { text: s.row.API ?? 'N/A' }] });
+        items.push({ t: 'deact', who: s.who });
       };
       const stack = [];
       for (const r of rs) {
@@ -272,24 +267,55 @@
         const key = r.Layer + '|' + r.PairKey;
         if (r.Direction === 'Request') {
           const caller = stack.length ? stack[stack.length - 1].who : 'P_App';
-          out.push(`${caller} -> ${me} : ${label(r)}`, `activate ${me}`);
+          items.push({ t: 'msg', from: caller, to: me, dashed: false, lines: label(r) }, { t: 'act', who: me });
           stack.push({ who: me, caller, key, row: r });
           continue;
         }
         let idx = -1;
         for (let k = stack.length - 1; k >= 0; k--) if (stack[k].key === key) { idx = k; break; }
         if (idx < 0) {
-          out.push(`note over ${me} #FFE0B2 : Response without a request\\n${label(r, r.ElapsedMs)}`);
+          items.push({ t: 'note', who: me, lines: [{ text: 'Response without a request' }, ...label(r, r.ElapsedMs)] });
           continue;
         }
         while (stack.length - 1 > idx) noResponse(stack.pop());
         const s = stack.pop();
-        out.push(`${me} --> ${s.caller} : ${label(r, r.ElapsedMs)}`, `deactivate ${me}`);
+        items.push({ t: 'msg', from: me, to: s.caller, dashed: true, lines: label(r, r.ElapsedMs) }, { t: 'deact', who: me });
       }
       while (stack.length) noResponse(stack.pop());
-      out.push('@enduml');
-      blocks.push(out.join('\n'));
+      diagrams.push({
+        sessionId: sid,
+        title: [`Session ${sid}`, `${rs.length} steps, ${total} ms`],
+        participants: [{ id: 'P_App', name: 'App', actor: true },
+          ...order.filter((l) => used.has(l.name)).map((l) => ({ id: alias(l.name), name: l.name }))],
+        items,
+      });
     }
+    return diagrams;
+  }
+
+  // One @startuml block per session.
+  function toPlantUml(rows, cfg) {
+    // Labels are single-line PlantUML text: lines are joined with a literal \n, so real newlines are dropped.
+    const esc = (s) => String(s).replace(/[\r\n]+/g, ' ');
+    const text = (lines) => lines.map((l) => (l.small ? `<size:10>${esc(l.text)}</size>` : esc(l.text))).join('\\n');
+    const blocks = sequenceModel(rows, cfg).map((d) => {
+      const out = [
+        '@startuml',
+        `title ${d.title.map(esc).join('\\n')}`,
+        'skinparam responseMessageBelowArrow true',
+        'skinparam sequenceMessageAlign center',
+        ...d.participants.map((p) => (p.actor ? `actor ${p.name} as ${p.id}` : `participant "${p.name}" as ${p.id}`)),
+        '',
+      ];
+      for (const it of d.items) {
+        if (it.t === 'msg') out.push(`${it.from} ${it.dashed ? '-->' : '->'} ${it.to} : ${text(it.lines)}`);
+        else if (it.t === 'act') out.push(`activate ${it.who}`);
+        else if (it.t === 'deact') out.push(`deactivate ${it.who}`);
+        else out.push(`note over ${it.who} #FFE0B2 : ${text(it.lines)}`);
+      }
+      out.push('@enduml');
+      return out.join('\n');
+    });
     return blocks.join('\n\n') + (blocks.length ? '\n' : '');
   }
 
@@ -323,5 +349,5 @@
     return out.join('\n') + '\n';
   }
 
-  return { parseEvents, matchesAnySource, run, summarize, toPlantUml, plantUmlEncode64, format, parseSearch };
+  return { parseEvents, matchesAnySource, run, summarize, sequenceModel, toPlantUml, plantUmlEncode64, format, parseSearch };
 });

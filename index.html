@@ -114,7 +114,8 @@
         <div class="view-bar">
           <div class="seg" role="group" aria-label="Flow view">
             <button type="button" class="seg-btn" data-view="table" aria-pressed="true">Table</button>
-            <button type="button" class="seg-btn" data-view="diagram" aria-pressed="false">Sequence diagram</button>
+            <button type="button" class="seg-btn" data-view="diagram" aria-pressed="false">Diagram</button>
+            <button type="button" class="seg-btn" data-view="sequence" aria-pressed="false">Sequence</button>
           </div>
           <span class="spacer"></span>
           <span class="view-actions" data-for="table">
@@ -126,6 +127,10 @@
             <button type="button" id="btn-download-puml" disabled>Download .puml</button>
             <button type="button" id="btn-render-puml" disabled title="Draws the diagram with the public PlantUML server">Render image…</button>
           </span>
+          <span class="view-actions" data-for="sequence" hidden>
+            <label class="check"><input type="checkbox" id="seq-fit"> Fit to width</label>
+            <button type="button" id="btn-svg" disabled>Download SVG</button>
+          </span>
         </div>
 
         <div class="view" id="view-table">
@@ -136,6 +141,10 @@
           <pre id="puml" tabindex="0"></pre>
           <div id="puml-images" class="puml-images"></div>
         </div>
+        <div class="view" id="view-sequence" hidden>
+          <p class="note">Drawn in this browser from the same analysis as the Diagram view; nothing is sent anywhere. Orange notes mark requests that got no response.</p>
+          <div id="sequence" class="sequence"></div>
+        </div>
       </div>
     </section>
   </main>
@@ -144,6 +153,7 @@
 
   <script src="js/spl.js"></script>
   <script src="js/flow.js"></script>
+  <script src="js/sequence.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

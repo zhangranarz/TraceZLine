@@ -21,12 +21,14 @@ In the **Flow** tab (next to **Splunk**), **Load log files** runs the generated 
 files (or a Splunk EventTime/PopulatedLog export) in the browser and shows the flow
 table: per-session summary (steps, total time, slowest hop, requests with no
 response), then the rows grouped by session. **Copy table** pastes into Excel;
-**Download CSV** saves it. Files never leave the browser. The **Sequence diagram** view
+**Download CSV** saves it. Files never leave the browser. The **Diagram** view
 turns the same rows into PlantUML (one diagram per session: App, eComm, Enterprise,
 WS, Host; request/response arrows with activation, elapsed times, Params and Host
 SvcCode pairs; an orange note where a request got no response). Copy it or download
-`.puml` and draw it locally; **Render image…** asks first, then uses plantuml.com. `index.html#mock` opens
-with the mock logs loaded (`#mock/diagram` on the diagram). The same logic runs from the command line:
+`.puml` and draw it locally; **Render image…** asks first, then uses plantuml.com. The **Sequence** view
+draws the same diagram as SVG in the browser (nothing is sent anywhere), with
+**Fit to width** and **Download SVG**. `index.html#mock` opens
+with the mock logs loaded (`#mock/diagram` and `#mock/sequence` open those views). The same logic runs from the command line:
 `node tools/simulate.js --all mock/*.log`.
 
 ## Planned

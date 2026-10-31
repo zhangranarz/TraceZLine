@@ -210,6 +210,12 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .puml-images { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
 .puml-images:empty { display: none; }
 .puml-images img { max-width: 100%; height: auto; background: #fff; border: 1px solid var(--border); border-radius: 6px; }
+#view-sequence { overflow: auto; }
+.sequence { display: flex; flex-direction: column; gap: 16px; }
+.seq-fig { margin: 0; overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+.seq-fig svg { display: block; }
+.sequence.fit .seq-fig svg { width: 100%; height: auto; }
+.view-actions .check { margin: 0; }
 .flow-wide .layout { grid-template-columns: minmax(0, 1fr); }
 .flow-wide .config { display: none; }
 .flow-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }

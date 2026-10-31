@@ -336,6 +336,8 @@
 
   let pumlText = '';
 
+  let svgs = [];
+
   function renderDiagram(rows) {
     pumlText = window.TraceFlow.toPlantUml(rows, state);
     document.getElementById('puml').textContent = pumlText || '(no sessions)';
@@ -344,14 +346,30 @@
     ['btn-copy-puml', 'btn-download-puml', 'btn-render-puml'].forEach((id) => {
       document.getElementById(id).disabled = !pumlText;
     });
+
+    // render() escapes every log-derived string, so the markup is safe to insert.
+    const models = window.TraceFlow.sequenceModel(rows, state);
+    svgs = models.map((d) => ({ sessionId: d.sessionId, svg: window.TraceSequence.render(d) }));
+    const host = document.getElementById('sequence');
+    host.innerHTML = svgs.map((s) => `<figure class="seq-fig">${s.svg}</figure>`).join('');
+    if (!svgs.length) host.textContent = '(no sessions)';
+    document.getElementById('btn-svg').disabled = !svgs.length;
   }
 
   function showView(name) {
     document.querySelectorAll('.seg-btn').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === name)));
-    document.getElementById('view-table').hidden = name !== 'table';
-    document.getElementById('view-diagram').hidden = name !== 'diagram';
+    ['table', 'diagram', 'sequence'].forEach((v) => { document.getElementById('view-' + v).hidden = v !== name; });
     document.querySelectorAll('.view-actions').forEach((s) => { s.hidden = s.dataset.for !== name; });
   }
+
+  document.getElementById('seq-fit').addEventListener('change', (e) => {
+    document.getElementById('sequence').classList.toggle('fit', e.target.checked);
+  });
+
+  // One file per session; with one session selected, a single download.
+  document.getElementById('btn-svg').addEventListener('click', () => {
+    svgs.forEach((s) => download(`tracezline-sequence-${s.sessionId}.svg`, s.svg, 'image/svg+xml'));
+  });
 
   document.querySelectorAll('.seg-btn').forEach((b) => b.addEventListener('click', () => showView(b.dataset.view)));
 
@@ -521,10 +539,11 @@
 
   renderAll();
   // Demo links: index.html#mock opens the Flow tab with the mock logs loaded;
-  // #mock/diagram opens it on the sequence diagram.
+  // #mock/diagram and #mock/sequence open it on that view.
   if (location.hash.startsWith('#mock')) {
     showTab('flow');
-    if (location.hash === '#mock/diagram') showView('diagram');
+    const view = location.hash.split('/')[1];
+    if (view === 'diagram' || view === 'sequence') showView(view);
     document.getElementById('btn-mock').click();
   }
 })();
