@@ -107,12 +107,35 @@
           <select id="session-filter" aria-label="Session"></select>
           <span class="spacer"></span>
           <button type="button" id="btn-wide" aria-pressed="false" title="Hide the settings while reading the result">Full width</button>
-          <button type="button" id="btn-copy-flow" disabled>Copy table</button>
-          <button type="button" id="btn-csv" disabled>Download CSV</button>
         </div>
         <p class="note" id="flow-status">Load the raw log files (or a Splunk EventTime/PopulatedLog export) to see the flow this query produces. Files are read in this browser only and are never uploaded. The result updates as you edit the settings on the left.</p>
         <div id="flow-summary" class="summary"></div>
-        <div class="table-wrap"><table id="flow-table"></table></div>
+
+        <div class="view-bar">
+          <div class="seg" role="group" aria-label="Flow view">
+            <button type="button" class="seg-btn" data-view="table" aria-pressed="true">Table</button>
+            <button type="button" class="seg-btn" data-view="diagram" aria-pressed="false">Sequence diagram</button>
+          </div>
+          <span class="spacer"></span>
+          <span class="view-actions" data-for="table">
+            <button type="button" id="btn-copy-flow" disabled>Copy table</button>
+            <button type="button" id="btn-csv" disabled>Download CSV</button>
+          </span>
+          <span class="view-actions" data-for="diagram" hidden>
+            <button type="button" id="btn-copy-puml" disabled>Copy PlantUML</button>
+            <button type="button" id="btn-download-puml" disabled>Download .puml</button>
+            <button type="button" id="btn-render-puml" disabled title="Draws the diagram with the public PlantUML server">Render image…</button>
+          </span>
+        </div>
+
+        <div class="view" id="view-table">
+          <div class="table-wrap"><table id="flow-table"></table></div>
+        </div>
+        <div class="view" id="view-diagram" hidden>
+          <p class="note">PlantUML, one diagram per session. Paste it into the VS Code PlantUML extension or <code>java -jar plantuml.jar</code> to draw it locally; <b>Render image…</b> uses the public plantuml.com server.</p>
+          <pre id="puml" tabindex="0"></pre>
+          <div id="puml-images" class="puml-images"></div>
+        </div>
       </div>
     </section>
   </main>

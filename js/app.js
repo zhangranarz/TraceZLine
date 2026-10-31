@@ -309,6 +309,7 @@
       document.getElementById('flow-count').textContent = 'error';
       status.textContent = 'Could not run the query logic: ' + err.message;
       renderFlow([]);
+      renderDiagram([]);
       return;
     }
     const sessions = window.TraceFlow.summarize(flowRows);
@@ -328,7 +329,62 @@
     select.value = sessions.some((s) => s.sessionId === keep) ? keep : '';
     renderSummary(sessions);
     renderFlow(selectedRows());
+    renderDiagram(selectedRows());
   }
+
+  // ---------- sequence diagram ----------
+
+  let pumlText = '';
+
+  function renderDiagram(rows) {
+    pumlText = window.TraceFlow.toPlantUml(rows, state);
+    document.getElementById('puml').textContent = pumlText || '(no sessions)';
+    // Images belong to the previous text; drop them so they never show a stale flow.
+    document.getElementById('puml-images').replaceChildren();
+    ['btn-copy-puml', 'btn-download-puml', 'btn-render-puml'].forEach((id) => {
+      document.getElementById(id).disabled = !pumlText;
+    });
+  }
+
+  function showView(name) {
+    document.querySelectorAll('.seg-btn').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === name)));
+    document.getElementById('view-table').hidden = name !== 'table';
+    document.getElementById('view-diagram').hidden = name !== 'diagram';
+    document.querySelectorAll('.view-actions').forEach((s) => { s.hidden = s.dataset.for !== name; });
+  }
+
+  document.querySelectorAll('.seg-btn').forEach((b) => b.addEventListener('click', () => showView(b.dataset.view)));
+
+  document.getElementById('btn-copy-puml').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(pumlText);
+      toast('PlantUML copied');
+    } catch (e) {
+      toast('Clipboard blocked: use Download .puml');
+    }
+  });
+
+  document.getElementById('btn-download-puml').addEventListener('click', () => {
+    download('tracezline-flow.puml', pumlText, 'text/plain');
+  });
+
+  // Rendering sends the diagram text to plantuml.com, so it always asks first.
+  document.getElementById('btn-render-puml').addEventListener('click', async () => {
+    if (!confirm('Render image sends the diagram text (endpoints, session IDs, Params values) to www.plantuml.com.\n\n'
+      + 'Only continue with mock or desensitised data. Continue?')) return;
+    const host = document.getElementById('puml-images');
+    host.replaceChildren();
+    try {
+      for (const block of pumlText.split(/(?=@startuml)/)) {
+        const stream = new Blob([new TextEncoder().encode(block)]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+        const bytes = new Uint8Array(await new Response(stream).arrayBuffer());
+        const src = 'https://www.plantuml.com/plantuml/svg/' + window.TraceFlow.plantUmlEncode64(bytes);
+        host.append(el('img', { src, alt: block.match(/^title (.*)$/m)?.[1].replace(/\\n/g, ' ') || 'Sequence diagram', loading: 'lazy' }));
+      }
+    } catch (err) {
+      toast('Could not render: ' + err.message);
+    }
+  });
 
   function renderSummary(sessions) {
     const sid = document.getElementById('session-filter').value;
@@ -464,9 +520,11 @@
   showTab(savedTab === 'flow' ? 'flow' : 'spl');
 
   renderAll();
-  // index.html#mock opens the Flow tab with the mock logs loaded (demo link).
-  if (location.hash === '#mock') {
+  // Demo links: index.html#mock opens the Flow tab with the mock logs loaded;
+  // #mock/diagram opens it on the sequence diagram.
+  if (location.hash.startsWith('#mock')) {
     showTab('flow');
+    if (location.hash === '#mock/diagram') showView('diagram');
     document.getElementById('btn-mock').click();
   }
 })();

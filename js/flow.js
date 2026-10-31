@@ -222,6 +222,89 @@
     }));
   }
 
+  // ---------- PlantUML sequence diagram ----------
+
+  // One @startuml block per session. Callers come from a call stack: a request is
+  // sent by the participant whose request is still open (App when none), and a
+  // response closes the latest open request with the same Layer and PairKey.
+  // Requests that never get a response are closed with an orange note.
+  function toPlantUml(rows, cfg) {
+    const order = cfg.layers.filter((l) => l.name.trim()).map((l, i) => ({ name: l.name.trim(), layer: Number(l.layer), i }))
+      .sort((a, b) => a.layer - b.layer || a.i - b.i);
+    const alias = (name) => 'P_' + name.replace(/\W/g, '_');
+    // Labels are single-line PlantUML text: lines are joined with a literal \n, so real newlines are dropped.
+    const esc = (s) => String(s).replace(/[\r\n]+/g, ' ');
+    const sessions = new Map();
+    for (const r of rows) {
+      if (r.sessionId == null || !r.LayerName) continue;
+      if (!sessions.has(r.sessionId)) sessions.set(r.sessionId, []);
+      sessions.get(r.sessionId).push(r);
+    }
+
+    const blocks = [];
+    for (const [sid, rs] of sessions) {
+      const used = new Set(rs.map((r) => r.LayerName));
+      const total = Math.round(rs[rs.length - 1].time - rs[0].time);
+      const out = [
+        '@startuml',
+        `title Session ${sid}\\n${rs.length} steps, ${total} ms`,
+        'skinparam responseMessageBelowArrow true',
+        'skinparam sequenceMessageAlign center',
+        'actor App as P_App',
+        ...order.filter((l) => used.has(l.name)).map((l) => `participant "${l.name}" as ${alias(l.name)}`),
+        '',
+      ];
+      const label = (r, ms) => {
+        const lines = [esc(r.API ?? 'N/A') + (ms != null ? ` (${ms} ms)` : '')];
+        if (r.LayerName === 'Host' && Array.isArray(r.ServiceInfo)) {
+          r.ServiceInfo.slice(1).forEach((s) => lines.push(esc(s.replace(/^- \[(.*)\] \[.\]$/, '$1'))));
+        }
+        (r.Params || []).forEach((p) => lines.push(`<size:10>${esc(p)}</size>`));
+        return lines.join('\\n');
+      };
+      const noResponse = (s) => {
+        out.push(`note over ${s.who} #FFE0B2 : No response\\n${esc(s.row.API ?? 'N/A')}`);
+        out.push(`deactivate ${s.who}`);
+      };
+      const stack = [];
+      for (const r of rs) {
+        const me = alias(r.LayerName);
+        const key = r.Layer + '|' + r.PairKey;
+        if (r.Direction === 'Request') {
+          const caller = stack.length ? stack[stack.length - 1].who : 'P_App';
+          out.push(`${caller} -> ${me} : ${label(r)}`, `activate ${me}`);
+          stack.push({ who: me, caller, key, row: r });
+          continue;
+        }
+        let idx = -1;
+        for (let k = stack.length - 1; k >= 0; k--) if (stack[k].key === key) { idx = k; break; }
+        if (idx < 0) {
+          out.push(`note over ${me} #FFE0B2 : Response without a request\\n${label(r, r.ElapsedMs)}`);
+          continue;
+        }
+        while (stack.length - 1 > idx) noResponse(stack.pop());
+        const s = stack.pop();
+        out.push(`${me} --> ${s.caller} : ${label(r, r.ElapsedMs)}`, `deactivate ${me}`);
+      }
+      while (stack.length) noResponse(stack.pop());
+      out.push('@enduml');
+      blocks.push(out.join('\n'));
+    }
+    return blocks.join('\n\n') + (blocks.length ? '\n' : '');
+  }
+
+  // PlantUML server text encoding: raw deflate, then PlantUML's 64-character alphabet.
+  const PUML_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_';
+  function plantUmlEncode64(bytes) {
+    let out = '';
+    for (let i = 0; i < bytes.length; i += 3) {
+      const b1 = bytes[i]; const b2 = bytes[i + 1] ?? 0; const b3 = bytes[i + 2] ?? 0;
+      out += PUML_ALPHABET[b1 >> 2] + PUML_ALPHABET[((b1 & 3) << 4) | (b2 >> 4)]
+        + PUML_ALPHABET[((b2 & 15) << 2) | (b3 >> 6)] + PUML_ALPHABET[b3 & 63];
+    }
+    return out;
+  }
+
   // ---------- output ----------
 
   // Plain-text table; multivalue cells continue on the following lines.
@@ -240,5 +323,5 @@
     return out.join('\n') + '\n';
   }
 
-  return { parseEvents, matchesAnySource, run, summarize, format, parseSearch };
+  return { parseEvents, matchesAnySource, run, summarize, toPlantUml, plantUmlEncode64, format, parseSearch };
 });
