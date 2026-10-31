@@ -147,3 +147,22 @@ test('sessionId rules extract a dashed UUID from each layer format', () => {
   assert.strictEqual(`id=${uuid};`.match(any).groups.sidAny, uuid);
   assert.strictEqual('id=--------------------------------------;'.match(any), null);
 });
+
+test('Flow format: per-layer indent and [?]/[!] direction markers', () => {
+  const out = spl.generate(spl.DEFAULT_CONFIG);
+  assert.match(out, /\| eval Indent=case\(LayerName="eComm","",LayerName="Enterprise","> ",LayerName="Host",">>> ",LayerName="WS",">> "\)/);
+  assert.match(out, /\| eval DirectionSymbol=if\(Direction="Request","\?","!"\)/);
+  assert.match(out, /LayerName="Host",replace\(DGEEndpoint,":","."\)\)/);
+});
+
+test('URL and Endpoint1 rules read the WS, eComm and Enterprise line formats', () => {
+  const toJs = (rex) => new RegExp(rex.replace(/\\"/g, '"'));
+  const urlLine = spl.generate(spl.DEFAULT_CONFIG).split('\n').find((l) => l.includes('(?<URL>'));
+  const url = toJs(urlLine.match(/"(.*)"$/)[1]);
+  assert.strictEqual('RestEndPointUFWAspect: | URL is /dge-idm/idm/user/profile/get:'.match(url).groups.URL, '/dge-idm/idm/user/profile/get');
+  assert.strictEqual('WebLogUFWAspect: | URL:/dge-enq/enq/customer/portfolio | StartTime'.match(url).groups.URL, '/dge-enq/enq/customer/portfolio');
+  const ep = toJs(spl.DEFAULT_CONFIG.endpointRules[0].rex);
+  assert.strictEqual('[6adeb69a][][]\n-/spl-banking/services/vn/security/preLogin - Request -'.match(ep).groups.Endpoint1, '/spl-banking/services/vn/security/preLogin');
+  assert.strictEqual('[Android-SPL][49ms] -/idm/user/profile/get - [Response]:'.match(ep).groups.Endpoint1, '/idm/user/profile/get');
+  assert.strictEqual('[SPLHostMessage][11ms] - /insights/initInsights - [Response]:'.match(ep).groups.Endpoint1, '/insights/initInsights');
+});

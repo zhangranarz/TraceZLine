@@ -25,10 +25,10 @@
     ],
     terms: ['2576dfc8-495a-837a-8a2f291fd003d', '7f269c48-f03a-4fef-bc3007538ec1a2'],
     layers: [
-      { name: 'eComm', match: String.raw`match(_raw,"\[SPLMessage\]")`, layer: 1 },
-      { name: 'Enterprise', match: String.raw`match(_raw,"\[SPLHostMessage\]")`, layer: 2 },
-      { name: 'Host', match: String.raw`match(_raw,"<SvcCode>") AND match(_raw,"(?i)(request|response) message")`, layer: 3 },
-      { name: 'WS', match: String.raw`match(_raw,"WSAppLog")`, layer: 2 },
+      { name: 'eComm', match: String.raw`match(_raw,"\[SPLMessage\]")`, layer: 1, indent: '' },
+      { name: 'Enterprise', match: String.raw`match(_raw,"\[SPLHostMessage\]")`, layer: 2, indent: '> ' },
+      { name: 'Host', match: String.raw`match(_raw,"<SvcCode>") AND match(_raw,"(?i)(request|response) message")`, layer: 3, indent: '>>> ' },
+      { name: 'WS', match: String.raw`match(_raw,"WSAppLog")`, layer: 2, indent: '>> ' },
     ],
     // rex that extracts the direction word, and an optional raw first case() pair.
     dirWordRex: String.raw`(?i)\b(?<DirWord>Request|Response)\b`,
@@ -40,13 +40,13 @@
       { layer: 'WS', pattern: '(?i)(RESPONSE from|Response:)', direction: 'Response' },
     ],
     endpointRules: [
-      { field: 'Endpoint1', rex: String.raw`(?<Endpoint1>[^ ]+)\s*\-\s*(?:'?Request|Response)'?\s*\-` },
+      { field: 'Endpoint1', rex: String.raw`\]\s*-\s*(?<Endpoint1>[^\s\[\]]*/\S*)\s+-` },
       { field: 'Endpoint2', rex: String.raw`\s\s\s(?<Endpoint2>[^ ]+)\s\-\s(?:'?Request|Response)'` },
       { field: 'Endpoint3', rex: String.raw`(?i)endpoint\"?\s*[:=]\s*\"?(?<Endpoint3>[^\",]+)` },
     ],
     sessionRules: [
-      { field: 'sidEcomm', rex: String.raw`(?i)\[SPLMessage\]\[?(?<sidEcomm>[0-9a-fA-F-]{36})` },
-      { field: 'sidEnterprise', rex: String.raw`(?i)\[SPLHostMessage\]\[?(?<sidEnterprise>[0-9a-fA-F-]{36})` },
+      { field: 'sidEcomm', rex: String.raw`(?i)\[SPLMessage\]\s*\[?(?<sidEcomm>[0-9a-fA-F-]{36})` },
+      { field: 'sidEnterprise', rex: String.raw`(?i)\[SPLHostMessage\]\s*\[?(?<sidEnterprise>[0-9a-fA-F-]{36})` },
       { field: 'sidWls', rex: String.raw`(?i)\bWLS:\s*(?<sidWls>[0-9a-fA-F-]{36})` },
       { field: 'sidAny', rex: String.raw`(?<sidAny>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})` },
     ],
@@ -58,7 +58,7 @@
   };
 
   const FLOW_BLOCK = String.raw`| rex field=_raw "\[:(?<DGEEndpoint>[^]]+)\]"
-| rex field=_raw "URL\s*=\s*is\s*\:\s*(?<URL>\S+)"
+| rex field=_raw "URL(?:\s+is\s+|\s*:\s*)(?<URL>/[^\s:|]+)"
 | rex field=_raw max_match=0 "<SvcCode>(?<SvcCode>[^<]+)</SvcCode>"
 | where LayerName!="Host" OR mvcount(SvcCode)>=1
 | eval SortKey=if(Direction="Request",Layer,-Layer)
@@ -68,14 +68,14 @@
 | eval pairIndex=mvrange(0,ceil(mvcount(SvcCode)/2))
 | eval HostPairs=mvmap(pairIndex, mvindex(SvcCode,pairIndex*2) . " ~ ".coalesce(mvindex(SvcCode,pairIndex*2+1),mvindex(SvcCode,pairIndex*2)))
 | eval API=case(LayerName="eComm",Endpoint,LayerName="Enterprise",Endpoint,LayerName="WS",
-    coalesce(URL,LastWsURL,DGEEndpoint,"N/A"),LayerName="Host",DGEEndpoint)
-| eval DirectionSymbol=if(Direction="Request",">","<")
+    coalesce(URL,LastWsURL,DGEEndpoint,"N/A"),LayerName="Host",replace(DGEEndpoint,":","."))
+| eval DirectionSymbol=if(Direction="Request","?","!")
 | eval ServiceInfo=if(LayerName="Host", mvmap(HostPairs,"- [".HostPairs."] [".DirectionSymbol."]"),null())
 | eval PairKey=case(LayerName="Host",coalesce(DGEEndpoint,""),true(),API)
 | eval ReqTime=if(Direction="Request",_time,null())
 | streamstats last(ReqTime) as LastReqTime by sessionId Layer PairKey
 | eval ElapsedMs=if(Direction="Response" AND isnotnull(LastReqTime),round((_time-LastReqTime)*1000,0),null())
-| eval Indent=case(Layer=1,"",Layer=2,"-->",Layer=3,"------>")
+__INDENT__
 | eval Flow=Indent.LayerName.": ".API." [".DirectionSymbol."]"
 | eval ServiceInfo=if(LayerName="Host" AND isnotnull(ServiceInfo), mvappend(Flow,ServiceInfo), Flow)`;
 
@@ -136,7 +136,10 @@
     sids.filter((r) => r.rex.trim()).forEach((r) => out.push(`| rex field=_raw "${r.rex.trim()}"`));
     out.push('| eval sessionId=coalesce(' + sids.map((r) => r.field.trim()).join(', ') + ')');
 
-    out.push(FLOW_BLOCK);
+    // Indent is per layer name: layers can share a number (Enterprise and WS are both 2).
+    const indentLine = '| eval Indent=case('
+      + layers.map((l) => `LayerName="${l.name.trim()}","${l.indent ?? ''}"`).join(',') + ')';
+    out.push(FLOW_BLOCK.replace('__INDENT__', indentLine));
 
     const params = cfg.params.filter((p) => p.field.trim());
     params.filter((p) => p.rex.trim()).forEach((p) => out.push(`| rex field=_raw "${p.rex.trim()}"`));

@@ -19,17 +19,17 @@
     LayerName="Host" AND match(_raw,"(?i)Response Message"),"Response",
     LayerName="WS" AND match(_raw,"(?i)request:"),"Request",
     LayerName="WS" AND match(_raw,"(?i)(RESPONSE from|Response:)"),"Response")
-| rex field=_raw "(?<Endpoint1>[^ ]+)\s*\-\s*(?:'?Request|Response)'?\s*\-"
+| rex field=_raw "\]\s*-\s*(?<Endpoint1>[^\s\[\]]*/\S*)\s+-"
 | rex field=_raw "\s\s\s(?<Endpoint2>[^ ]+)\s\-\s(?:'?Request|Response)'"
 | rex field=_raw "(?i)endpoint\"?\s*[:=]\s*\"?(?<Endpoint3>[^\",]+)"
 | eval Endpoint=coalesce(Endpoint1,Endpoint2,Endpoint3)
-| rex field=_raw "(?i)\[SPLMessage\]\[?(?<sidEcomm>[0-9a-fA-F-]{36})"
-| rex field=_raw "(?i)\[SPLHostMessage\]\[?(?<sidEnterprise>[0-9a-fA-F-]{36})"
+| rex field=_raw "(?i)\[SPLMessage\]\s*\[?(?<sidEcomm>[0-9a-fA-F-]{36})"
+| rex field=_raw "(?i)\[SPLHostMessage\]\s*\[?(?<sidEnterprise>[0-9a-fA-F-]{36})"
 | rex field=_raw "(?i)\bWLS:\s*(?<sidWls>[0-9a-fA-F-]{36})"
 | rex field=_raw "(?<sidAny>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})"
 | eval sessionId=coalesce(sidEcomm, sidEnterprise, sidWls, sidAny)
 | rex field=_raw "\[:(?<DGEEndpoint>[^]]+)\]"
-| rex field=_raw "URL\s*=\s*is\s*\:\s*(?<URL>\S+)"
+| rex field=_raw "URL(?:\s+is\s+|\s*:\s*)(?<URL>/[^\s:|]+)"
 | rex field=_raw max_match=0 "<SvcCode>(?<SvcCode>[^<]+)</SvcCode>"
 | where LayerName!="Host" OR mvcount(SvcCode)>=1
 | eval SortKey=if(Direction="Request",Layer,-Layer)
@@ -39,14 +39,14 @@
 | eval pairIndex=mvrange(0,ceil(mvcount(SvcCode)/2))
 | eval HostPairs=mvmap(pairIndex, mvindex(SvcCode,pairIndex*2) . " ~ ".coalesce(mvindex(SvcCode,pairIndex*2+1),mvindex(SvcCode,pairIndex*2)))
 | eval API=case(LayerName="eComm",Endpoint,LayerName="Enterprise",Endpoint,LayerName="WS",
-    coalesce(URL,LastWsURL,DGEEndpoint,"N/A"),LayerName="Host",DGEEndpoint)
-| eval DirectionSymbol=if(Direction="Request",">","<")
+    coalesce(URL,LastWsURL,DGEEndpoint,"N/A"),LayerName="Host",replace(DGEEndpoint,":","."))
+| eval DirectionSymbol=if(Direction="Request","?","!")
 | eval ServiceInfo=if(LayerName="Host", mvmap(HostPairs,"- [".HostPairs."] [".DirectionSymbol."]"),null())
 | eval PairKey=case(LayerName="Host",coalesce(DGEEndpoint,""),true(),API)
 | eval ReqTime=if(Direction="Request",_time,null())
 | streamstats last(ReqTime) as LastReqTime by sessionId Layer PairKey
 | eval ElapsedMs=if(Direction="Response" AND isnotnull(LastReqTime),round((_time-LastReqTime)*1000,0),null())
-| eval Indent=case(Layer=1,"",Layer=2,"-->",Layer=3,"------>")
+| eval Indent=case(LayerName="eComm","",LayerName="Enterprise","> ",LayerName="Host",">>> ",LayerName="WS",">> ")
 | eval Flow=Indent.LayerName.": ".API." [".DirectionSymbol."]"
 | eval ServiceInfo=if(LayerName="Host" AND isnotnull(ServiceInfo), mvappend(Flow,ServiceInfo), Flow)
 | rex field=_raw "(?i)transactionRef(?:erenceNumber)?\"?\s*[:=]\s*\"?(?<transactionRef>[^\",]+)"

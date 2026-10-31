@@ -22,9 +22,10 @@
       fields: [
         { key: 'name', label: 'Name', placeholder: 'OPI', size: 's' },
         { key: 'layer', label: 'Layer #', type: 'number', size: 'xs' },
+        { key: 'indent', label: 'Indent', placeholder: '>> ', size: 'xs' },
         { key: 'match', label: 'Condition', placeholder: 'match(_raw,"OPIAppLog")', size: 'l' },
       ],
-      blank: () => ({ name: '', layer: 3, match: '' }),
+      blank: () => ({ name: '', layer: 3, indent: '', match: '' }),
     },
     directions: {
       fields: [
