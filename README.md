@@ -29,7 +29,7 @@ SvcCode pairs; an orange note where a request got no response). Copy it or downl
 draws the same diagram as SVG in the browser (nothing is sent anywhere), with
 **Fit to width** and **Download SVG**. The **Debug** view logs every file
 load and run (file format, events read, how many each filter excluded, the Search
-terms used) and lists every event with the decision taken for it; **Copy debug log**
+terms used) and lists every event with the decision taken for it; **Copy Log**
 copies both. `index.html#mock` opens the Mock Test tab
 (`#mock/diagram` and `#mock/sequence` open those views). The same logic runs from the command line:
 `node tools/simulate.js --all mock/*.log`.
