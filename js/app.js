@@ -1047,7 +1047,7 @@
   document.getElementById('cmp-offset').addEventListener('input', runCompare);
   document.getElementById('cmp-issues').addEventListener('change', renderCompareTable);
   document.getElementById('cmp-copy').addEventListener('click', async () => {
-    try { await navigator.clipboard.writeText(cmpDelimited('\t')); toast('Mapping copied: paste into Excel'); } catch (e) { toast('Clipboard blocked: use Download CSV'); }
+    try { await navigator.clipboard.writeText(cmpDelimited('\t')); toast('Mapping copied: paste into Excel'); } catch (e) { toast('Clipboard blocked: use Download'); }
   });
   document.getElementById('cmp-csv').addEventListener('click', () => {
     download('tracezline-compare.csv', '﻿' + cmpDelimited(','), 'text/csv');

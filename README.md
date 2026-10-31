@@ -46,8 +46,8 @@ offset between Splunk's EventTime and the log timestamps (e.g. a time-zone diffe
 detected, or set in **Offset** (hours). Each line shows the log time, the difference in ms,
 the log event (`file:line`, expand it for the raw text) and whether it agrees. Data quality
 lists lines with no event in the window, lines mapped to another layer/direction/API, log
-events not mapped, and warns when the files share no session. **Mock pair** loads the mock
-flow and logs; **Copy** / **Download CSV** export the mapping.
+events not mapped, and warns when the files share no session. **Mock** loads the mock
+flow and logs; **Copy** / **Download** (CSV) export the mapping.
 
 Views in Load File and Mock Test:
 
