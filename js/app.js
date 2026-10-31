@@ -578,7 +578,7 @@
       await navigator.clipboard.writeText(pumlText);
       toast('PlantUML copied');
     } catch (e) {
-      toast('Clipboard blocked: use Download .puml');
+      toast('Clipboard blocked: use Download');
     }
   });
 
