@@ -81,7 +81,8 @@
     <section class="preview">
       <div class="tabs" role="tablist">
         <button type="button" role="tab" class="tab" id="tab-spl" aria-controls="pane-spl" data-tab="spl">Splunk <span id="line-count" class="hint"></span></button>
-        <button type="button" role="tab" class="tab" id="tab-flow" aria-controls="pane-flow" data-tab="flow">Flow <span id="flow-count" class="hint"></span></button>
+        <button type="button" role="tab" class="tab" id="tab-file" aria-controls="pane-flow" data-tab="file">Load File <span id="count-file" class="hint"></span></button>
+        <button type="button" role="tab" class="tab" id="tab-mock" aria-controls="pane-flow" data-tab="mock">Mock Test <span id="count-mock" class="hint"></span></button>
       </div>
 
       <div class="pane" id="pane-spl" role="tabpanel" aria-labelledby="tab-spl">
@@ -94,16 +95,16 @@
         <pre id="spl" tabindex="0"></pre>
       </div>
 
-      <div class="pane" id="pane-flow" role="tabpanel" aria-labelledby="tab-flow" hidden>
+      <div class="pane" id="pane-flow" role="tabpanel" aria-labelledby="tab-file" data-mode="file" hidden>
         <div class="flow-bar">
-          <label class="btn primary-btn" title="Load raw log files (or a Splunk EventTime/PopulatedLog export) and run the query logic on them">Local Test<input type="file" id="log-files" multiple hidden></label>
-          <button type="button" id="btn-mock" title="Load the bundled mock logs (fake data)">Mock Test</button>
+          <label class="btn primary-btn file-only" title="Load raw log files (or a Splunk EventTime/PopulatedLog export) and run the query logic on them">Local Test<input type="file" id="log-files" multiple hidden></label>
+          <button type="button" id="btn-mock" class="mock-only" title="Load the bundled mock logs (fake data) again">Reload mock logs</button>
           <label class="check"><input type="checkbox" id="use-terms" autocomplete="off"> Only sessions in Search terms</label>
           <select id="session-filter" aria-label="Session"></select>
           <span class="spacer"></span>
           <button type="button" id="btn-wide" aria-pressed="false" title="Hide the settings while reading the result">Full width</button>
         </div>
-        <p class="note" id="flow-status">Load the raw log files (or a Splunk EventTime/PopulatedLog export) to see the flow this query produces. Files are read in this browser only and are never uploaded. The result updates as you edit the settings on the left.</p>
+        <p class="note" id="flow-status"></p>
         <div id="flow-problem" class="problem" role="alert" hidden></div>
         <div id="flow-summary" class="summary"></div>
 
@@ -116,7 +117,7 @@
           </div>
           <span class="spacer"></span>
           <span class="view-actions" data-for="table">
-            <label class="btn" title="Load the flow table exported from Splunk (Step, EventTime, sessionId, ServiceInfo, Params, ElapsedMs) and build the diagrams from it">Upload<input type="file" id="flow-upload" accept=".xlsx,.csv,.txt" hidden></label>
+            <label class="btn file-only" title="Load the flow table exported from Splunk (Step, EventTime, sessionId, ServiceInfo, Params, ElapsedMs) and build the diagrams from it">Upload<input type="file" id="flow-upload" accept=".xlsx,.csv,.txt" hidden></label>
             <button type="button" id="btn-copy-flow" disabled>Copy table</button>
             <button type="button" id="btn-csv" disabled>Download CSV</button>
           </span>

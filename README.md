@@ -15,13 +15,13 @@ Rebuilds the base flow query from editable values while keeping its structure fi
 
 The default settings reproduce the base query exactly (`tests/base.spl`, checked by `npm test`).
 
-## Flow tab (available now)
+## Load File and Mock Test tabs (available now)
 
-In the **Flow** tab (next to **Splunk**), **Local Test** runs the generated query's logic over raw log
+In the **Load File** tab (next to **Splunk**), **Local Test** runs the generated query's logic over raw log
 files (or a Splunk EventTime/PopulatedLog export) in the browser and shows the flow
 table: per-session summary (steps, total time, slowest hop, requests with no
 response), then the rows grouped by session. **Copy table** pastes into Excel;
-**Download CSV** saves it. **Mock Test** loads the bundled mock logs. Files never leave the browser. The **PlantUML** view
+**Download CSV** saves it. The **Mock Test** tab shows the same views for the bundled mock logs, loaded when the tab opens; each tab keeps its own data. Files never leave the browser. The **PlantUML** view
 turns the same rows into PlantUML (one diagram per session: App, eComm, Enterprise,
 WS, Host; request/response arrows with activation, elapsed times, Params and Host
 SvcCode pairs; an orange note where a request got no response). Copy it or download
@@ -30,8 +30,8 @@ draws the same diagram as SVG in the browser (nothing is sent anywhere), with
 **Fit to width** and **Download SVG**. The **Debug** view logs every file
 load and run (file format, events read, how many each filter excluded, the Search
 terms used) and lists every event with the decision taken for it; **Copy debug log**
-copies both. `index.html#mock` opens
-with the mock logs loaded (`#mock/diagram` and `#mock/sequence` open those views). The same logic runs from the command line:
+copies both. `index.html#mock` opens the Mock Test tab
+(`#mock/diagram` and `#mock/sequence` open those views). The same logic runs from the command line:
 `node tools/simulate.js --all mock/*.log`.
 
 ### Upload a Splunk flow result

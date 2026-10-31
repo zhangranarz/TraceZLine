@@ -289,6 +289,19 @@
   let flowRows = [];
   const SLOW_MS = 1000;
 
+  // The Load File and Mock Test tabs share the flow pane; each keeps its own data.
+  // `logs` and `imported` always hold the current tab's data; the other tab's waits in ctx.
+  let mode = 'file';
+  const ctx = { file: { logs: [], imported: null }, mock: { logs: [], imported: null } };
+  const IDLE_STATUS = {
+    file: 'Local Test loads raw log files (or a Splunk EventTime/PopulatedLog export) and runs this query\'s logic on them; Upload in the Table view loads the flow table exported from Splunk. Files are read in this browser only and never uploaded. The result updates as you edit the settings on the left.',
+    mock: 'Loading the bundled mock logs (fake data)…',
+  };
+
+  function setCount(text) {
+    document.getElementById('count-' + mode).textContent = text;
+  }
+
   function flowColumns() {
     return state.columns.map((c) => c.trim()).filter(Boolean);
   }
@@ -318,7 +331,7 @@
         flowRows = window.TraceFlow.run(state, logs, terms, trace);
       } catch (err) {
         flowRows = [];
-        document.getElementById('flow-count').textContent = 'error';
+        setCount('error');
         status.textContent = 'Could not run the query logic: ' + err.message;
         logDebug('error', 'Run failed: ' + err.message);
         renderFlow([]);
@@ -331,7 +344,7 @@
     }
     const sessions = window.TraceFlow.summarize(flowRows);
     const noSid = flowRows.filter((r) => r.sessionId == null).length;
-    document.getElementById('flow-count').textContent = `${flowRows.length} rows`;
+    setCount(`${flowRows.length} rows`);
     if (imported) {
       status.textContent = `${imported.name}: imported Splunk result, ${flowRows.length} rows, ${sessions.length} sessions`
         + (imported.problems.length ? `; ${imported.problems.length} rows need attention (see Debug)` : '') + '.';
@@ -657,7 +670,7 @@
     }
     if (!logs.length) {
       flowRows = [];
-      document.getElementById('flow-count').textContent = '0 rows';
+      setCount('0 rows');
       document.getElementById('flow-status').textContent = 'No usable log file loaded. See the Debug view for details.';
       renderFlow([]);
       renderDiagram([]);
@@ -684,7 +697,7 @@
     setLogs(read);
   });
 
-  document.getElementById('btn-mock').addEventListener('click', async () => {
+  async function loadMock() {
     try {
       const names = ['spl-banking-mock.log', 'spl-ms-mock.log'];
       const texts = await Promise.all(names.map(async (n) => {
@@ -692,14 +705,45 @@
         if (!res.ok) throw new Error(`${n}: HTTP ${res.status}`);
         return res.text();
       }));
+      if (mode !== 'mock') return; // the user switched tabs while loading
       document.getElementById('use-terms').checked = false;
       logDebug('info', 'Mock Test: ' + names.join(', '));
       setLogs(names.map((name, i) => ({ name, text: texts[i] })));
     } catch (err) {
+      document.getElementById('flow-status').textContent = 'Could not load the mock logs: ' + err.message
+        + '. Open the page through the local server (python tools/serve.py) or the published site, not as a file.';
       logDebug('error', 'Could not load mock logs: ' + err.message);
-      toast('Could not load mock logs: ' + err.message);
     }
-  });
+  }
+
+  document.getElementById('btn-mock').addEventListener('click', loadMock);
+
+  // Empty flow pane for a tab with nothing loaded yet.
+  function clearFlow() {
+    flowRows = [];
+    document.getElementById('flow-status').textContent = IDLE_STATUS[mode];
+    document.getElementById('flow-problem').hidden = true;
+    document.getElementById('flow-summary').replaceChildren();
+    document.getElementById('session-filter').replaceChildren(el('option', { value: '' }, ['All sessions']));
+    renderFlow([]);
+    renderDiagram([]);
+    renderDebugTable([]);
+  }
+
+  // Swap the flow pane to the Load File or Mock Test tab's data.
+  function switchMode(next) {
+    ctx[mode] = { logs, imported };
+    mode = next;
+    ({ logs, imported } = ctx[mode]);
+    document.getElementById('pane-flow').dataset.mode = mode;
+    document.getElementById('pane-flow').setAttribute('aria-labelledby', 'tab-' + mode);
+    if (logs.length || imported) {
+      refreshFlow();
+    } else {
+      clearFlow();
+      if (mode === 'mock') loadMock();
+    }
+  }
 
   document.getElementById('btn-wide').addEventListener('click', (e) => {
     const wide = document.body.classList.toggle('flow-wide');
@@ -727,14 +771,18 @@
 
   const TAB_KEY = 'tracezline.tab';
 
+  // Tabs: spl, file, mock. file and mock share #pane-flow, so panes are shown by the selected tab only.
   function showTab(name) {
-    document.querySelectorAll('.tab').forEach((t) => {
-      const on = t.dataset.tab === name;
+    const tabs = [...document.querySelectorAll('.tab')];
+    const selected = tabs.find((t) => t.dataset.tab === name) || tabs[0];
+    tabs.forEach((t) => {
+      const on = t === selected;
       t.setAttribute('aria-selected', String(on));
       t.tabIndex = on ? 0 : -1;
-      document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
     });
-    try { localStorage.setItem(TAB_KEY, name); } catch (e) { /* ignore */ }
+    document.querySelectorAll('.pane').forEach((p) => { p.hidden = p.id !== selected.getAttribute('aria-controls'); });
+    if ((selected.dataset.tab === 'file' || selected.dataset.tab === 'mock') && selected.dataset.tab !== mode) switchMode(selected.dataset.tab);
+    try { localStorage.setItem(TAB_KEY, selected.dataset.tab); } catch (e) { /* ignore */ }
   }
 
   document.querySelectorAll('.tab').forEach((t) => {
@@ -748,17 +796,19 @@
     });
   });
 
+  renderAll();
+  clearFlow();
+
+  // Demo links: index.html#mock opens the Mock Test tab; #mock/diagram, #mock/sequence
+  // and #mock/debug open it on that view. Otherwise reopen the last tab (the old
+  // single Flow tab maps to Load File).
   let savedTab = 'spl';
   try { savedTab = localStorage.getItem(TAB_KEY) || 'spl'; } catch (e) { /* ignore */ }
-  showTab(savedTab === 'flow' ? 'flow' : 'spl');
-
-  renderAll();
-  // Demo links: index.html#mock opens the Flow tab with the mock logs loaded;
-  // #mock/diagram, #mock/sequence and #mock/debug open it on that view.
   if (location.hash.startsWith('#mock')) {
-    showTab('flow');
     const view = location.hash.split('/')[1];
     if (['diagram', 'sequence', 'debug'].includes(view)) showView(view);
-    document.getElementById('btn-mock').click();
+    showTab('mock');
+  } else {
+    showTab({ flow: 'file', file: 'file', mock: 'mock' }[savedTab] || 'spl');
   }
 })();

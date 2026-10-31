@@ -250,6 +250,8 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .seq-fig svg { display: block; }
 .sequence.fit .seq-fig svg { width: 100%; height: auto; }
 .view-actions .check { margin: 0; }
+/* The Load File and Mock Test tabs share one pane; data-mode hides the other tab's buttons. */
+#pane-flow[data-mode="mock"] .file-only, #pane-flow[data-mode="file"] .mock-only { display: none; }
 .flow-wide .layout { grid-template-columns: minmax(0, 1fr); }
 .flow-wide .config { display: none; }
 .flow-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
