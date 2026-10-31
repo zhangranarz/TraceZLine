@@ -944,6 +944,7 @@
         el('ul', {}, [...q.items.slice(0, 200).map((t) => el('li', {}, [t])), ...(q.items.length > 200 ? [el('li', {}, [`… and ${q.items.length - 200} more`])] : [])]),
       ])) : [el('p', { class: 'note' }, ['Every line mapped to an agreeing log event within the tolerance.'])]),
     );
+    document.getElementById('cmp-analysis').hidden = false;
     renderCompareTable();
     ['cmp-copy', 'cmp-csv'].forEach((id) => { document.getElementById(id).disabled = false; });
   }

@@ -187,10 +187,13 @@
           <button type="button" id="cmp-csv" disabled title="Save the mapping table as CSV">Download CSV</button>
         </div>
         <p class="note" id="cmp-status">Load the Splunk result and the raw log files it came from. Each line of the Splunk result is mapped to the log event with the closest timestamp (after the time offset, within the tolerance); when several are equally close, the one with the same session, layer, direction and API wins. Expand a log event to see its raw text. Files are read in this browser only.</p>
-        <div id="cmp-summary" class="summary"></div>
-        <div id="cmp-quality" class="cmp-quality"></div>
         <label class="check cmp-filter"><input type="checkbox" id="cmp-issues" autocomplete="off"> Only lines that differ or are not mapped</label>
-        <div class="table-wrap"><table id="cmp-table" class="debug-table"></table></div>
+        <div class="table-wrap cmp-table-wrap"><table id="cmp-table" class="debug-table"></table></div>
+        <div class="cmp-analysis" id="cmp-analysis" hidden>
+          <h3>Analysis</h3>
+          <div id="cmp-summary" class="summary"></div>
+          <div id="cmp-quality" class="cmp-quality"></div>
+        </div>
       </div>
     </section>
   </main>
