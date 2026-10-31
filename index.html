@@ -114,6 +114,7 @@
             <button type="button" class="seg-btn" data-view="diagram" aria-pressed="false">PlantUML</button>
             <button type="button" class="seg-btn" data-view="sequence" aria-pressed="false">Sequence</button>
             <button type="button" class="seg-btn" data-view="debug" aria-pressed="false">Debug</button>
+            <button type="button" class="seg-btn mock-only" data-view="logs" aria-pressed="false">Log Files</button>
           </div>
           <span class="spacer"></span>
           <span class="view-actions" data-for="table">
@@ -125,6 +126,9 @@
             <button type="button" id="btn-copy-puml" disabled>Copy PlantUML</button>
             <button type="button" id="btn-download-puml" disabled>Download .puml</button>
             <button type="button" id="btn-render-puml" disabled title="Draws the diagram with the public PlantUML server">Render image…</button>
+          </span>
+          <span class="view-actions" data-for="logs" hidden>
+            <select id="log-file-select" aria-label="Log file"></select>
           </span>
           <span class="view-actions" data-for="debug" hidden>
             <label class="check"><input type="checkbox" id="debug-problems" autocomplete="off"> Only excluded or incomplete events</label>
@@ -143,6 +147,10 @@
           <p class="note">PlantUML, one diagram per session. Paste it into the VS Code PlantUML extension or <code>java -jar plantuml.jar</code> to draw it locally; <b>Render image…</b> uses the public plantuml.com server.</p>
           <pre id="puml" tabindex="0"></pre>
           <div id="puml-images" class="puml-images"></div>
+        </div>
+        <div class="view" id="view-logs" hidden>
+          <p class="note" id="log-file-info">No log files loaded.</p>
+          <div class="log-preview-wrap"><pre id="log-preview" class="log-preview" tabindex="0"></pre></div>
         </div>
         <div class="view" id="view-debug" hidden>
           <p class="note">Execution log of every file load and run, then one row per event with the decision the query logic took for it.</p>

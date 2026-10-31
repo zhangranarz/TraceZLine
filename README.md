@@ -21,7 +21,7 @@ In the **Load File** tab (next to **Splunk**), **Local File** runs the generated
 files (or a Splunk EventTime/PopulatedLog export) in the browser and shows the flow
 table: per-session summary (steps, total time, slowest hop, requests with no
 response), then the rows grouped by session. **Copy table** pastes into Excel;
-**Download CSV** saves it. The **Mock Test** tab shows the same views for the bundled mock logs, loaded when the tab opens; each tab keeps its own data. Files never leave the browser. The **PlantUML** view
+**Download CSV** saves it. The **Mock Test** tab shows the same views for the bundled mock logs, loaded when the tab opens, plus a **Log Files** view that previews each mock log (pick it from the drop-down; event start lines are highlighted). Each tab keeps its own data. Files never leave the browser. The **PlantUML** view
 turns the same rows into PlantUML (one diagram per session: App, eComm, Enterprise,
 WS, Host; request/response arrows with activation, elapsed times, Params and Host
 SvcCode pairs; an orange note where a request got no response). Copy it or download

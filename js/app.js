@@ -365,6 +365,7 @@
     renderSummary(sessions);
     renderFlow(selectedRows());
     renderDiagram(selectedRows());
+    renderLogFiles();
   }
 
   // When nothing is shown, say why: unreadable files, or Search terms that match none
@@ -513,11 +514,53 @@
     document.getElementById('btn-svg').disabled = !svgs.length;
   }
 
+  let currentView = 'table';
+
   function showView(name) {
+    currentView = name;
     document.querySelectorAll('.seg-btn').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === name)));
-    ['table', 'diagram', 'sequence', 'debug'].forEach((v) => { document.getElementById('view-' + v).hidden = v !== name; });
+    ['table', 'diagram', 'sequence', 'debug', 'logs'].forEach((v) => { document.getElementById('view-' + v).hidden = v !== name; });
     document.querySelectorAll('.view-actions').forEach((s) => { s.hidden = s.dataset.for !== name; });
   }
+
+  // ---------- log files preview ----------
+
+  const PREVIEW_MAX_LINES = 5000;
+  const EVENT_START = /^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{3}\s/;
+
+  // Drop-down of the current tab's loaded log files; keeps the chosen file when it is still loaded.
+  function renderLogFiles() {
+    const select = document.getElementById('log-file-select');
+    const keep = select.value;
+    select.replaceChildren(...logs.map((l) => el('option', { value: l.name }, [l.name])));
+    if (logs.some((l) => l.name === keep)) select.value = keep;
+    renderLogPreview();
+  }
+
+  // Shows the chosen file with line numbers; lines that start an event are highlighted.
+  function renderLogPreview() {
+    const info = document.getElementById('log-file-info');
+    const pre = document.getElementById('log-preview');
+    const log = logs.find((l) => l.name === document.getElementById('log-file-select').value);
+    if (!log) {
+      info.textContent = 'No log files loaded.';
+      pre.replaceChildren();
+      return;
+    }
+    const lines = log.text.replace(/\r/g, '').replace(/\n$/, '').split('\n');
+    const events = lines.filter((l) => EVENT_START.test(l)).length;
+    info.textContent = `${log.name}: ${events} events, ${lines.length.toLocaleString()} lines, ${log.text.length.toLocaleString()} characters.`
+      + ' Highlighted lines start an event.'
+      + (lines.length > PREVIEW_MAX_LINES ? ` Showing the first ${PREVIEW_MAX_LINES.toLocaleString()} lines.` : '');
+    const width = String(Math.min(lines.length, PREVIEW_MAX_LINES)).length;
+    pre.replaceChildren(...lines.slice(0, PREVIEW_MAX_LINES).map((line, i) => el('div', { class: EVENT_START.test(line) ? 'ln ev' : 'ln' }, [
+      el('span', { class: 'ln-no' }, [String(i + 1).padStart(width)]),
+      line,
+    ])));
+    pre.scrollTop = 0;
+  }
+
+  document.getElementById('log-file-select').addEventListener('change', renderLogPreview);
 
   document.getElementById('seq-fit').addEventListener('change', (e) => {
     document.getElementById('sequence').classList.toggle('fit', e.target.checked);
@@ -728,6 +771,7 @@
     renderFlow([]);
     renderDiagram([]);
     renderDebugTable([]);
+    renderLogFiles();
   }
 
   // Swap the flow pane to the Load File or Mock Test tab's data.
@@ -737,6 +781,8 @@
     ({ logs, imported } = ctx[mode]);
     document.getElementById('pane-flow').dataset.mode = mode;
     document.getElementById('pane-flow').setAttribute('aria-labelledby', 'tab-' + mode);
+    // Log Files is a Mock Test view; Load File falls back to Flow.
+    if (mode === 'file' && currentView === 'logs') showView('table');
     if (logs.length || imported) {
       refreshFlow();
     } else {
@@ -799,14 +845,14 @@
   renderAll();
   clearFlow();
 
-  // Demo links: index.html#mock opens the Mock Test tab; #mock/diagram, #mock/sequence
+  // Demo links: index.html#mock opens the Mock Test tab; #mock/diagram, #mock/sequence, #mock/logs
   // and #mock/debug open it on that view. Otherwise reopen the last tab (the old
   // single Flow tab maps to Load File).
   let savedTab = 'spl';
   try { savedTab = localStorage.getItem(TAB_KEY) || 'spl'; } catch (e) { /* ignore */ }
   if (location.hash.startsWith('#mock')) {
     const view = location.hash.split('/')[1];
-    if (['diagram', 'sequence', 'debug'].includes(view)) showView(view);
+    if (['diagram', 'sequence', 'debug', 'logs'].includes(view)) showView(view);
     showTab('mock');
   } else {
     showTab({ flow: 'file', file: 'file', mock: 'mock' }[savedTab] || 'spl');

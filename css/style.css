@@ -244,6 +244,12 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .debug-table tr.dbg-out td:nth-child(4) { color: var(--danger); }
 .debug-table tr.dbg-warn td:nth-child(4) { color: var(--warn-fg); font-weight: 600; }
 .debug-table tr.dbg-ok td:nth-child(4) { color: var(--accent); }
+.log-preview-wrap { flex: 1; min-height: 120px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
+.log-preview { margin: 0; padding: 6px 0; font: 12px/1.45 var(--mono); white-space: pre; background: var(--bg); color: var(--fg); min-width: max-content; }
+.log-preview .ln { padding: 0 10px 0 0; }
+.log-preview .ln-no { display: inline-block; padding: 0 10px 0 8px; margin-right: 8px; color: var(--muted); border-right: 1px solid var(--border); user-select: none; }
+.log-preview .ln.ev { background: var(--warn-bg); color: var(--warn-fg); font-weight: 600; }
+#log-file-select { width: auto; max-width: 100%; font-family: inherit; }
 #view-sequence { overflow: auto; }
 .sequence { display: flex; flex-direction: column; gap: 16px; }
 .seq-fig { margin: 0; overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
