@@ -1,0 +1,17 @@
+# Local reference material and sample data: never commit (may contain real log data)
+ToolBase/
+*.log
+*.xlsx
+~$*
+
+# Local exports
+tracezline-*.json
+tracezline-*.csv
+tracezline-*.puml
+
+node_modules/
+_site/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
