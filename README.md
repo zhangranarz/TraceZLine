@@ -15,7 +15,7 @@ Rebuilds the base flow query from editable values while keeping its structure fi
 
 The default settings reproduce the base query exactly (`tests/base.spl`, checked by `npm test`).
 
-## Flow result (available now)
+## Flow tab (available now)
 
 In the **Flow** tab (next to **Splunk**), **Load log files** runs the generated query's logic over raw log
 files (or a Splunk EventTime/PopulatedLog export) in the browser and shows the flow

@@ -1,5 +1,5 @@
 // Flow analysis: runs the generated query's logic over log text, without Splunk.
-// Used by the page (Flow result panel) and by tools/simulate.js.
+// Used by the page (Flow tab) and by tools/simulate.js.
 //
 // A log's name is matched against the basename of each configured source="..." pattern.
 // The search, LayerName, Direction, rex and Params steps come from the config; the
