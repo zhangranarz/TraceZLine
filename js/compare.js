@@ -205,9 +205,9 @@
     return null;
   }
 
-  // Parameter paths and values: { a: { b: [1, { c: 2 }] } } -> a.b[0] = 1, a.b[1].c = 2.
-  // Empty objects/arrays are kept as {} / []; at most `limit` rows.
-  function flattenJson(value, limit = 1000) {
+  // Parameter paths and values: { a: { b: [1, { c: 2 }] } } -> a.b[0] = 1, a.b[1].c = 2
+  // (with sep '|': a|b[0], a|b[1]|c). Empty objects/arrays are kept as {} / []; at most `limit` rows.
+  function flattenJson(value, { sep = '.', limit = 1000 } = {}) {
     const rows = [];
     const walk = (v, p) => {
       if (rows.length >= limit) return;
@@ -217,7 +217,7 @@
       } else if (v && typeof v === 'object') {
         const keys = Object.keys(v);
         if (!keys.length) rows.push([p, '{}']);
-        keys.forEach((k) => walk(v[k], p ? `${p}.${k}` : k));
+        keys.forEach((k) => walk(v[k], p ? `${p}${sep}${k}` : k));
       } else {
         rows.push([p, v === null ? 'null' : String(v)]);
       }

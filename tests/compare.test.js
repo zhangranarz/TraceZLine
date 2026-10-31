@@ -87,3 +87,12 @@ test('JSON payload of a log event: found after the text prefix and flattened to 
   assert.strictEqual(extractJson(host.raw), null);
   assert.strictEqual(extractJson('Request - {"a":{"b":1'), null);
 });
+
+test('JSON paths can use | between levels', () => {
+  const { flattenJson } = require('../js/compare.js');
+  const v = { responseHeader: { encryptParameters: { encryptionInformation: { modSize: '2048' } } }, list: [{ id: 1 }] };
+  assert.deepStrictEqual(flattenJson(v, { sep: '|' }), [
+    ['responseHeader|encryptParameters|encryptionInformation|modSize', '2048'],
+    ['list[0]|id', '1'],
+  ]);
+});

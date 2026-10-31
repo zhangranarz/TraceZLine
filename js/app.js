@@ -958,7 +958,7 @@
   function jsonParams(ev) {
     if (!jsonCache.has(ev)) {
       const value = window.TraceCompare.extractJson(ev.raw);
-      jsonCache.set(ev, value ? window.TraceCompare.flattenJson(value) : []);
+      jsonCache.set(ev, value ? window.TraceCompare.flattenJson(value, { sep: '|' }) : []);
     }
     return jsonCache.get(ev);
   }
@@ -972,6 +972,8 @@
     ['EventTime', (r) => r.x.EventTime],
     ['ServiceInfo', (r) => svcLines(r.x).join('\n'), 'multi'],
     ['Log', logEventText, 'log'],
+    // On screen an expandable Parameter / Value table; in Copy/Download "path = value" lines.
+    ['Structure', (r) => (r.l ? jsonParams(r.l).map(([p, v]) => `${p} = ${v}`).join('\n') : ''), 'struct'],
     ['LogRow', (r) => (r.l ? `${base(r.l.source)}:${r.l.lineNo}` : '')],
     ['LogTime', (r) => logTime(r.l)],
     ['Δ ms', (r) => (r.delta == null ? '' : String(r.delta)), 'export'],
@@ -1001,24 +1003,22 @@
           if (kind === 'multi') return el('td', {}, multi(text));
           if (kind === 'issue') return el('td', { class: 'cmp-issue' }, [text]);
           // Log: the matched event as a short "Log:"; hover shows the event text, expanding the raw event.
-          // When the event carries JSON, "Structure:" expands to its parameters and values.
           if (kind === 'log') {
-            if (!r.l) return el('td', { class: 'cmp-log' }, []);
-            const parts = [el('details', { class: 'cmp-raw' }, [
+            return el('td', { class: 'cmp-log' }, r.l ? [el('details', { class: 'cmp-raw' }, [
               el('summary', { title: text }, ['Log:']),
               el('pre', {}, [r.l.raw.length > RAW_PREVIEW ? r.l.raw.slice(0, RAW_PREVIEW) + '\n…' : r.l.raw]),
-            ])];
-            const params = jsonParams(r.l);
-            if (params.length) {
-              parts.push(el('details', { class: 'cmp-raw cmp-struct' }, [
-                el('summary', { title: `${params.length} parameters` }, ['Structure:']),
-                el('div', { class: 'cmp-struct-wrap' }, [el('table', {}, [
-                  el('thead', {}, [el('tr', {}, [el('th', {}, ['Parameter']), el('th', {}, ['Value'])])]),
-                  el('tbody', {}, params.map(([p, v]) => el('tr', {}, [el('td', {}, [p]), el('td', {}, [v])]))),
-                ])]),
-              ]));
-            }
-            return el('td', { class: 'cmp-log' }, parts);
+            ])] : []);
+          }
+          // Structure: when the event carries JSON, "Structure:" expands to a Parameter / Value table.
+          if (kind === 'struct') {
+            const params = r.l ? jsonParams(r.l) : [];
+            return el('td', { class: 'cmp-log' }, params.length ? [el('details', { class: 'cmp-raw cmp-struct' }, [
+              el('summary', { title: `${params.length} parameters` }, ['Structure:']),
+              el('div', { class: 'cmp-struct-wrap' }, [el('table', {}, [
+                el('thead', {}, [el('tr', {}, [el('th', {}, ['Parameter']), el('th', {}, ['Value'])])]),
+                el('tbody', {}, params.map(([p, v]) => el('tr', {}, [el('td', {}, [p]), el('td', {}, [v])]))),
+              ])]),
+            ])] : []);
           }
           return el('td', {}, [text]);
         })))),
