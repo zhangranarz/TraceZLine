@@ -608,7 +608,7 @@
     const file = e.target.files[0];
     e.target.value = '';
     if (!file) return;
-    logDebug('info', `Upload flow: ${file.name} (${file.size.toLocaleString()} bytes)`);
+    logDebug('info', `Upload: ${file.name} (${file.size.toLocaleString()} bytes)`);
     try {
       const table = await window.TraceImport.readTable(file.name, await file.arrayBuffer());
       const { rows, problems } = window.TraceImport.toFlowRows(table, state);
