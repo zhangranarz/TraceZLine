@@ -963,8 +963,8 @@
     ['LogEvent', logEventText, 'export'],
     ['LogRow', (r) => (r.l ? `${base(r.l.source)}:${r.l.lineNo}` : '')],
     ['LogTime', (r) => logTime(r.l)],
-    ['Δ ms', (r) => (r.delta == null ? '' : String(r.delta))],
-    ['Check', (r) => (r.status === 'mapped' ? 'agrees' : r.checks.join('; ')), 'issue'],
+    ['Δ ms', (r) => (r.delta == null ? '' : String(r.delta)), 'export'],
+    ['Check', (r) => (r.status === 'mapped' ? 'agrees' : r.checks.join('; ')), 'export'],
     ['sessionId', (r) => r.x.sessionId ?? ''],
     ['Params', (r) => (r.x.Params || []).join('\n'), 'multi'],
     ['ElapsedMs', (r) => (r.x.ElapsedMs == null ? '' : String(r.x.ElapsedMs))],
@@ -980,7 +980,11 @@
     const shown = CMP.filter(([, , kind]) => kind !== 'export');
     document.getElementById('cmp-table').replaceChildren(
       el('thead', {}, [el('tr', {}, shown.map(([h]) => el('th', {}, [h])))]),
-      el('tbody', {}, rows.map((r) => el('tr', { class: r.status === 'mapped' ? 'dbg-ok' : r.l ? 'dbg-warn' : 'dbg-out' },
+      // Lines that differ or are not mapped get a coloured edge (CSS) and say why on hover.
+      el('tbody', {}, rows.map((r) => el('tr', {
+        class: r.status === 'mapped' ? 'dbg-ok' : r.l ? 'dbg-warn' : 'dbg-out',
+        ...(r.status === 'mapped' ? {} : { title: r.checks.join('; ') }),
+      },
         shown.map(([, get, kind]) => {
           const text = get(r);
           if (kind === 'multi') return el('td', {}, multi(text));
