@@ -5,9 +5,9 @@
 // Checks the files git tracks or has staged:
 //   1. forbidden files   real/sample data (ToolBase/, .xlsx/.log outside mock/), env and key files
 //   2. secrets           tokens, private keys, password assignments
-//   3. real-data leaks   IDs, long numbers, emails, IPs taken from ToolBase/ (local only; it is git-ignored)
+//   3. real-data leaks   IDs, long numbers, emails, IPs taken from the untracked/ignored data files (local only)
 //   4. network use       what the shipped page (index.html, css/, js/) could send or load off-site
-//   5. sample names      endpoint paths and service codes that also appear in ToolBase/ (warning)
+//   5. sample names      endpoint paths and service codes that also appear in those files (warning)
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -30,11 +30,22 @@ const read = (f) => {
 const mask = (s) => (s.length <= 8 ? '****' : s.slice(0, 4) + '…' + s.slice(-2));
 const lineOf = (text, index) => text.slice(0, index).split('\n').length;
 
-// 1. forbidden files
+// 1. forbidden files (by name; raw-log content is checked below, whatever the name)
 for (const f of tracked) {
   if (/^ToolBase\//i.test(f)) blocking.push(`forbidden file: ${f} (ToolBase/ holds real/sample data)`);
   else if (/\.(xlsx|xls|log)$/i.test(f) && !/^mock\//.test(f)) blocking.push(`forbidden file: ${f} (data files are only allowed in mock/)`);
   else if (/(^|\/)\.env(\.|$)|\.(pem|key|p12|pfx|jks|keystore)$/i.test(f)) blocking.push(`forbidden file: ${f} (credentials/keys)`);
+}
+// The data folder can be renamed (it was once ToolBase/, once AAAAAAAAAA/), so also block
+// any tracked file outside mock/ and tests/ that reads like raw logs or the analysis spec.
+const LOG_LINE = /^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{3}\s/gm;
+for (const f of tracked) {
+  if (/^(mock|tests)\//.test(f) || /\.(js|css|html|md|json|yml|py)$/i.test(f)) continue;
+  const buf = fs.readFileSync(path.join(ROOT, f));
+  if (!isText(buf)) continue;
+  const t = buf.toString('utf8');
+  if ((t.match(LOG_LINE) || []).length >= 3) blocking.push(`forbidden file: ${f} looks like raw log data (timestamped events); only mock/ may hold logs`);
+  else if (/\[SPLMessage\]|\[SPLHostMessage\]|WSAppLog|<SvcCode>/.test(t) && !/^(mock|tests)\//.test(f)) blocking.push(`forbidden file: ${f} contains log/sample content (SPL markers); keep it out of the repo`);
 }
 
 // 2. secrets
@@ -69,20 +80,28 @@ for (const [label, re] of SECRETS) {
   }
 }
 
-// 3 + 5. compare with ToolBase/ (git-ignored, so only on the developer's machine)
-const toolBase = path.join(ROOT, 'ToolBase');
+// 3 + 5. compare with the local data files: everything git does not track (untracked or
+// ignored) that can hold log or export data, wherever it lives (ToolBase/, a renamed
+// folder, …). On a CI checkout there are none, so these checks only run locally.
+const DATA_EXT = /\.(log|txt|csv|tsv|json|xml|xlsx)$/i;
+const SKIP_DIR = /^(node_modules|_site|\.git|\.claude)\//;
+const localData = [...new Set([
+  ...git('ls-files --others --exclude-standard').split('\n'),
+  ...git('ls-files --others --ignored --exclude-standard').split('\n'),
+])].filter((f) => f && DATA_EXT.test(f) && !SKIP_DIR.test(f) && !path.basename(f).startsWith('~$')
+  && fs.existsSync(path.join(ROOT, f)) && fs.statSync(path.join(ROOT, f)).size < 50 * 1024 * 1024);
 (async () => {
-if (fs.existsSync(toolBase)) {
+if (localData.length) {
   // Text files as they are; .xlsx cells through the importer's reader (Splunk exports hold real values).
   const parts = [];
-  for (const f of fs.readdirSync(toolBase)) {
-    const p = path.join(toolBase, f);
-    if (!fs.statSync(p).isFile() || f.startsWith('~$')) continue;
-    const buf = fs.readFileSync(p);
+  for (const f of localData) {
+    const buf = fs.readFileSync(path.join(ROOT, f));
     if (/\.xlsx$/i.test(f)) {
       try { parts.push((await require('../js/importer.js').readXlsx(buf)).map((r) => r.join(' ')).join('\n')); } catch (e) { warnings.push(`could not read ${f}: ${e.message}`); }
     } else if (isText(buf)) parts.push(buf.toString('utf8'));
   }
+  const dirs = [...new Set(localData.map((f) => (f.includes('/') ? f.split('/')[0] + '/' : f)))];
+  console.log(`Local data compared: ${localData.length} files in ${dirs.join(', ')}`);
   const sample = parts.join('\n');
   const tokens = new Set([
     ...sample.match(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi) || [], // session IDs
@@ -94,12 +113,12 @@ if (fs.existsSync(toolBase)) {
   for (const [f, t] of texts) {
     for (const tok of tokens) {
       const i = t.indexOf(tok);
-      if (i >= 0) blocking.push(`real-data value from ToolBase/ in ${f}:${lineOf(t, i)} (${mask(tok)})`);
+      if (i >= 0) blocking.push(`real-data value from the local data files in ${f}:${lineOf(t, i)} (${mask(tok)})`);
     }
   }
   for (const tok of tokens) {
     if (unpushed.includes(tok) && !blocking.some((b) => b.includes(mask(tok)))) {
-      blocking.push(`real-data value from ToolBase/ in an unpushed commit (${mask(tok)}); it was removed later but would still be published`);
+      blocking.push(`real-data value from the local data files in an unpushed commit (${mask(tok)}); it was removed later but would still be published`);
     }
   }
   const names = new Set([
@@ -109,11 +128,11 @@ if (fs.existsSync(toolBase)) {
   const hits = new Map();
   for (const [f, t] of texts) for (const n of names) if (t.includes(n)) hits.set(n, [...(hits.get(n) || []), f]);
   if (hits.size) {
-    warnings.push(`${hits.size} endpoint/service names from ToolBase/ appear in tracked files (needs your OK for a public repo): `
+    warnings.push(`${hits.size} endpoint/service names from the local data files appear in tracked files (needs your OK for a public repo): `
       + [...hits.keys()].slice(0, 12).join(', ') + (hits.size > 12 ? ', …' : ''));
   }
 } else {
-  warnings.push('ToolBase/ not found: real-data leak check skipped (expected in CI).');
+  warnings.push('No local data files found: real-data leak check skipped (expected in CI).');
 }
 
 // 4. network use in the shipped page
