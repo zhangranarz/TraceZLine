@@ -7,13 +7,85 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <header>
-    <h1>TraceZLine</h1>
-    <p>Splunk API flow tracer: SPL generator, log alignment and sequence diagrams.</p>
+  <header class="top">
+    <div>
+      <h1>TraceZLine</h1>
+      <p class="sub">Parameterised Splunk flow query: edit the values, the query structure stays fixed.</p>
+    </div>
+    <div class="actions">
+      <button type="button" id="btn-export">Export config</button>
+      <label class="btn">Import config<input type="file" id="file-import" accept=".json,application/json" hidden></label>
+      <button type="button" id="btn-reset" class="danger">Reset to base</button>
+    </div>
   </header>
-  <main id="app">
-    <p>Work in progress.</p>
+
+  <main class="layout">
+    <section class="config">
+      <details open>
+        <summary>Sources <span class="hint">source="…" blocks joined with OR</span></summary>
+        <div id="list-sources"></div>
+        <button type="button" class="add" data-add="sources">+ Add source</button>
+      </details>
+
+      <details open>
+        <summary>Search terms <span class="hint" id="terms-count"></span></summary>
+        <p class="note">One per line (or comma separated), e.g. session IDs. Each is quoted and joined with OR. Leave empty to drop the line.</p>
+        <textarea id="terms" rows="4" spellcheck="false"></textarea>
+      </details>
+
+      <details open>
+        <summary>Layers <span class="hint">LayerName=case() and Layer=case()</span></summary>
+        <p class="note">Condition is an SPL eval expression, inserted as typed. Order matters: the first match wins.</p>
+        <div id="list-layers"></div>
+        <button type="button" class="add" data-add="layers">+ Add layer</button>
+      </details>
+
+      <details open>
+        <summary>Direction rules <span class="hint">Direction=case()</span></summary>
+        <p class="note">Regex is inserted into match(_raw,"…") as typed.</p>
+        <div id="list-directions"></div>
+        <button type="button" class="add" data-add="directions">+ Add rule</button>
+      </details>
+
+      <details open>
+        <summary>sessionId rules <span class="hint">rex + coalesce()</span></summary>
+        <p class="note">Field order is coalesce() order. A rule with an empty rex is only added to coalesce().</p>
+        <div id="list-sessionRules"></div>
+        <button type="button" class="add" data-add="sessionRules">+ Add rule</button>
+      </details>
+
+      <details open>
+        <summary>Params <span class="hint">rex + Params=mvappend()</span></summary>
+        <p class="note">Each param becomes "Label=value" in the Params column when present.</p>
+        <div id="list-params"></div>
+        <button type="button" class="add" data-add="params">+ Add param</button>
+      </details>
+
+      <details open>
+        <summary>Output columns <span class="hint">| table …</span></summary>
+        <div id="list-columns"></div>
+        <button type="button" class="add" data-add="columns">+ Add column</button>
+      </details>
+
+      <datalist id="dl-layers"></datalist>
+      <datalist id="dl-columns"></datalist>
+    </section>
+
+    <section class="preview">
+      <div class="preview-bar">
+        <h2>SPL</h2>
+        <span id="line-count" class="hint"></span>
+        <button type="button" id="btn-copy" class="primary">Copy</button>
+        <button type="button" id="btn-download">Download .spl</button>
+      </div>
+      <ul id="warnings" class="warnings"></ul>
+      <pre id="spl" tabindex="0"></pre>
+    </section>
   </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="js/spl.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

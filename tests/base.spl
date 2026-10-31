@@ -1,0 +1,58 @@
+(
+  source="/var/log/pods/spl-banking-*.log"
+  ("[SPLMessage]" OR "[SPLHostMessage]")
+)
+OR
+(
+  source="/var/log/pods/spl-ms-*.log"
+  ("WSAppLog" ("request:" OR "RESPONSE from" OR "Response:")) OR ("<EAI>" "<SvcCode>" ("Request Message" OR "Response Message"))
+)
+| "2576dfc8-495a-837a-8a2f291fd003d" OR "7f269c48-f03a-4fef-bc3007538ec1a2"
+| eval LayerName=case(
+        match(_raw,"\[SPLMessage\]"),"eComm",
+        match(_raw,"\[SPLHostMessage\]"),"Enterprise",
+        match(_raw,"<SvcCode>") AND match(_raw,"(?i)(request|response message)"),"Host",
+		match(_raw,"WSAppLog"),"WS"
+	)
+| eval Layer=case(LayerName="eComm",1,LayerName="Enterprise",2,LayerName="Host",3,LayerName="WS",3)
+| rex field=_raw "(?i)\b(?<DirWord>Request|Response)\b"
+| eval Direction=case(
+    LayerName="Host" AND match(_raw,"(?i)Request Message"),"Request",
+    LayerName="Host" AND match(_raw,"(?i)Response Message"),"Response",
+    LayerName="WS" AND match(_raw,"(?i)request:"),"Request",
+    LayerName="WS" AND match(_raw,"(?i)(RESPONSE from|Response:)"),"Response")
+| rex field=_raw "(?<Endpoint1>[^\s]+\/[^\s]*Request[^\s]*)"
+| rex field=_raw "(?<Endpoint2>[^\s]*\/[^\s]*Request[^\s]*)"
+| rex field=_raw "(?<Endpoint3>[^\s]+)"
+| eval Endpoint=coalesce(Endpoint1,Endpoint2,Endpoint3)
+| rex field=_raw "\[SPLMessage\].*sessionId\"\:\"(?<sidEcomm>[0-9a-fA-F]{36})"
+| rex field=_raw "\[SPLHostMessage\].*sessionIdentity\"\:\"(?<sidEnterprise>[0-9a-fA-F]{36})"
+| rex field=_raw "sidWs\:([0-9a-fA-F]{8})-([0-9a-fA-F]{4})-([0-9a-fA-F]{4})-([0-9a-fA-F]{4})-([0-9a-fA-F]{12})"
+| eval sessionId=coalesce(sidEcomm, sidEnterprise, sidWs, sidAny)
+| rex field=_raw "URL\:(?<is>s\+|s\:)\s+(?<URL>[^\s]+)"
+| rex field=_raw "SvcCode\>\s*(?<SvcCode>[^<]+)\<\/SvcCode\>"
+| where LayerName!="Host" OR mvcount(SvcCode)>=1
+| eval SortKey=if(Direction="Request",Layer,-Layer)
+| sort 0 _time SortKey
+| eval LastWSURL=if(LayerName="WS",URL,null())
+| streamstats last(LastWSURL) as LastWsURL by sessionId
+| eval pairIndex=mvzip(mvrange(mvcount(SvcCode)),"")
+| eval HostPairs=mvmap(pairIndex, mvindex(SvcCode,pairIndex*2) . "~" .coalesce(mvindex(SvcCode,pairIndex*2)+1),mvindex(SvcCode,pairIndex*2)))
+| eval API=case(LayerName="eComm",Endpoint, LayerName="Enterprise",Endpoint, LayerName="WS",
+coalesce(LastWsURL,"N/A"), LayerName="Host",DGEEndpoint)
+| eval ServiceInfo=if(LayerName="Host", mvmap(HostPairs,"-".HostPairs."|".DirectionSymbol,""),null())
+| eval PairKey=coalesce(API,coalesce(DGEEndpoint,"true"),API)
+| streamstats last(_time) as LastReqTime by sessionId Layer PairKey
+| eval ElapsedMs=if(Direction="Response" AND isnotnull(LastReqTime),round((_time-LastReqTime)*1000,0),null())
+| eval DirectionSymbol=if(Direction="Request",">","<")
+| eval Indent=case(Layer=1,"Layer>",Layer=2,">>",Layer=3,">>>")
+| eval Flow=Indent.(LayerName." | ".API." | ".DirectionSymbol)
+| eval ServiceInfo=if(LayerName="Host" and isnull(ServiceInfo), mvappend(Flow,ServiceInfo),Flow)
+| rex field=_raw "(?i)\?transactionReferenceNumber|transactionRef\"\:s*\"(?<transactionRef>[^\",]+)"
+| rex field=_raw "(?i)\?transactionCode\"\:s*\"(?<transactionCode>[^\",]+)"
+| eval Params=mvappend(
+if(isnotnull(transactionRef) AND len(trim(transactionRef))>0,"TxnRef=".transactionRef,null()),
+if(isnotnull(transactionCode) AND len(trim(transactionCode))>0,"TxnCode=".transactionCode,null()))
+| streamstats count as Step by sessionId
+| eval EventTime=strftime(_time,"%Y-%m-%d %H:%M:%S.%3N")
+| table Step EventTime sessionId Flow Params ElapsedMs
