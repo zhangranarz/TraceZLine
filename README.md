@@ -28,13 +28,14 @@ sequence diagrams, and the processing rules it observes. Nothing is uploaded.
 | **Load File** | Runs the query logic over your raw logs (**Local File**) or a Splunk `.xlsx`/`.csv` export (**Upload**) |
 | **Mock Test** | The same views over bundled fake logs |
 | **Compare** | Maps each line of a Splunk result to its raw log event by timestamp, with the JSON/XML payload as a Parameter / Value table and a data-quality report |
+| **Mask** | Masks sensitive values in log/text files with editable Pre/Post rules (replace, keep last 4, or consistent pseudonyms), flags what still looks sensitive, and downloads the masked files |
 
 Views in Load File and Mock Test: **Flow** (session summary and flow table), **PlantUML**,
 **Sequence** (SVG diagram), **Processing Rule** (routing, call map, call order, gaps,
 latency), **Debug** and **Log Files**.
 
 Everything runs in the browser; settings are saved there too. Demo links: `#mock`,
-`#mock/sequence`, `#mock/rules`, `#compare`.
+`#mock/sequence`, `#mock/rules`, `#compare`, `#mask`.
 
 ## How to install
 
@@ -77,6 +78,8 @@ npm run security-scan                        # pre-push scan (also run in CI)
 - Files you load are read in your browser and never uploaded. The page loads nothing
   from other sites; the only outbound request is the optional PlantUML **Render**,
   which asks before sending the diagram text to plantuml.com.
+- Use the **Mask** tab before sharing a log. Its consistent mode keeps sessions linkable
+  through a key-based HMAC; the key stays in your browser.
 - Never commit real or undesensitised logs. `ToolBase/`, `*.log` and `*.xlsx` are
   git-ignored (only the fake files in `mock/` are tracked).
 - `npm run security-scan` blocks a push when it finds data files, secrets, values copied
@@ -93,6 +96,7 @@ npm run security-scan                        # pre-push scan (also run in CI)
 | `js/importer.js` | Excel (`.xlsx`) and CSV reader for Splunk flow exports |
 | `js/rules.js` | Processing-rule analysis and Markdown export |
 | `js/compare.js` | Timestamp mapping of a Splunk result to the raw logs, data-quality checks |
+| `js/mask.js` | Pre/Post masking rules and the leftover scan |
 | `js/app.js` | Page wiring |
 | `mock/` | Fake logs, flow exports and expected output ([details](mock/README.md)) |
 | `tests/` | `node --test` suites |

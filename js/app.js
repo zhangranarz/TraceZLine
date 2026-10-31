@@ -1087,6 +1087,199 @@
     download('tracezline-compare.csv', '﻿' + cmpDelimited(','), 'text/csv');
   });
 
+  // ---------- mask ----------
+
+  // Rules and key are kept in this browser; the files themselves stay in memory only.
+  const MASK_KEY = 'tracezline.mask.v1';
+  const MASK_MODES = [['replace', 'Replace'], ['last4', 'Keep last 4'], ['consistent', 'Consistent']];
+  const MASK_PREVIEW_LINES = 3000;
+  const randomKey = () => {
+    const b = new Uint8Array(16);
+    crypto.getRandomValues(b);
+    return [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
+  };
+  const mask = (() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(MASK_KEY) || 'null');
+      if (saved && Array.isArray(saved.rules) && typeof saved.key === 'string') return { ...saved, files: [], results: [] };
+    } catch (e) { /* storage blocked or corrupt: defaults */ }
+    return { rules: clone(window.TraceMask.DEFAULT_RULES), key: randomKey(), files: [], results: [] };
+  })();
+  const saveMask = () => {
+    try { localStorage.setItem(MASK_KEY, JSON.stringify({ rules: mask.rules, key: mask.key })); } catch (e) { /* ignore */ }
+  };
+
+  function renderMaskRules() {
+    const counts = mask.rules.map((_, i) => mask.results.reduce((t, r) => t + (r.counts[i] || 0), 0));
+    const field = (rule, key, attrs = {}) => {
+      const input = el('input', { type: 'text', spellcheck: false, autocomplete: 'off', ...attrs });
+      input.value = rule[key] ?? '';
+      input.addEventListener('input', () => { rule[key] = input.value; onMaskRulesChanged(); });
+      return input;
+    };
+    const head = el('thead', {}, [el('tr', {}, ['On', 'Name', 'Pre', 'Post', 'Mode', 'Mask', 'Found', ''].map((h) => el('th', {}, [h])))]);
+    const body = el('tbody', {}, mask.rules.map((rule, i) => {
+      const on = el('input', { type: 'checkbox', checked: rule.on });
+      on.addEventListener('change', () => { rule.on = on.checked; onMaskRulesChanged(); });
+      const mode = el('select', {}, MASK_MODES.map(([v, label]) => el('option', { value: v, selected: v === rule.mode }, [label])));
+      mode.addEventListener('change', () => { rule.mode = mode.value; renderMaskRules(); onMaskRulesChanged(); });
+      const move = (d) => { const j = i + d; [mask.rules[i], mask.rules[j]] = [mask.rules[j], mask.rules[i]]; renderMaskRules(); onMaskRulesChanged(); };
+      return el('tr', { class: rule.on ? '' : 'off' }, [
+        el('td', {}, [on]),
+        el('td', {}, [field(rule, 'name', { class: 'w-name' })]),
+        el('td', {}, [field(rule, 'pre', { class: 'w-pre', placeholder: '"userId":"' })]),
+        el('td', {}, [field(rule, 'post', { class: 'w-post', placeholder: '"' })]),
+        el('td', {}, [mode]),
+        el('td', {}, [rule.mode === 'replace' ? field(rule, 'mask', { class: 'w-mask', placeholder: '***' }) : el('span', { class: 'hint' }, ['—'])]),
+        el('td', { class: 'num' }, [mask.results.length ? String(counts[i]) : '']),
+        el('td', { class: 'row-btns' }, [
+          iconBtn('↑', 'Move up', i === 0, () => move(-1)),
+          iconBtn('↓', 'Move down', i === mask.rules.length - 1, () => move(1)),
+          iconBtn('✕', 'Remove', false, () => { mask.rules.splice(i, 1); renderMaskRules(); onMaskRulesChanged(); }),
+        ]),
+      ]);
+    }));
+    document.getElementById('mask-rules').replaceChildren(head, body);
+    document.getElementById('mask-rule-count').textContent = `${mask.rules.filter((r) => r.on).length} of ${mask.rules.length} on`;
+  }
+
+  // Masking re-runs shortly after the last edit, not on every keystroke.
+  let maskTimer = null;
+  function onMaskRulesChanged() {
+    saveMask();
+    clearTimeout(maskTimer);
+    maskTimer = setTimeout(runMask, 250);
+  }
+
+  async function runMask() {
+    if (!mask.files.length) { renderMaskRules(); return; }
+    const status = document.getElementById('mask-status');
+    try {
+      mask.results = [];
+      for (const f of mask.files) {
+        const r = await window.TraceMask.maskText(f.text, mask.rules, { key: mask.key });
+        mask.results.push({ ...r, name: f.name, left: window.TraceMask.leftovers(r.text, r.fakes) });
+      }
+    } catch (err) {
+      status.textContent = 'Masking failed: ' + err.message;
+      return;
+    }
+    const total = mask.results.reduce((t, r) => t + r.counts.reduce((a, b) => a + b, 0), 0);
+    const left = mask.results.reduce((t, r) => t + r.left.length, 0);
+    document.getElementById('count-mask').textContent = `${total} masked`;
+    status.textContent = `${mask.files.length} file(s): ${total} values masked by ${mask.rules.filter((r) => r.on).length} rules`
+      + (left ? `; ${left} values still look sensitive (see below).` : '; nothing else looks sensitive.');
+    document.getElementById('mask-download').disabled = false;
+    renderMaskRules();
+    renderLeftovers();
+    const select = document.getElementById('mask-file');
+    const keep = select.value;
+    select.replaceChildren(...mask.results.map((r) => el('option', { value: r.name }, [r.name])));
+    if (mask.results.some((r) => r.name === keep)) select.value = keep;
+    renderMaskPreview();
+  }
+
+  function renderLeftovers() {
+    const box = document.getElementById('mask-leftovers');
+    const items = mask.results.flatMap((r) => r.left.map((x) => ({ ...x, file: r.name })));
+    box.hidden = !items.length;
+    if (!items.length) { box.replaceChildren(); return; }
+    // Shown masked: the point is where to look, not to show the value again.
+    const hint = (v) => (v.length <= 6 ? '***' : v.slice(0, 3) + '…' + v.slice(-2));
+    box.replaceChildren(
+      el('p', {}, [`Still looks sensitive after masking (${items.length}). Add a rule for these, or check them before sharing:`]),
+      el('ul', {}, items.slice(0, 50).map((x) => el('li', {}, [`${x.file}:${x.line} ${x.kind} ${hint(x.value)}`]))),
+      ...(items.length > 50 ? [el('p', {}, [`… and ${items.length - 50} more.`])] : []),
+    );
+  }
+
+  // The masked text, line numbers, masked values highlighted.
+  function renderMaskPreview() {
+    const r = mask.results.find((x) => x.name === document.getElementById('mask-file').value) || mask.results[0];
+    const pre = document.getElementById('mask-preview');
+    if (!r) { pre.replaceChildren(); document.getElementById('mask-file-info').textContent = ''; return; }
+    const lines = r.marked.replace(/\r/g, '').split('\n');
+    const n = r.counts.reduce((a, b) => a + b, 0);
+    document.getElementById('mask-file-info').textContent = `${n} values masked, ${lines.length.toLocaleString()} lines`
+      + (lines.length > MASK_PREVIEW_LINES ? `; showing the first ${MASK_PREVIEW_LINES.toLocaleString()}` : '') + '. Highlighted: masked values.';
+    const width = String(Math.min(lines.length, MASK_PREVIEW_LINES)).length;
+    pre.replaceChildren(...lines.slice(0, MASK_PREVIEW_LINES).map((line, i) => {
+      const parts = [el('span', { class: 'ln-no' }, [String(i + 1).padStart(width)])];
+      // \u0001value\u0002 marks a masked value
+      line.split(/(\u0001[^\u0002]*\u0002)/).forEach((seg) => {
+        if (seg.startsWith('\u0001')) parts.push(el('mark', { class: 'masked' }, [seg.slice(1, -1)]));
+        else if (seg) parts.push(seg);
+      });
+      return el('div', { class: 'ln' }, parts);
+    }));
+    pre.scrollTop = 0;
+  }
+
+  async function setMaskFiles(files) {
+    mask.files = files;
+    mask.results = [];
+    await runMask();
+  }
+
+  document.getElementById('mask-files').addEventListener('change', async (e) => {
+    const files = [...e.target.files];
+    e.target.value = '';
+    const read = [];
+    for (const f of files) {
+      try {
+        const text = await f.text();
+        if (/\u0000/.test(text.slice(0, 4096)) || text.startsWith('PK\u0003\u0004')) { toast(`${f.name}: not a text file; skipped`); continue; }
+        read.push({ name: f.name, text });
+      } catch (err) { toast(`${f.name}: could not be read`); }
+    }
+    if (read.length) setMaskFiles(read);
+  });
+
+  document.getElementById('mask-mock').addEventListener('click', async () => {
+    try {
+      const names = ['spl-banking-mock.log', 'spl-ms-mock.log'];
+      setMaskFiles(await Promise.all(names.map(async (n) => {
+        const res = await fetch('mock/' + n);
+        if (!res.ok) throw new Error(`${n}: HTTP ${res.status}`);
+        return { name: n, text: await res.text() };
+      })));
+    } catch (err) {
+      toast('Could not load the mock logs: ' + err.message);
+    }
+  });
+
+  document.getElementById('mask-download').addEventListener('click', () => {
+    mask.results.forEach((r) => download(window.TraceMask.maskedName(r.name), r.text, 'text/plain'));
+  });
+
+  document.getElementById('mask-file').addEventListener('change', renderMaskPreview);
+
+  const keyInput = document.getElementById('mask-key');
+  keyInput.value = mask.key;
+  keyInput.addEventListener('input', () => { mask.key = keyInput.value || 'tracezline'; onMaskRulesChanged(); });
+  document.getElementById('mask-newkey').addEventListener('click', () => {
+    mask.key = randomKey();
+    keyInput.value = mask.key;
+    onMaskRulesChanged();
+  });
+
+  document.getElementById('mask-add').addEventListener('click', () => {
+    mask.rules.push({ on: true, name: 'New rule', pre: '', post: '"', mode: 'replace', mask: '***' });
+    renderMaskRules();
+    saveMask();
+    const rows = document.querySelectorAll('#mask-rules tbody tr');
+    rows[rows.length - 1]?.querySelector('.w-pre')?.focus();
+  });
+
+  document.getElementById('mask-reset').addEventListener('click', () => {
+    if (!confirm('Replace the mask rules with the defaults?')) return;
+    mask.rules = clone(window.TraceMask.DEFAULT_RULES);
+    renderMaskRules();
+    onMaskRulesChanged();
+  });
+
+  renderMaskRules();
+
   // ---------- tabs ----------
 
   const TAB_KEY = 'tracezline.tab';
@@ -1128,10 +1321,13 @@
     const view = location.hash.split('/')[1];
     if (['diagram', 'sequence', 'rules', 'debug', 'logs'].includes(view)) showView(view);
     showTab('mock');
+  } else if (location.hash === '#mask') {
+    showTab('mask');
+    document.getElementById('mask-mock').click();
   } else if (location.hash === '#compare') {
     showTab('compare');
     document.getElementById('cmp-mock').click();
   } else {
-    showTab({ flow: 'file', file: 'file', mock: 'mock', compare: 'compare' }[savedTab] || 'spl');
+    showTab({ flow: 'file', file: 'file', mock: 'mock', compare: 'compare', mask: 'mask' }[savedTab] || 'spl');
   }
 })();

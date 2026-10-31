@@ -400,3 +400,25 @@ summary.icon-after { list-style: none; }
 summary.icon-after::-webkit-details-marker { display: none; }
 summary.icon-after::after { content: " \25B8"; }
 details[open] > summary.icon-after::after { content: " \25BE"; }
+
+/* Mask tab */
+#pane-mask .check input.mask-key { width: 260px; height: auto; margin: 0 0 0 4px; padding: 4px 6px; font: 12px var(--mono); }
+.mask-rules { margin: 8px 0; padding: 6px 10px 8px; flex-shrink: 0; }
+.mask-rules > summary { font-size: 14px; }
+.mask-rules-wrap { max-height: 34vh; flex: none; min-height: 0; }
+.mask-table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+.mask-table th { position: sticky; top: 0; z-index: 1; background: var(--panel); text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border); font-weight: 600; }
+.mask-table td { padding: 3px 6px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.mask-table td.num { text-align: right; font-family: var(--mono); }
+.mask-table tr.off td { opacity: .45; }
+.mask-table input[type=text] { font: 12px var(--mono); padding: 3px 5px; }
+.mask-table input.w-name { width: 150px; font-family: inherit; }
+.mask-table input.w-pre { width: 210px; }
+.mask-table input.w-post { width: 70px; }
+.mask-table input.w-mask { width: 170px; }
+.mask-table select { width: auto; font-family: inherit; padding: 3px 5px; }
+.mask-table .row-btns { margin: 0; white-space: nowrap; }
+.mask-preview-bar { display: flex; gap: 8px; align-items: center; margin: 6px 0; }
+#mask-file { width: auto; max-width: 100%; font-family: inherit; }
+#mask-preview mark.masked { background: var(--warn-bg); color: var(--warn-fg); border-radius: 2px; padding: 0 1px; }
+#pane-mask .log-preview-wrap { min-height: 160px; }

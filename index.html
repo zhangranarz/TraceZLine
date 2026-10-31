@@ -84,6 +84,7 @@
         <button type="button" role="tab" class="tab" id="tab-file" aria-controls="pane-flow" data-tab="file">Load File <span id="count-file" class="hint"></span></button>
         <button type="button" role="tab" class="tab" id="tab-mock" aria-controls="pane-flow" data-tab="mock">Mock Test <span id="count-mock" class="hint"></span></button>
         <button type="button" role="tab" class="tab" id="tab-compare" aria-controls="pane-compare" data-tab="compare">Compare <span id="count-compare" class="hint"></span></button>
+        <button type="button" role="tab" class="tab" id="tab-mask" aria-controls="pane-mask" data-tab="mask">Mask <span id="count-mask" class="hint"></span></button>
       </div>
 
       <div class="pane" id="pane-spl" role="tabpanel" aria-labelledby="tab-spl">
@@ -197,6 +198,36 @@
           <div id="cmp-quality" class="cmp-quality"></div>
         </div>
       </div>
+
+      <div class="pane" id="pane-mask" role="tabpanel" aria-labelledby="tab-mask" hidden>
+        <div class="flow-bar">
+          <label class="btn primary-btn" title="Log or text files to mask; they are read in this browser only">Upload<input type="file" id="mask-files" multiple hidden></label>
+          <button type="button" id="mask-mock" title="Mask the bundled mock logs to try the rules">Use Mock</button>
+          <button type="button" id="mask-download" class="primary" disabled title="Save every masked file as name.masked.ext">Download</button>
+        </div>
+        <div class="flow-bar flow-bar-2">
+          <label class="check" title="Secret for Consistent masking: the same value always gets the same fake value under the same key. Keep it to mask more files consistently; it stays in this browser.">Key
+            <input type="text" id="mask-key" autocomplete="off" spellcheck="false" class="mask-key"></label>
+          <button type="button" id="mask-newkey" title="Make a new random key (fake values change)">New key</button>
+          <button type="button" id="mask-reset" class="danger" title="Replace the rules with the defaults">Reset rules</button>
+          <span class="spacer"></span>
+          <button type="button" class="wide-toggle" aria-pressed="false" title="Hide the settings and use the full page width">Expand</button>
+        </div>
+        <p class="note" id="mask-status">Upload log or text files. Each rule masks the value between its Pre and Post text: Replace puts the Mask text in its place, Keep last 4 leaves only the last four characters, Consistent gives the same value the same fake value of the same shape (so masked session IDs still link up). Files never leave this browser.</p>
+
+        <details class="mask-rules" open>
+          <summary>Rules <span class="hint" id="mask-rule-count"></span></summary>
+          <div class="table-wrap mask-rules-wrap"><table id="mask-rules" class="mask-table"></table></div>
+          <button type="button" class="add" id="mask-add">+ Add rule</button>
+        </details>
+
+        <div id="mask-leftovers" class="problem" hidden></div>
+        <div class="mask-preview-bar">
+          <select id="mask-file" aria-label="Masked file"></select>
+          <span class="hint" id="mask-file-info"></span>
+        </div>
+        <div class="log-preview-wrap"><pre id="mask-preview" class="log-preview" tabindex="0"></pre></div>
+      </div>
     </section>
   </main>
 
@@ -217,6 +248,7 @@
   <script src="js/importer.js"></script>
   <script src="js/rules.js"></script>
   <script src="js/compare.js"></script>
+  <script src="js/mask.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
