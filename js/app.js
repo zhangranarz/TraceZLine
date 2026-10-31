@@ -953,14 +953,16 @@
   // The Splunk line (what it says) first, then where it maps in the log, then the rest of the row.
   const svcLines = (x) => (Array.isArray(x.ServiceInfo) ? x.ServiceInfo : [x.ServiceInfo ?? x.Flow]);
   const logTime = (l) => (l ? new Date(l.time).toISOString().replace('T', ' ').slice(0, 23) : '');
+  // The event on one line without its timestamp (LogTime shows it).
+  const logEventText = (r) => (r.l ? r.l.raw.replace(/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{3}\s+/, '').replace(/\s+/g, ' ').slice(0, 300) : '');
+  // On screen the log event sits inside the ServiceInfo cell ('svc'); 'export' columns appear in Copy/Download only.
   const CMP = [
     ['Step', (r) => (r.x.Step == null ? '' : String(r.x.Step))],
     ['EventTime', (r) => r.x.EventTime],
-    ['ServiceInfo', (r) => svcLines(r.x).join('\n'), 'multi'],
+    ['ServiceInfo', (r) => svcLines(r.x).join('\n'), 'svc'],
+    ['LogEvent', logEventText, 'export'],
     ['LogRow', (r) => (r.l ? `${base(r.l.source)}:${r.l.lineNo}` : '')],
     ['LogTime', (r) => logTime(r.l)],
-    // the event on one line without its timestamp (LogTime shows it); the table expands it to the raw text
-    ['LogEvent', (r) => (r.l ? r.l.raw.replace(/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{3}\s+/, '').replace(/\s+/g, ' ').slice(0, 300) : ''), 'log'],
     ['Δ ms', (r) => (r.delta == null ? '' : String(r.delta))],
     ['Check', (r) => (r.status === 'mapped' ? 'agrees' : r.checks.join('; ')), 'issue'],
     ['sessionId', (r) => r.x.sessionId ?? ''],
@@ -975,19 +977,21 @@
     const only = document.getElementById('cmp-issues').checked;
     const rows = only ? cmpResult.rows.filter((r) => r.status !== 'mapped') : cmpResult.rows;
     const multi = (s) => String(s).split('\n').map((t, i) => el('div', { class: i ? 'sub' : '' }, [t]));
+    const shown = CMP.filter(([, , kind]) => kind !== 'export');
     document.getElementById('cmp-table').replaceChildren(
-      el('thead', {}, [el('tr', {}, CMP_COLS.map((c) => el('th', {}, [c])))]),
+      el('thead', {}, [el('tr', {}, shown.map(([h]) => el('th', {}, [h])))]),
       el('tbody', {}, rows.map((r) => el('tr', { class: r.status === 'mapped' ? 'dbg-ok' : r.l ? 'dbg-warn' : 'dbg-out' },
-        CMP.map(([, get, kind]) => {
+        shown.map(([, get, kind]) => {
           const text = get(r);
           if (kind === 'multi') return el('td', {}, multi(text));
           if (kind === 'issue') return el('td', { class: 'cmp-issue' }, [text]);
-          // LogEvent: the event's first line, expandable to the raw event text.
-          if (kind === 'log') {
-            return el('td', { class: 'cmp-log' }, r.l ? [el('details', { class: 'cmp-raw' }, [
-              el('summary', { title: text }, [text.length > 90 ? text.slice(0, 90) + '…' : text]),
+          // ServiceInfo, then the mapped log event: one line, expandable to the raw event text.
+          if (kind === 'svc') {
+            const ev = logEventText(r);
+            return el('td', { class: 'cmp-svc' }, [...multi(text), ...(r.l ? [el('details', { class: 'cmp-raw' }, [
+              el('summary', { title: ev }, ['log: ' + (ev.length > 90 ? ev.slice(0, 90) + '…' : ev)]),
               el('pre', {}, [r.l.raw.length > RAW_PREVIEW ? r.l.raw.slice(0, RAW_PREVIEW) + '\n…' : r.l.raw]),
-            ])] : ['']);
+            ])] : [])]);
           }
           return el('td', {}, [text]);
         })))),
