@@ -1014,7 +1014,7 @@
           if (kind === 'struct') {
             const s = r.l && structureOf(r.l);
             return el('td', { class: 'cmp-log' }, s ? [el('details', { class: 'cmp-raw cmp-struct' }, [
-              el('summary', { title: `${s.rows.length} parameters` }, [`${s.kind}:`]),
+              el('summary', { title: `${s.rows.length} parameters`, class: 'icon-after' }, [s.kind]),
               el('div', { class: 'cmp-struct-wrap' }, [el('table', {}, [
                 el('thead', {}, [el('tr', {}, [el('th', {}, ['Parameter']), el('th', {}, ['Value'])])]),
                 el('tbody', {}, s.rows.map(([p, v]) => el('tr', {}, [el('td', {}, [p]), el('td', {}, [v])]))),

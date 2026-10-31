@@ -395,7 +395,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .cmp-struct-wrap td:first-child { color: var(--muted); }
 .cmp-struct-wrap td:last-child { white-space: pre-wrap; word-break: break-all; min-width: 160px; max-width: 360px; }
 .cmp-log .cmp-raw summary { font-size: 12px; }
-/* "Log ▸": label first, disclosure arrow after it (▾ when open). */
+/* "Log ▸", "JSON ▸", "XML ▸": label first, disclosure arrow after it (▾ when open). */
 summary.icon-after { list-style: none; }
 summary.icon-after::-webkit-details-marker { display: none; }
 summary.icon-after::after { content: " \25B8"; }
