@@ -23,10 +23,9 @@
         { key: 'name', label: 'Name', placeholder: 'OPI', size: 's' },
         { key: 'layer', label: 'Layer #', type: 'number', size: 'xs' },
         { key: 'indent', label: 'Indent', placeholder: '(none)', size: 'xs' },
-        { key: 'diagramAs', label: 'Diagram as', placeholder: '(itself)', size: 's', list: 'dl-layers', title: 'Draw this layer on another layer\'s lifeline in the sequence diagrams, as internal processing (self-calls)' },
         { key: 'match', label: 'Condition', placeholder: 'match(_raw,"OPIAppLog")', size: 'l' },
       ],
-      blank: () => ({ name: '', layer: 3, indent: '', diagramAs: '', match: '' }),
+      blank: () => ({ name: '', layer: 3, indent: '', match: '' }),
     },
     directions: {
       fields: [
@@ -127,7 +126,6 @@
         } else {
           input = el('input', { type: f.type || 'text', spellcheck: false, placeholder: f.placeholder || '' });
           if (f.list) input.setAttribute('list', f.list);
-          if (f.title) input.title = f.title;
           input.value = value ?? '';
         }
         input.addEventListener('input', () => {

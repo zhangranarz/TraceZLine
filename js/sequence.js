@@ -15,8 +15,6 @@
   const SMALL_LINE = 13;
   const BOX_H = 30;
   const BAR_W = 10;
-  const SELF_W = 36; // how far a self-call loop reaches right of its bar
-  const SELF_H = 14; // drop between the loop's outgoing and returning line
   const C = {
     bg: '#ffffff', text: '#1f2328', muted: '#59636e', box: '#eef2f7', actor: '#ddf4e4',
     stroke: '#5b6b7f', life: '#9aa5b1', bar: '#ffffff', note: '#ffe0b2', noteStroke: '#e0a04b',
@@ -52,8 +50,6 @@
       if (it.t === 'msg') {
         const a = Math.min(col[it.from], col[it.to]); const b = Math.max(col[it.from], col[it.to]);
         if (a !== b) spans.push({ a, b, need: blockW(it.lines) + 36 });
-        // A self-call's label sits right of the lifeline, so it needs room before the next column.
-        else if (a < ids.length - 1) spans.push({ a, b: a + 1, need: SELF_W + blockW(it.lines) + 24 + boxW[a + 1] / 2 });
       } else if (it.t === 'note') {
         const i = col[it.who];
         const half = (blockW(it.lines) + 24) / 2 + 12;
@@ -88,34 +84,8 @@
       return x(id) + (towards > x(id) ? off : -off);
     };
 
-    // Right edge of the open bar at a given depth (0 = first bar), or the lifeline when none.
-    const barRight = (id, depth) => (depth < 0 ? x(id) : x(id) + depth * 4 + BAR_W / 2);
-
     for (const it of d.items) {
-      if (it.t === 'msg' && it.from === it.to) {
-        // Self-call: out from the current bar, down, and back into the nested bar
-        // (request) or the bar below (response). The label sits to the right.
-        const depth = open[it.from].length;
-        const x1 = barRight(it.from, depth - 1);
-        const x2 = it.dashed ? barRight(it.from, depth - 2) : barRight(it.from, depth);
-        const h = blockH(it.lines);
-        let ty = y;
-        for (const l of it.lines) {
-          ty += lineH(l);
-          out.push(`<text x="${(x1 + 6).toFixed(1)}" y="${(ty - 3).toFixed(1)}" font-size="${l.small ? SMALL : SIZE}" fill="${l.small ? C.muted : C.text}">${xml(l.text)}</text>`);
-        }
-        right = Math.max(right, x1 + 6 + blockW(it.lines));
-        const ay = y + h + 5;
-        const by = ay + SELF_H;
-        const ox = x1 + SELF_W;
-        out.push(`<polyline points="${x1.toFixed(1)},${ay} ${ox.toFixed(1)},${ay} ${ox.toFixed(1)},${by} ${x2.toFixed(1)},${by}" fill="none" stroke="${C.text}" stroke-width="1.2"${it.dashed ? ' stroke-dasharray="5 4"' : ''}/>`);
-        const hx = x2 + 9;
-        out.push(it.dashed
-          ? `<polyline points="${hx.toFixed(1)},${by - 4} ${x2.toFixed(1)},${by} ${hx.toFixed(1)},${by + 4}" fill="none" stroke="${C.text}" stroke-width="1.2"/>`
-          : `<polygon points="${hx.toFixed(1)},${by - 4} ${x2.toFixed(1)},${by} ${hx.toFixed(1)},${by + 4}" fill="${C.text}"/>`);
-        lastArrowY = by;
-        y = by + 14;
-      } else if (it.t === 'msg') {
+      if (it.t === 'msg') {
         const x1raw = x(it.from); const x2raw = x(it.to);
         // The target of a request is about to be activated: end the arrow at the new bar's edge.
         const x1 = edge(it.from, x2raw);

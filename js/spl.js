@@ -25,10 +25,10 @@
     ],
     terms: ['2576dfc8-495a-837a-8a2f291fd003d', '7f269c48-f03a-4fef-bc3007538ec1a2'],
     layers: [
-      { name: 'eComm', match: String.raw`match(_raw,"\[SPLMessage\]")`, layer: 1, indent: '', diagramAs: '' },
-      { name: 'Enterprise', match: String.raw`match(_raw,"\[SPLHostMessage\]")`, layer: 2, indent: '> ', diagramAs: '' },
-      { name: 'Host', match: String.raw`match(_raw,"<SvcCode>") AND match(_raw,"(?i)(request|response) message")`, layer: 3, indent: '>>> ', diagramAs: '' },
-      { name: 'WS', match: String.raw`match(_raw,"WSAppLog")`, layer: 2, indent: '>> ', diagramAs: 'Enterprise' },
+      { name: 'eComm', match: String.raw`match(_raw,"\[SPLMessage\]")`, layer: 1, indent: '' },
+      { name: 'Enterprise', match: String.raw`match(_raw,"\[SPLHostMessage\]")`, layer: 2, indent: '> ' },
+      { name: 'Host', match: String.raw`match(_raw,"<SvcCode>") AND match(_raw,"(?i)(request|response) message")`, layer: 3, indent: '>>> ' },
+      { name: 'WS', match: String.raw`match(_raw,"WSAppLog")`, layer: 2, indent: '>> ' },
     ],
     // rex that extracts the direction word, and an optional raw first case() pair.
     dirWordRex: String.raw`(?i)\b(?<DirWord>Request|Response)\b`,
@@ -176,8 +176,6 @@ __INDENT__
     cfg.layers.forEach((l) => {
       if (l.name.trim() && !l.match.trim()) warnings.push(`Layer "${l.name}" has no match condition.`);
       if (l.name.trim() && !Number.isFinite(Number(l.layer))) warnings.push(`Layer "${l.name}" needs a numeric layer number.`);
-      const as = (l.diagramAs || '').trim();
-      if (l.name.trim() && as && !layerNames.has(as)) warnings.push(`Layer "${l.name}" is drawn as unknown layer "${as}" in the diagrams.`);
     });
     cfg.directions.forEach((d) => {
       if (d.layer.trim() && !layerNames.has(d.layer.trim())) warnings.push(`Direction rule refers to unknown layer "${d.layer}".`);
