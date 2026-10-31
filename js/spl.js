@@ -35,10 +35,10 @@
       { layer: 'WS', pattern: '(?i)(RESPONSE from|Response:)', direction: 'Response' },
     ],
     sessionRules: [
-      { field: 'sidEcomm', rex: String.raw`\[SPLMessage\].*sessionId\"\:\"(?<sidEcomm>[0-9a-fA-F]{36})` },
-      { field: 'sidEnterprise', rex: String.raw`\[SPLHostMessage\].*sessionIdentity\"\:\"(?<sidEnterprise>[0-9a-fA-F]{36})` },
-      { field: 'sidWs', rex: String.raw`sidWs\:([0-9a-fA-F]{8})-([0-9a-fA-F]{4})-([0-9a-fA-F]{4})-([0-9a-fA-F]{4})-([0-9a-fA-F]{12})` },
-      { field: 'sidAny', rex: '' },
+      { field: 'sidEcomm', rex: String.raw`\[SPLMessage\].*?sessionId\"\s*:\s*\"(?<sidEcomm>[0-9a-fA-F-]{36})` },
+      { field: 'sidEnterprise', rex: String.raw`\[SPLHostMessage\].*?sessionIdentity\"\s*:\s*\"(?<sidEnterprise>[0-9a-fA-F-]{36})` },
+      { field: 'sidWls', rex: String.raw`\|\s*WLS:\s*(?<sidWls>[0-9a-fA-F-]{36})\s*\|` },
+      { field: 'sidAny', rex: String.raw`(?<sidAny>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})` },
     ],
     params: [
       { field: 'transactionRef', label: 'TxnRef', rex: String.raw`(?i)\?transactionReferenceNumber|transactionRef\"\:s*\"(?<transactionRef>[^\",]+)` },

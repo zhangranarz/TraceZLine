@@ -42,10 +42,26 @@ test('disabled sources are left out', () => {
   assert.doesNotMatch(spl.generate(cfg), /spl-ms/);
 });
 
-test('validate flags the unnamed sidWs group and unknown layers', () => {
+test('default config has no warnings', () => {
+  assert.deepStrictEqual(spl.validate(spl.DEFAULT_CONFIG), []);
+});
+
+test('validate flags an unnamed rex group and unknown layers', () => {
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
+  cfg.sessionRules.push({ field: 'sidOpi', rex: 'sidOpi:([0-9a-f-]{36})' });
   cfg.directions.push({ layer: 'OPI', pattern: 'x', direction: 'Request' });
   const w = spl.validate(cfg);
-  assert.ok(w.some((m) => m.includes('sidWs')));
+  assert.ok(w.some((m) => m.includes('sidOpi')));
   assert.ok(w.some((m) => m.includes('"OPI"')));
+});
+
+test('sessionId rules extract a dashed UUID from each layer format', () => {
+  const uuid = 'dddddddd-0000-4000-8000-000000000004';
+  // SPL rex strings use \" for a literal quote; JS regex needs named groups as-is.
+  const toJs = (rex) => new RegExp(rex.replace(/\\"/g, '"'));
+  const [ecomm, ent, wls, any] = spl.DEFAULT_CONFIG.sessionRules.map((r) => toJs(r.rex));
+  assert.strictEqual(`[SPLMessage]x|{"sessionId" : "${uuid}"}`.match(ecomm).groups.sidEcomm, uuid);
+  assert.strictEqual(`[SPLHostMessage]{"sessionIdentity":"${uuid}"}`.match(ent).groups.sidEnterprise, uuid);
+  assert.strictEqual(`INFO | WLS: ${uuid} | rest`.match(wls).groups.sidWls, uuid);
+  assert.strictEqual(`id=${uuid};`.match(any).groups.sidAny, uuid);
 });
