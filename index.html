@@ -12,11 +12,6 @@
       <h1>TraceZLine</h1>
       <p class="sub">Parameterised Splunk flow query: edit the values, the query structure stays fixed.</p>
     </div>
-    <div class="actions">
-      <button type="button" id="btn-export">Export config</button>
-      <label class="btn">Import config<input type="file" id="file-import" accept=".json,application/json" hidden></label>
-      <button type="button" id="btn-reset" class="danger">Reset to base</button>
-    </div>
   </header>
 
   <main class="layout">
@@ -160,6 +155,15 @@
       </div>
     </section>
   </main>
+
+  <footer class="bottom">
+    <span class="hint">Settings are saved in this browser.</span>
+    <div class="actions">
+      <button type="button" id="btn-export">Export config</button>
+      <label class="btn">Import config<input type="file" id="file-import" accept=".json,application/json" hidden></label>
+      <button type="button" id="btn-reset" class="danger">Reset to base</button>
+    </div>
+  </footer>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
