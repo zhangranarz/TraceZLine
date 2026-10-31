@@ -10,6 +10,14 @@ const spl = require('../js/spl.js');
 // spaces after commas dropped.
 const norm = (s) => s.replace(/\s+/g, ' ').replace(/, /g, ',').trim();
 
+test('default source block matches the base query exactly, including tabs', () => {
+  const base = fs.readFileSync(path.join(__dirname, 'base.spl'), 'utf8').replace(//g, '');
+  const head = base.slice(0, base.indexOf('
+)
+') + 3);
+  assert.ok(spl.generate(spl.DEFAULT_CONFIG).startsWith(head));
+});
+
 test('default config reproduces the base query', () => {
   const base = fs.readFileSync(path.join(__dirname, 'base.spl'), 'utf8');
   assert.strictEqual(norm(spl.generate(spl.DEFAULT_CONFIG)), norm(base));
@@ -39,7 +47,7 @@ test('adding a source and removing a param', () => {
   cfg.sources.push({ enabled: true, source: '/var/log/pods/spl-opi-*.log', filter: '"OPIAppLog"' });
   cfg.params = cfg.params.slice(0, 1);
   const out = spl.generate(cfg);
-  assert.match(out, /\nOR\nsource="\/var\/log\/pods\/spl-opi-\*\.log"\n"OPIAppLog"\n\)\n/);
+  assert.match(out, /\n\tOR\n\tsource="\/var\/log\/pods\/spl-opi-\*\.log"\n\t"OPIAppLog"\n\)\n/);
   assert.match(out, /\| eval Params=mvappend\(\nif\(isnotnull\(transactionRef\).*null\(\)\)\)$/m);
   assert.doesNotMatch(out, /transactionCode/);
 });
@@ -63,8 +71,8 @@ test('groupSources wraps each source in its own parentheses inside the outer one
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
   cfg.groupSources = true;
   const out = spl.generate(cfg);
-  assert.ok(out.startsWith('(\n(\n  source="/var/log/pods/spl-banking-*log"\n  ("[SPLMessage]" OR "[SPLHostMessage]")\n)\nOR\n(\n  source="/var/log/pods/spl-ms-*log"\n'));
-  assert.match(out, /Response Message"\)\)\n\)\n\)\n\| "/);
+  assert.ok(out.startsWith('(\n\t(\n\t\tsource="/var/log/pods/spl-banking-*log"\n\t\t("[SPLMessage]" OR "[SPLHostMessage]")\n\t)\n\tOR\n\t(\n\t\tsource="/var/log/pods/spl-ms-*log"\n'));
+  assert.match(out, /Response Message"\)\)\n\t\)\n\)\n\| "/);
 });
 
 test('validate flags an unnamed rex group and unknown layers', () => {

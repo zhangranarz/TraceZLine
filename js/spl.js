@@ -96,13 +96,14 @@ coalesce(LastWsURL,"N/A"), LayerName="Host",DGEEndpoint)
     const out = [];
 
     const sources = cfg.sources.filter((s) => s.enabled && s.source.trim());
-    const indent = cfg.groupSources ? '  ' : '';
+    // Everything inside the outer ( ) is tab-indented; grouped sources get one more tab.
+    const indent = cfg.groupSources ? '\t\t' : '\t';
     const blocks = sources.map((s) => {
       const body = [`${indent}source="${s.source.trim()}"`];
       if (s.filter.trim()) body.push(indent + s.filter.trim());
-      return cfg.groupSources ? ['(', ...body, ')'].join('\n') : body.join('\n');
+      return cfg.groupSources ? ['\t(', ...body, '\t)'].join('\n') : body.join('\n');
     });
-    out.push('(\n' + blocks.join('\nOR\n') + '\n)');
+    out.push('(\n' + blocks.join('\n\tOR\n') + '\n)');
 
     const terms = cfg.terms.map((t) => t.trim()).filter(Boolean);
     if (terms.length) out.push('| ' + terms.map(quoteTerm).join(' OR '));
