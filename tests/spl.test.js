@@ -11,10 +11,8 @@ const spl = require('../js/spl.js');
 const norm = (s) => s.replace(/\s+/g, ' ').replace(/, /g, ',').trim();
 
 test('default source block matches the base query exactly, including tabs', () => {
-  const base = fs.readFileSync(path.join(__dirname, 'base.spl'), 'utf8').replace(//g, '');
-  const head = base.slice(0, base.indexOf('
-)
-') + 3);
+  const base = fs.readFileSync(path.join(__dirname, 'base.spl'), 'utf8').replace(/\r/g, '');
+  const head = base.slice(0, base.indexOf('\n)\n') + 3);
   assert.ok(spl.generate(spl.DEFAULT_CONFIG).startsWith(head));
 });
 
