@@ -212,3 +212,14 @@ test('URL reads "URL:/path |" and "URL is /path", not a longer word ending in UR
   assert.strictEqual(url('URL is /dge-asv/cpm/user/getActive '), '/dge-asv/cpm/user/getActive');
   assert.strictEqual(url('redirectURL:/other |'), undefined);
 });
+
+test('transactionRef / transactionCode read the JSON keys, not a longer key that ends in them', () => {
+  // (?i) is Splunk's inline flag; JavaScript takes it as the i flag
+  const rex = (field) => new RegExp(spl.DEFAULT_CONFIG.params.find((p) => p.field === field).rex.replace(/\\"/g, '"').replace('(?i)', ''), 'i');
+  const ref = rex('transactionRef'); const code = rex('transactionCode');
+  assert.strictEqual('{"transactionReferenceNumber":"9990000000000101"}'.match(ref).groups.transactionRef, '9990000000000101');
+  assert.strictEqual('transactionRef=ABC123,'.match(ref).groups.transactionRef, 'ABC123');
+  assert.strictEqual('{"transactionCode": "SEC02"}'.match(code).groups.transactionCode, 'SEC02');
+  assert.strictEqual('{"originalTransactionReferenceNumber":"111"}'.match(ref), null);
+  assert.strictEqual('{"oldTransactionCode":"X"}'.match(code), null);
+});

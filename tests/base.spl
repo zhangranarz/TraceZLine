@@ -60,8 +60,8 @@
     LayerName="WS" AND isnotnull(WsDetails),mvappend(FlowHead,WsDetails),
     true(),FlowHead)
 | eval ServiceInfo=Flow
-| rex field=_raw "(?i)transactionRef(?:erenceNumber)?\"?\s*[:=]\s*\"?(?<transactionRef>[^\",]+)"
-| rex field=_raw "(?i)transactionCode\"?\s*[:=]\s*\"?(?<transactionCode>[^\",]+)"
+| rex field=_raw "(?i)\btransactionRef(?:erenceNumber)?\"?\s*[:=]\s*\"?(?<transactionRef>[^\",]+)"
+| rex field=_raw "(?i)\btransactionCode\"?\s*[:=]\s*\"?(?<transactionCode>[^\",]+)"
 | eval Params=mvappend(
     if(isnotnull(transactionRef) AND len(trim(transactionRef))>0,"TxnRefNo=".transactionRef, null()),
     if(isnotnull(transactionCode) AND len(trim(transactionCode))>0,"TxnCode=".transactionCode, null())
