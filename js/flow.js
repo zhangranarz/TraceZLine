@@ -184,7 +184,10 @@
           .filter(Boolean).join(', ');
       }
       // SPL string comparison is case-sensitive: "response" is not "Response".
-      ev.SortKey = ev.Layer == null ? null : (ev.Direction === 'Request' ? ev.Layer : -ev.Layer);
+      // Events in the same millisecond: requests go down the layers (eComm 10, Enterprise 20,
+      // WS 21, Host 30) and responses come back up (Host -30 ... eComm -10).
+      ev.LayerOrder = ev.Layer == null ? null : ev.Layer * 10 + (ev.SubLayer || 0);
+      ev.SortKey = ev.LayerOrder == null ? null : (ev.Direction === 'Request' ? ev.LayerOrder : -ev.LayerOrder);
       rows.push(ev);
     }
     rows.sort((a, b) => a.time - b.time || (a.SortKey ?? -Infinity) - (b.SortKey ?? -Infinity));

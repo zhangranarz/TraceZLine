@@ -34,7 +34,8 @@
 | rex field=_raw "\bURL(?:\s+is\s+|\s*:\s*)(?<URL>/[^\s:|]+)"
 | rex field=_raw max_match=0 "<SvcCode>(?<SvcCode>[^<]+)</SvcCode>"
 | where LayerName!="Host" OR mvcount(SvcCode)>=1
-| eval SortKey=if(Direction="Request",Layer,-Layer)
+| eval LayerOrder=Layer*10+SubLayer
+| eval SortKey=if(Direction="Request",LayerOrder,-LayerOrder)
 | sort 0 _time SortKey
 | eval WsURL=if(LayerName="WS",URL,null())
 | streamstats last(WsURL) as LastWsURL by sessionId

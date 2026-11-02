@@ -95,3 +95,21 @@ test('dropNoDirection: an event no direction rule matches is excluded, or kept w
   cfg.dropNoDirection = false;
   assert.strictEqual(flow.run(cfg, [{ name: 'a.log', text: log, anySource: true }], []).length, 1);
 });
+
+test('same millisecond: requests eComm > Enterprise > WS > Host, responses Host > WS > Enterprise > eComm', () => {
+  const sid = 'aaaaaaaa-0000-4000-8000-000000000007';
+  const ev = (line) => `2026-10-26 09:30:00.000 [x] INFO\n${line}\n`;
+  // written to the file in the wrong order on purpose
+  const req = ev(`<EAI> <SvcCode>A_X</SvcCode> Request Message - [:dge-enq:enq.a.VN.V1] WLS:${sid} |`)
+    + ev(`WSAppLog | WLS:${sid} | request: URL:/dge-enq/a |`)
+    + ev(`[SPLHostMessage][${sid}][U][VN][9.14][t][A][] -/enq/a - Request -`)
+    + ev(`[SPLMessage][${sid}][U][VN][9.14][t][A][][] -/spl-banking/a - Request -`);
+  const res = ev(`[SPLMessage][${sid}][U][VN][9.14][t][A][][1ms] -/spl-banking/a - Response -`)
+    + ev(`[SPLHostMessage][${sid}][U][VN][9.14][t][A][1ms] -/enq/a - Response -`)
+    + ev(`WSAppLog | WLS:${sid} | Response: URL:/dge-enq/a |`)
+    + ev(`<EAI> <SvcCode>A_X</SvcCode> Response Message - [:dge-enq:enq.a.VN.V1] WLS:${sid} |`);
+  const order = (text) => flow.run(spl.DEFAULT_CONFIG, [{ name: 'a.log', text, anySource: true }], [])
+    .map((r) => `${r.LayerName} ${r.Direction} ${r.SortKey}`);
+  assert.deepStrictEqual(order(req), ['eComm Request 10', 'Enterprise Request 20', 'WS Request 21', 'Host Request 30']);
+  assert.deepStrictEqual(order(res), ['Host Response -30', 'WS Response -21', 'Enterprise Response -20', 'eComm Response -10']);
+});
