@@ -193,3 +193,13 @@ test('dropNoDirection adds | where isnotnull(Direction) right after Direction', 
   cfg.dropNoDirection = false;
   assert.doesNotMatch(spl.generate(cfg), /isnotnull\(Direction\)/);
 });
+
+test('DGEEndpoint reads both [:name] and [::name]', () => {
+  const flow = require('../js/flow.js');
+  const cfg = spl.clone(spl.DEFAULT_CONFIG);
+  const at = (stamp, line) => `2026-10-26 ${stamp} [x] INFO\n${line}\n`;
+  const log = at('09:30:00.000', '<EAI> <SvcCode>A_X</SvcCode> Request Message - [:dge-enq:enq.a.VN.V1] WLS:aaaaaaaa-0000-4000-8000-000000000001 |')
+    + at('09:30:01.000', '<EAI> <SvcCode>B_X</SvcCode> Request Message - [::dge-enq:enq.b.VN.V1] WLS:aaaaaaaa-0000-4000-8000-000000000001 |');
+  const rows = flow.run(cfg, [{ name: 'a.log', text: log, anySource: true }], []);
+  assert.deepStrictEqual(rows.map((r) => r.DGEEndpoint), ['dge-enq:enq.a.VN.V1', 'dge-enq:enq.b.VN.V1']);
+});

@@ -61,7 +61,7 @@
     columns: ['Step', 'EventTime', 'sessionId', 'ServiceInfo', 'Params', 'ElapsedMs'],
   };
 
-  const FLOW_BLOCK = String.raw`| rex field=_raw "\[:(?<DGEEndpoint>[^]]+)\]"
+  const FLOW_BLOCK = String.raw`| rex field=_raw "\[::?(?<DGEEndpoint>[^]]+)\]"
 | rex field=_raw "URL(?:\s+is\s+|\s*:\s*)(?<URL>/[^\s:|]+)"
 | rex field=_raw max_match=0 "<SvcCode>(?<SvcCode>[^<]+)</SvcCode>"
 | where LayerName!="Host" OR mvcount(SvcCode)>=1
