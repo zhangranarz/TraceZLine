@@ -200,7 +200,8 @@
       if (ev.LayerName === 'WS' && ev.DGEEndpoint) lastDge[sid] = ev.DGEEndpoint;
       ev.LastWsURL = lastWs[sid] ?? null;
       ev.LastDGEEndpoint = lastDge[sid] ?? null;
-      const sv = ev.SvcCode; const pairs = [];
+      // HostPairs: SvcCodes as request ~ response pairs, for Host events only
+      const sv = ev.LayerName === 'Host' ? ev.SvcCode : []; const pairs = [];
       for (let k = 0; k < Math.ceil(sv.length / 2); k++) pairs.push(`${sv[k * 2]} ~ ${sv[k * 2 + 1] ?? sv[k * 2]}`);
       // A Host event without its own [:dge-…] takes the endpoint of the WS call that sent it.
       ev.API = {
