@@ -113,3 +113,20 @@ test('same millisecond: requests eComm > Enterprise > WS > Host, responses Host 
   assert.deepStrictEqual(order(req), ['eComm Request 10', 'Enterprise Request 20', 'WS Request 21', 'Host Request 30']);
   assert.deepStrictEqual(order(res), ['Host Response -30', 'WS Response -21', 'Enterprise Response -20', 'eComm Response -10']);
 });
+
+test('a Host event without its own [:dge-…] takes the endpoint of the WS call that sent it', () => {
+  const sid = 'aaaaaaaa-0000-4000-8000-000000000008';
+  const at = (ms, line) => `2026-10-26 09:30:00.${ms} [x] INFO\n${line}\n`;
+  const log = at('100', `WSAppLog | WLS:${sid} | request: URL:/dge-enq/a | [:dge-enq:enq.a.VN.V1]`)
+    + at('200', `<EAI> <SvcCode>A_X</SvcCode> Request Message WLS:${sid} |`)
+    + at('300', `<EAI> <SvcCode>A_X</SvcCode> Response Message WLS:${sid} |`)
+    + at('400', `WSAppLog | WLS:${sid} | Response: | [:dge-enq:enq.a.VN.V1]`);
+  const rows = flow.run(spl.DEFAULT_CONFIG, [{ name: 'a.log', text: log, anySource: true }], []);
+  assert.deepStrictEqual(rows.map((r) => [r.LayerName, r.Direction, r.API]), [
+    ['WS', 'Request', '/dge-enq/a'],
+    ['Host', 'Request', 'dge-enq.enq.a.VN.V1'],
+    ['Host', 'Response', 'dge-enq.enq.a.VN.V1'],
+    ['WS', 'Response', '/dge-enq/a'], // no URL of its own: LastWsURL, so it pairs with the request
+  ]);
+  assert.deepStrictEqual(rows.map((r) => r.ElapsedMs ?? null), [null, null, 100, 300]);
+});

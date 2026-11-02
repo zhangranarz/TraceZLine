@@ -192,19 +192,24 @@
     }
     rows.sort((a, b) => a.time - b.time || (a.SortKey ?? -Infinity) - (b.SortKey ?? -Infinity));
 
-    const lastWs = {}; const lastReq = {}; const step = {};
+    // LastWsURL / LastDGEEndpoint: the latest WS values in the session (streamstats last()).
+    const lastWs = {}; const lastDge = {}; const lastReq = {}; const step = {};
     for (const ev of rows) {
       const sid = ev.sessionId ?? '';
       if (ev.LayerName === 'WS' && ev.URL) lastWs[sid] = ev.URL;
+      if (ev.LayerName === 'WS' && ev.DGEEndpoint) lastDge[sid] = ev.DGEEndpoint;
+      ev.LastWsURL = lastWs[sid] ?? null;
+      ev.LastDGEEndpoint = lastDge[sid] ?? null;
       const sv = ev.SvcCode; const pairs = [];
       for (let k = 0; k < Math.ceil(sv.length / 2); k++) pairs.push(`${sv[k * 2]} ~ ${sv[k * 2 + 1] ?? sv[k * 2]}`);
+      // A Host event without its own [:dge-…] takes the endpoint of the WS call that sent it.
       ev.API = {
         eComm: ev.Endpoint, Enterprise: ev.Endpoint,
-        WS: ev.URL || lastWs[sid] || ev.DGEEndpoint || 'N/A',
-        Host: ev.DGEEndpoint && ev.DGEEndpoint.replace(/:/g, '.'),
+        WS: ev.URL || ev.LastWsURL || ev.DGEEndpoint || 'N/A',
+        Host: (ev.DGEEndpoint || ev.LastDGEEndpoint || 'N/A').replace(/:/g, '.'),
       }[ev.LayerName];
       ev.DirectionSymbol = ev.Direction === 'Request' ? '?' : '!';
-      ev.PairKey = ev.LayerName === 'Host' ? (ev.DGEEndpoint || '') : ev.API;
+      ev.PairKey = ev.LayerName === 'Host' ? (ev.DGEEndpoint || ev.LastDGEEndpoint || '') : ev.API;
       const key = [sid, ev.Layer, ev.PairKey].join('|');
       if (ev.Direction === 'Response' && lastReq[key] != null) ev.ElapsedMs = Math.round(ev.time - lastReq[key]);
       if (ev.Direction === 'Request') lastReq[key] = ev.time;
