@@ -96,6 +96,30 @@ __INDENT__
     return text.split(/[\r\n,]+/).map((t) => t.trim()).filter(Boolean);
   }
 
+  // A filter with OR at its top level is wrapped in ( ), so the OR stays inside it:
+  // a OR b -> (a OR b). Text in quotes is ignored; an already wrapped filter is kept.
+  function wrapFilter(filter) {
+    let depth = 0;
+    let quoted = false;
+    let topOr = false;
+    let wrapped = filter.startsWith('(');
+    for (let i = 0; i < filter.length; i++) {
+      const c = filter[i];
+      if (quoted) {
+        if (c === '\\') i++;
+        else if (c === '"') quoted = false;
+        continue;
+      }
+      if (c === '"') quoted = true;
+      else if (c === '(') depth++;
+      else if (c === ')') {
+        depth--;
+        if (depth === 0 && i < filter.length - 1) wrapped = false; // the first group closes early
+      } else if (depth === 0 && /^\sOR\s/.test(filter.slice(i, i + 4))) topOr = true;
+    }
+    return topOr && !wrapped ? `(${filter})` : filter;
+  }
+
   function generate(cfg) {
     const out = [];
 
@@ -104,7 +128,7 @@ __INDENT__
     const indent = cfg.groupSources ? '\t\t' : '\t';
     const blocks = sources.map((s) => {
       const body = [`${indent}source="${s.source.trim()}"`];
-      if (s.filter.trim()) body.push(indent + s.filter.trim());
+      if (s.filter.trim()) body.push(indent + wrapFilter(s.filter.trim()));
       return cfg.groupSources ? ['\t(', ...body, '\t)'].join('\n') : body.join('\n');
     });
     out.push('(\n' + blocks.join('\n\tOR\n') + '\n)');

@@ -120,7 +120,17 @@ test('groupSources wraps each source in its own parentheses inside the outer one
   cfg.groupSources = true;
   const out = spl.generate(cfg);
   assert.ok(out.startsWith('(\n\t(\n\t\tsource="/var/log/pods/spl-banking-*log"\n\t\t("[SPLMessage]" OR "[SPLHostMessage]")\n\t)\n\tOR\n\t(\n\t\tsource="/var/log/pods/spl-ms-*log"\n'));
-  assert.match(out, /Response Message"\)\)\n\t\)\n\)\n\| "/);
+  assert.match(out, /Response Message"\)\)\)\n\t\)\n\)\n\| "/);
+});
+
+test('a filter with a top-level OR is wrapped in parentheses', () => {
+  const cfg = spl.clone(spl.DEFAULT_CONFIG);
+  const filter = (f) => { cfg.sources[1].filter = f; return spl.generate(cfg).split('\n')[8].trim(); };
+  assert.strictEqual(filter('("A" "x") OR ("B")'), '(("A" "x") OR ("B"))');
+  assert.strictEqual(filter('"A" OR "B"'), '("A" OR "B")');
+  assert.strictEqual(filter('("A" OR "B")'), '("A" OR "B")', 'already wrapped');
+  assert.strictEqual(filter('"A" "B"'), '"A" "B"', 'no top-level OR');
+  assert.strictEqual(filter('"x OR y" "B"'), '"x OR y" "B"', 'OR inside quotes');
 });
 
 test('validate flags an unnamed rex group and unknown layers', () => {
