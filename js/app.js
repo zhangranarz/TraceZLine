@@ -22,10 +22,11 @@
       fields: [
         { key: 'name', label: 'Name', placeholder: 'OPI', size: 's' },
         { key: 'layer', label: 'Layer #', type: 'number', size: 'xs' },
+        { key: 'subLayer', label: 'Sub-layer #', type: 'number', size: 'xs' },
         { key: 'indent', label: 'Indent', placeholder: '(none)', size: 'xs' },
         { key: 'match', label: 'Condition', placeholder: 'match(_raw,"OPIAppLog")', size: 'l' },
       ],
-      blank: () => ({ name: '', layer: 3, indent: '', match: '' }),
+      blank: () => ({ name: '', layer: 3, subLayer: 0, indent: '', match: '' }),
     },
     directions: {
       fields: [
@@ -87,6 +88,12 @@
       if (typeof out[k] === 'boolean' && typeof cfg[k] !== 'boolean') throw new Error(`"${k}" must be true or false.`);
       if (typeof out[k] === 'string' && typeof cfg[k] !== 'string') throw new Error(`"${k}" must be text.`);
       out[k] = cfg[k];
+    });
+    // Settings saved before SubLayer existed: take the default for a layer of the same name, else 0.
+    out.layers.forEach((l) => {
+      if (l && typeof l === 'object' && l.subLayer === undefined) {
+        l.subLayer = DEFAULT_CONFIG.layers.find((d) => d.name === String(l.name).trim())?.subLayer ?? 0;
+      }
     });
     return out;
   }

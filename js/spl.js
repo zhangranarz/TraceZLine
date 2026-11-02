@@ -25,10 +25,10 @@
     ],
     terms: ['2576dfc8-495a-837a-8a2f291fd003d', '7f269c48-f03a-4fef-bc3007538ec1a2'],
     layers: [
-      { name: 'eComm', match: String.raw`match(_raw,"\[SPLMessage\]")`, layer: 1, indent: '' },
-      { name: 'Enterprise', match: String.raw`match(_raw,"\[SPLHostMessage\]")`, layer: 2, indent: '> ' },
-      { name: 'Host', match: String.raw`match(_raw,"<SvcCode>") AND match(_raw,"(?i)(request|response) message")`, layer: 3, indent: '>>> ' },
-      { name: 'WS', match: String.raw`match(_raw,"WSAppLog")`, layer: 2, indent: '>> ' },
+      { name: 'eComm', match: String.raw`match(_raw,"\[SPLMessage\]")`, layer: 1, indent: '', subLayer: 0 },
+      { name: 'Enterprise', match: String.raw`match(_raw,"\[SPLHostMessage\]")`, layer: 2, indent: '> ', subLayer: 0 },
+      { name: 'Host', match: String.raw`match(_raw,"<SvcCode>") AND match(_raw,"(?i)(request|response) message")`, layer: 3, indent: '>>> ', subLayer: 0 },
+      { name: 'WS', match: String.raw`match(_raw,"WSAppLog")`, layer: 2, indent: '>> ', subLayer: 1 },
     ],
     // rex that extracts the direction word, and an optional raw first case() pair.
     dirWordRex: String.raw`(?i)\b(?<DirWord>Request|Response)\b`,
@@ -147,6 +147,11 @@ __INDENT__
     out.push('| eval Layer=case('
       + byNumber.map((l) => `LayerName="${l.name.trim()}",${l.layer}`).join(',')
       + ')');
+    // SubLayer marks processing inside a layer: WS is layer 2 like Enterprise, with SubLayer 1
+    // because it runs inside Enterprise. A layer without a sub-layer number counts as 0.
+    out.push('| eval SubLayer=case('
+      + byNumber.map((l) => `LayerName="${l.name.trim()}",${Number(l.subLayer) || 0}`).join(',')
+      + ')');
 
     if (cfg.dirWordRex.trim()) out.push(`| rex field=_raw "${cfg.dirWordRex.trim()}"`);
     const dirCases = cfg.directions.filter((d) => d.layer.trim() && d.pattern.trim())
@@ -201,6 +206,7 @@ __INDENT__
     cfg.layers.forEach((l) => {
       if (l.name.trim() && !l.match.trim()) warnings.push(`Layer "${l.name}" has no match condition.`);
       if (l.name.trim() && !Number.isFinite(Number(l.layer))) warnings.push(`Layer "${l.name}" needs a numeric layer number.`);
+      if (l.name.trim() && l.subLayer != null && l.subLayer !== '' && !Number.isFinite(Number(l.subLayer))) warnings.push(`Layer "${l.name}" needs a numeric sub-layer number.`);
     });
     cfg.directions.forEach((d) => {
       if (d.layer.trim() && !layerNames.has(d.layer.trim())) warnings.push(`Direction rule refers to unknown layer "${d.layer}".`);

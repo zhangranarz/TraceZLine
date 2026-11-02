@@ -179,3 +179,10 @@ test('URL and Endpoint1 rules read the WS, eComm and Enterprise line formats', (
   assert.strictEqual('[Android-SPL][49ms] -/idm/user/profile/get - [Response]:'.match(ep).groups.Endpoint1, '/idm/user/profile/get');
   assert.strictEqual('[SPLHostMessage][11ms] - /insights/initInsights - [Response]:'.match(ep).groups.Endpoint1, '/insights/initInsights');
 });
+
+test('SubLayer: WS is layer 2 with sub-layer 1; a layer without a sub-layer number counts as 0', () => {
+  const cfg = spl.clone(spl.DEFAULT_CONFIG);
+  assert.match(spl.generate(cfg), /\n\| eval SubLayer=case\(LayerName="eComm",0,LayerName="Enterprise",0,LayerName="WS",1,LayerName="Host",0\)\n/);
+  cfg.layers.push({ name: 'OPI', match: 'match(_raw,"OPIAppLog")', layer: 4, indent: '' });
+  assert.match(spl.generate(cfg), /LayerName="Host",0,LayerName="OPI",0\)\n/);
+});

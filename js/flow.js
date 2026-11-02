@@ -159,6 +159,7 @@
       const L = layers.find((l) => evalCond(l.match, ev));
       ev.LayerName = L ? L.name : null;
       ev.Layer = L ? Number(L.layer) : null;
+      ev.SubLayer = L ? Number(L.subLayer) || 0 : null;
       ev.DirWord = dirWordRe ? extract(dirWordRe, r).DirWord : undefined;
       const first = cfg.directionFirst.trim();
       const cut = topLevelComma(first);
