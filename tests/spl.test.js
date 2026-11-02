@@ -32,7 +32,9 @@ test('search terms are quoted, escaped and OR-joined; empty list drops the line'
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
   cfg.terms = ['abc', 'a"b'];
   // right after the source block, without a leading |
-  assert.match(spl.generate(cfg), /^\)\n"abc" OR "a\\"b"\n\| eval/m);
+  assert.match(spl.generate(cfg), /^\)\n\("abc" OR "a\\"b"\)\n\| eval/m);
+  cfg.terms = ['abc'];
+  assert.match(spl.generate(cfg), /^\)\n"abc"\n\| eval/m, 'one term: no parentheses');
   cfg.terms = [];
   assert.match(spl.generate(cfg), /^\)\n\| eval/m);
 });
@@ -121,7 +123,7 @@ test('groupSources wraps each source in its own parentheses inside the outer one
   cfg.groupSources = true;
   const out = spl.generate(cfg);
   assert.ok(out.startsWith('(\n\t(\n\t\tsource="/var/log/pods/spl-banking-*log"\n\t\t("[SPLMessage]" OR "[SPLHostMessage]")\n\t)\n\tOR\n\t(\n\t\tsource="/var/log/pods/spl-ms-*log"\n'));
-  assert.match(out, /Response Message"\)\)\)\n\t\)\n\)\n"2576dfc8/);
+  assert.match(out, /Response Message"\)\)\)\n\t\)\n\)\n\("2576dfc8/);
 });
 
 test('a filter with a top-level OR is wrapped in parentheses', () => {

@@ -134,7 +134,8 @@ __INDENT__
     out.push('(\n' + blocks.join('\n\tOR\n') + '\n)');
 
     const terms = cfg.terms.map((t) => t.trim()).filter(Boolean);
-    if (terms.length) out.push(terms.map(quoteTerm).join(' OR ')); // part of the base search, so no |
+    // part of the base search, so no |; two or more terms are grouped: ("a" OR "b")
+    if (terms.length) out.push(terms.length > 1 ? '(' + terms.map(quoteTerm).join(' OR ') + ')' : quoteTerm(terms[0]));
 
     const layers = cfg.layers.filter((l) => l.name.trim());
     // Two conditions per line; Layer=case() is listed by layer number (stable for equal numbers).
