@@ -13,7 +13,7 @@
   const name = (c) => `${c.layer} ${c.api ?? 'N/A'}`;
   const svcOf = (c) => {
     const info = c.req && Array.isArray(c.req.ServiceInfo) ? c.req.ServiceInfo.slice(1) : [];
-    return info.map((s) => s.replace(/^- \[(.*)\] \[.\]$/, '$1'));
+    return info.filter((s) => /^- \[/.test(s)).map((s) => s.replace(/^- \[(.*)\] \[.\]$/, '$1'));
   };
   const median = (xs) => {
     const s = [...xs].sort((a, b) => a - b);

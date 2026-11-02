@@ -77,3 +77,25 @@ test('a non-zip, non-CSV upload is reported, not misread', async () => {
   await assert.rejects(imp.readTable('x.xls', new Uint8Array([0xd0, 0xcf, 0x11, 0xe0])), /\.xls format is not supported/);
   assert.throws(() => imp.toFlowRows([['a', 'b'], ['1', '2']], spl.DEFAULT_CONFIG), /no ServiceInfo or Flow column/);
 });
+
+test('new ServiceInfo format: "WS [Enterprise]:" is layer WS and its "Endpoint:" line is not a SvcCode', () => {
+  const csv = imp.parseCsv([
+    'Step,EventTime,sessionId,ServiceInfo,Params,ElapsedMs',
+    '1,26/10/2026 10:00:00.000,s,>> WS [Enterprise]: /dge-enq/a [?],,',
+    ',,,Endpoint: dge-enq:enq.a.VN.V1,,',
+    '2,26/10/2026 10:00:00.100,s,>>> Host: dge-enq:enq.a.VN.V1 [?],,',
+    ',,,- [A_X ~ A_Y] [?],,',
+    '3,26/10/2026 10:00:00.200,s,>>> Host: dge-enq:enq.a.VN.V1 [!],,100',
+    ',,,- [A_X ~ A_Y] [!],,',
+    '4,26/10/2026 10:00:00.300,s,>> WS [Enterprise]: /dge-enq/a [!],,300',
+    ',,,Endpoint: dge-enq:enq.a.VN.V1,,',
+  ].join('\n'));
+  const { rows, problems } = imp.toFlowRows(csv, spl.DEFAULT_CONFIG);
+  assert.deepStrictEqual(problems, []);
+  assert.deepStrictEqual(rows.map((r) => [r.LayerName, r.Layer, r.API, r.Direction]), [
+    ['WS', 2, '/dge-enq/a', 'Request'], ['Host', 3, 'dge-enq:enq.a.VN.V1', 'Request'],
+    ['Host', 3, 'dge-enq:enq.a.VN.V1', 'Response'], ['WS', 2, '/dge-enq/a', 'Response'],
+  ]);
+  assert.deepStrictEqual([].concat(rows[0].ServiceInfo), [rows[0].Flow], 'Endpoint line dropped from the WS row');
+  assert.deepStrictEqual(rows[1].ServiceInfo.slice(1), ['- [A_X ~ A_Y] [?]']);
+});

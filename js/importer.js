@@ -114,7 +114,8 @@
   // ---------- flow rows ----------
 
   // "> Enterprise: /idm/user/profile/get [?]" -> layer, API, direction symbol (may be missing).
-  const FLOW_RE = /^\s*[>\-\s]*?([A-Za-z][\w.\- ]*?)\s*:\s*(.*?)\s*(?:\[([?!<>])\])?\s*$/;
+  // "> Enterprise: /path [?]"; a layer shown inside another reads "WS [Enterprise]: /path [?]"
+  const FLOW_RE = /^\s*[>\-\s]*?([A-Za-z][\w.\- ]*?)(?:\s*\[[^\]]*\])?\s*:\s*(.*?)\s*(?:\[([?!<>])\])?\s*$/;
   const SERVICE_RE = /^\s*-\s*\[(.*)\]\s*\[[?!<>]\]\s*$/;
 
   // "26/10/2026 16:28:59", "2026-10-26 16:28:59.123" or an Excel date number -> ms (UTC wall clock).

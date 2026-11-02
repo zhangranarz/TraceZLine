@@ -78,14 +78,19 @@
     LayerName="WS",coalesce(URL,LastWsURL,DGEEndpoint,LastDGEEndpoint,Endpoint,"N/A"),
     LayerName="Host",coalesce(DGEEndpoint,"N/A"))
 | eval DirectionSymbol=if(Direction="Request","?","!")
-| eval ServiceInfo=if(LayerName="Host", mvmap(HostPairs,"- [".HostPairs."] [".DirectionSymbol."]"),null())
 | eval PairKey=case(LayerName="Host",LayerName."|".coalesce(DGEEndpoint,"N/A"),true(),LayerName."|".coalesce(API,"N/A"))
 | eval ReqTime=if(Direction="Request",_time,null())
 | streamstats last(ReqTime) as LastReqTime by sessionId LayerName PairKey
 | eval ElapsedMs=if(Direction="Response" AND isnotnull(LastReqTime),round((_time-LastReqTime)*1000,0),null())
 __INDENT__
-| eval Flow=Indent.LayerName.": ".API." [".DirectionSymbol."]"
-| eval ServiceInfo=if(LayerName="Host" AND isnotnull(ServiceInfo), mvappend(Flow,ServiceInfo), Flow)`;
+| eval DisplayLayer=if(LayerName="WS","WS [Enterprise]",LayerName)
+| eval FlowHead=Indent.DisplayLayer.": ".coalesce(API,"N/A")." [".DirectionSymbol."]"
+| eval ServiceLines=if(LayerName="Host",mvmap(HostPairs,"- [".HostPairs."] [".DirectionSymbol."]"),null())
+| eval WsDetails=if(LayerName="WS" AND isnotnull(coalesce(DGEEndpoint,LastDGEEndpoint)),"Endpoint: ".coalesce(DGEEndpoint,LastDGEEndpoint),null())
+| eval Flow=case(LayerName="Host" AND isnotnull(ServiceLines),mvappend(FlowHead,ServiceLines),
+    LayerName="WS" AND isnotnull(WsDetails),mvappend(FlowHead,WsDetails),
+    true(),FlowHead)
+| eval ServiceInfo=Flow`;
 
   const TAIL_BLOCK = String.raw`| streamstats count as Step by sessionId
 | eval EventTime=strftime(_time,"%Y-%m-%d %H:%M:%S.%3N")`;

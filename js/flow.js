@@ -215,10 +215,14 @@
       if (ev.Direction === 'Response' && lastReq[key] != null) ev.ElapsedMs = Math.round(ev.time - lastReq[key]);
       if (ev.Direction === 'Request') lastReq[key] = ev.time;
       const L = layers.find((l) => l.name === ev.LayerName);
-      // A null API makes the whole Flow string null in SPL.
-      ev.Flow = ev.API == null || ev.LayerName == null ? null : `${L.indent ?? ''}${ev.LayerName}: ${ev.API} [${ev.DirectionSymbol}]`;
+      // FlowHead is the first line; Host adds its SvcCode pairs, WS its DGE endpoint (Flow=case()).
+      ev.DisplayLayer = ev.LayerName === 'WS' ? 'WS [Enterprise]' : ev.LayerName;
+      ev.FlowHead = ev.LayerName == null ? null : `${L.indent ?? ''}${ev.DisplayLayer}: ${ev.API ?? 'N/A'} [${ev.DirectionSymbol}]`;
       const svc = ev.LayerName === 'Host' ? pairs.map((p) => `- [${p}] [${ev.DirectionSymbol}]`) : [];
-      ev.ServiceInfo = ev.LayerName === 'Host' && svc.length ? [ev.Flow, ...svc].filter((x) => x != null) : ev.Flow;
+      const dge = ev.LayerName === 'WS' ? (ev.DGEEndpoint || ev.LastDGEEndpoint) : null;
+      const more = svc.length ? svc : dge ? [`Endpoint: ${dge}`] : [];
+      ev.Flow = ev.FlowHead == null ? null : more.length ? [ev.FlowHead, ...more] : ev.FlowHead;
+      ev.ServiceInfo = ev.Flow;
       ev.Params = cfg.params.filter((p) => ev[p.field] && ev[p.field].trim()).map((p) => `${p.label || p.field}=${ev[p.field]}`);
       if (ev.sessionId != null) ev.Step = step[sid] = (step[sid] || 0) + 1;
       ev.EventTime = new Date(ev.time).toISOString().replace('T', ' ').slice(0, 23);
@@ -245,8 +249,8 @@
       steps: s.steps,
       start: new Date(s.start).toISOString().replace('T', ' ').slice(0, 23),
       durationMs: Math.round(s.end - s.start),
-      slowest: s.slowest && { flow: s.slowest.Flow, ms: s.slowest.ElapsedMs },
-      noResponse: [...s.pending.values()].map((ev) => ev.Flow),
+      slowest: s.slowest && { flow: s.slowest.FlowHead ?? s.slowest.Flow, ms: s.slowest.ElapsedMs },
+      noResponse: [...s.pending.values()].map((ev) => ev.FlowHead ?? ev.Flow),
     }));
   }
 
@@ -280,7 +284,7 @@
       const label = (r, ms) => {
         const lines = [{ text: (r.API ?? 'N/A') + (ms != null ? ` (${ms} ms)` : '') }];
         if (r.LayerName === 'Host' && Array.isArray(r.ServiceInfo)) {
-          r.ServiceInfo.slice(1).forEach((s) => lines.push({ text: s.replace(/^- \[(.*)\] \[.\]$/, '$1') }));
+          r.ServiceInfo.slice(1).filter((s) => /^- \[/.test(s)).forEach((s) => lines.push({ text: s.replace(/^- \[(.*)\] \[.\]$/, '$1') }));
         }
         (r.Params || []).forEach((p) => lines.push({ text: p, small: true }));
         return lines;
