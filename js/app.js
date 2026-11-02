@@ -95,6 +95,11 @@
         l.subLayer = DEFAULT_CONFIG.layers.find((d) => d.name === String(l.name).trim())?.subLayer ?? 0;
       }
     });
+    // Settings saved before the wildcard: Splunk indexes [ENQWSAppLog] as one token, so the
+    // term "WSAppLog" alone misses it.
+    out.sources.forEach((s) => {
+      if (s && typeof s.filter === 'string') s.filter = s.filter.replace(/"WSAppLog"/g, '"*WSAppLog*"');
+    });
     return out;
   }
 
