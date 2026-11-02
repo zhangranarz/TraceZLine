@@ -203,3 +203,12 @@ test('DGEEndpoint reads both [:name] and [::name]', () => {
   const rows = flow.run(cfg, [{ name: 'a.log', text: log, anySource: true }], []);
   assert.deepStrictEqual(rows.map((r) => r.DGEEndpoint), ['dge-enq:enq.a.VN.V1', 'dge-enq:enq.b.VN.V1']);
 });
+
+test('URL reads "URL:/path |" and "URL is /path", not a longer word ending in URL', () => {
+  const line = spl.generate(spl.DEFAULT_CONFIG).split('\n').find((l) => l.includes('(?<URL>'));
+  const re = new RegExp(line.match(/"(.*)"$/)[1]);
+  const url = (s) => s.match(re)?.groups.URL;
+  assert.strictEqual(url('URL:/dge-asv/cpm/user/getActive |'), '/dge-asv/cpm/user/getActive');
+  assert.strictEqual(url('URL is /dge-asv/cpm/user/getActive '), '/dge-asv/cpm/user/getActive');
+  assert.strictEqual(url('redirectURL:/other |'), undefined);
+});

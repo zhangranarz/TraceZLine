@@ -145,7 +145,7 @@
     const termExpr = terms.length ? parseSearch(terms.map(spl.quoteTerm).join(' OR ')) : { and: [] };
     const layers = cfg.layers.filter((l) => l.name.trim());
     const dirWordRe = cfg.dirWordRex.trim() ? rx(cfg.dirWordRex) : null;
-    const URL_RE = lineRex('| rex field=_raw "URL');
+    const URL_RE = lineRex('| rex field=_raw "\\bURL');
     const DGE_RE = lineRex('| rex field=_raw "\\[:');
     const SVC_RE = /<SvcCode>([^<]+)<\/SvcCode>/g;
 
