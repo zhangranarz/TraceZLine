@@ -203,14 +203,13 @@
       // HostPairs: SvcCodes as request ~ response pairs, for Host events only
       const sv = ev.LayerName === 'Host' ? ev.SvcCode : []; const pairs = [];
       for (let k = 0; k < Math.ceil(sv.length / 2); k++) pairs.push(`${sv[k * 2]} ~ ${sv[k * 2 + 1] ?? sv[k * 2]}`);
-      // A Host event without its own [::dge-…] takes the endpoint of the WS call that sent it.
       ev.API = {
         eComm: ev.Endpoint || 'N/A', Enterprise: ev.Endpoint || 'N/A',
         WS: ev.URL || ev.LastWsURL || ev.DGEEndpoint || ev.LastDGEEndpoint || ev.Endpoint || 'N/A',
-        Host: (ev.DGEEndpoint || ev.LastDGEEndpoint || 'N/A').replace(/:/g, '.'),
+        Host: ev.DGEEndpoint || 'N/A',
       }[ev.LayerName];
       ev.DirectionSymbol = ev.Direction === 'Request' ? '?' : '!';
-      ev.PairKey = ev.LayerName === 'Host' ? (ev.DGEEndpoint || ev.LastDGEEndpoint || '') : ev.API;
+      ev.PairKey = ev.LayerName === 'Host' ? (ev.DGEEndpoint || '') : ev.API;
       const key = [sid, ev.Layer, ev.PairKey].join('|');
       if (ev.Direction === 'Response' && lastReq[key] != null) ev.ElapsedMs = Math.round(ev.time - lastReq[key]);
       if (ev.Direction === 'Request') lastReq[key] = ev.time;

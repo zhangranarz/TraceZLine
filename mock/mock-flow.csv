@@ -8,24 +8,24 @@ Step,EventTime,sessionId,ServiceInfo,Params,ElapsedMs
 7,2026-10-26 09:30:03.065,aaaaaaaa-0000-4000-8000-000000000001,> Enterprise: /idm/user/profile/get [!],TxnRefNo=9990000000000101; TxnCode=SEC02,64
 8,2026-10-26 09:30:03.070,aaaaaaaa-0000-4000-8000-000000000001,> Enterprise: /enq/customer/portfolio [?],TxnCode=AES01,
 9,2026-10-26 09:30:03.075,aaaaaaaa-0000-4000-8000-000000000001,>> WS: /dge-enq/enq/customer/portfolio [?],TxnCode=AES01,
-10,2026-10-26 09:30:03.110,aaaaaaaa-0000-4000-8000-000000000001,>>> Host: dge-enq.enq.customer.portfolio.VN.V2.3 [?],,
+10,2026-10-26 09:30:03.110,aaaaaaaa-0000-4000-8000-000000000001,>>> Host: dge-enq:enq.customer.portfolio.VN.V2.3 [?],,
 ,,,- [BA_ACCT_INFO_N3 ~ BA_ACCT_INFO_N3] [?],,
 1,2026-10-26 09:30:03.200,bbbbbbbb-0000-4000-8000-000000000002,eComm: /spl-banking/services/vn/pfm/enriched/transactions [?],,
 2,2026-10-26 09:30:03.202,bbbbbbbb-0000-4000-8000-000000000002,> Enterprise: /enq/card/transactions [?],TxnCode=AES06,
 3,2026-10-26 09:30:03.206,bbbbbbbb-0000-4000-8000-000000000002,>> WS: /dge-enq/enq/card/transactions [?],TxnCode=AES06,
-4,2026-10-26 09:30:03.230,bbbbbbbb-0000-4000-8000-000000000002,>>> Host: dge-enq.enq.card.transactions.VN.V2.0 [?],,
+4,2026-10-26 09:30:03.230,bbbbbbbb-0000-4000-8000-000000000002,>>> Host: dge-enq:enq.card.transactions.VN.V2.0 [?],,
 ,,,- [CC_INFO_STMT_X ~ CC_CC_STMT_N] [?],,
-11,2026-10-26 09:30:03.507,aaaaaaaa-0000-4000-8000-000000000001,>>> Host: dge-enq.enq.customer.portfolio.VN.V2.3 [!],,397
+11,2026-10-26 09:30:03.507,aaaaaaaa-0000-4000-8000-000000000001,>>> Host: dge-enq:enq.customer.portfolio.VN.V2.3 [!],,397
 ,,,- [BA_ACCT_INFO_N3 ~ BA_ACCT_INFO_N3] [!],,
-12,2026-10-26 09:30:03.520,aaaaaaaa-0000-4000-8000-000000000001,>>> Host: dge-enq.enq.customer.portfolio.VN.V2.3 [?],,
+12,2026-10-26 09:30:03.520,aaaaaaaa-0000-4000-8000-000000000001,>>> Host: dge-enq:enq.customer.portfolio.VN.V2.3 [?],,
 ,,,- [AC_ACCT_SUM_X ~ AC_RBK_SUMM_N] [?],,
 ,,,- [AC_VSA_SUMM_N ~ AC_VSA_SUMM_N] [?],,
-5,2026-10-26 09:30:04.060,bbbbbbbb-0000-4000-8000-000000000002,>>> Host: dge-enq.enq.card.transactions.VN.V2.0 [!],,830
+5,2026-10-26 09:30:04.060,bbbbbbbb-0000-4000-8000-000000000002,>>> Host: dge-enq:enq.card.transactions.VN.V2.0 [!],,830
 ,,,- [CC_INFO_STMT_X ~ CC_CC_STMT_N] [!],,
 6,2026-10-26 09:30:04.081,bbbbbbbb-0000-4000-8000-000000000002,>> WS: /dge-enq/enq/card/transactions [!],TxnCode=AES06,875
 7,2026-10-26 09:30:04.085,bbbbbbbb-0000-4000-8000-000000000002,> Enterprise: /enq/card/transactions [!],TxnCode=AES06,883
 8,2026-10-26 09:30:04.090,bbbbbbbb-0000-4000-8000-000000000002,eComm: /spl-banking/services/vn/pfm/enriched/transactions [!],,890
-13,2026-10-26 09:30:04.620,aaaaaaaa-0000-4000-8000-000000000001,>>> Host: dge-enq.enq.customer.portfolio.VN.V2.3 [!],,1100
+13,2026-10-26 09:30:04.620,aaaaaaaa-0000-4000-8000-000000000001,>>> Host: dge-enq:enq.customer.portfolio.VN.V2.3 [!],,1100
 ,,,- [AC_ACCT_SUM_X ~ AC_RBK_SUMM_N] [!],,
 ,,,- [AC_VSA_SUMM_N ~ AC_VSA_SUMM_N] [!],,
 14,2026-10-26 09:30:04.748,aaaaaaaa-0000-4000-8000-000000000001,>> WS: /dge-enq/enq/customer/portfolio [!],TxnCode=AES01,1673

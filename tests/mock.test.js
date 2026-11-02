@@ -63,7 +63,7 @@ test('PlantUML: one diagram per session with nested calls and elapsed times', ()
   assert.match(s1, /^actor App as P_App$/m);
   assert.match(s1, /^participant "Host" as P_Host$/m);
   assert.match(s1, /^P_Enterprise -> P_WS : \/dge-idm\/idm\/user\/profile\/get\\n<size:10>TxnCode=SEC02<\/size>$/m);
-  assert.match(s1, /^P_Host --> P_WS : dge-enq\.enq\.customer\.portfolio\.VN\.V2\.3 \(1100 ms\)\\nAC_ACCT_SUM_X ~ AC_RBK_SUMM_N\\nAC_VSA_SUMM_N ~ AC_VSA_SUMM_N$/m);
+  assert.match(s1, /^P_Host --> P_WS : dge-enq:enq\.customer\.portfolio\.VN\.V2\.3 \(1100 ms\)\\nAC_ACCT_SUM_X ~ AC_RBK_SUMM_N\\nAC_VSA_SUMM_N ~ AC_VSA_SUMM_N$/m);
   assert.match(s1, /^P_eComm --> P_App : \/spl-banking\/services\/vn\/security\/auth\/v2\/login \(2110 ms\)$/m);
   // every activate has a matching deactivate
   for (const b of blocks) assert.strictEqual((b.match(/^activate /gm) || []).length, (b.match(/^deactivate /gm) || []).length);
@@ -114,7 +114,7 @@ test('same millisecond: requests eComm > Enterprise > WS > Host, responses Host 
   assert.deepStrictEqual(order(res), ['Host Response -30', 'WS Response -21', 'Enterprise Response -20', 'eComm Response -10']);
 });
 
-test('a Host event without its own [::dge-…] takes the endpoint of the WS call that sent it', () => {
+test('a Host event without its own [::dge-…] shows API N/A; a WS response without a URL takes LastWsURL', () => {
   const sid = 'aaaaaaaa-0000-4000-8000-000000000008';
   const at = (ms, line) => `2026-10-26 09:30:00.${ms} [x] INFO\n${line}\n`;
   const log = at('100', `WSAppLog | WLS:${sid} | request: URL:/dge-enq/a | [::dge-enq:enq.a.VN.V1]`)
@@ -124,8 +124,8 @@ test('a Host event without its own [::dge-…] takes the endpoint of the WS call
   const rows = flow.run(spl.DEFAULT_CONFIG, [{ name: 'a.log', text: log, anySource: true }], []);
   assert.deepStrictEqual(rows.map((r) => [r.LayerName, r.Direction, r.API]), [
     ['WS', 'Request', '/dge-enq/a'],
-    ['Host', 'Request', 'dge-enq.enq.a.VN.V1'],
-    ['Host', 'Response', 'dge-enq.enq.a.VN.V1'],
+    ['Host', 'Request', 'N/A'],
+    ['Host', 'Response', 'N/A'],
     ['WS', 'Response', '/dge-enq/a'], // no URL of its own: LastWsURL, so it pairs with the request
   ]);
   assert.deepStrictEqual(rows.map((r) => r.ElapsedMs ?? null), [null, null, 100, 300]);

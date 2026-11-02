@@ -19,14 +19,14 @@ test('routing: entry calls list their direct downstream calls in order', () => {
 });
 
 test('call map: Host links carry their SvcCode pairs', () => {
-  const host = r.edges.filter((x) => x.callee.startsWith('Host dge-enq.enq.customer.portfolio'));
+  const host = r.edges.filter((x) => x.callee.startsWith('Host dge-enq:enq.customer.portfolio'));
   assert.deepStrictEqual(host.map((x) => x.svc), [['BA_ACCT_INFO_N3 ~ BA_ACCT_INFO_N3'], ['AC_ACCT_SUM_X ~ AC_RBK_SUMM_N', 'AC_VSA_SUMM_N ~ AC_VSA_SUMM_N']]);
   assert.ok(host.every((x) => x.caller === 'WS /dge-enq/enq/customer/portfolio'));
 });
 
 test('gaps and latency: the WS timeout and the Host latency range', () => {
   assert.deepStrictEqual(r.gaps.map((g) => [g.kind, g.call, g.caller]), [['No response', 'WS /dge-bfs/bfs/bp/initiate', 'Enterprise /bfs/quick/bp/initiate']]);
-  const hostLat = r.latency.find((x) => x.call === 'Host dge-enq.enq.customer.portfolio.VN.V2.3');
+  const hostLat = r.latency.find((x) => x.call === 'Host dge-enq:enq.customer.portfolio.VN.V2.3');
   assert.deepStrictEqual([hostLat.n, hostLat.min, hostLat.median, hostLat.max], [2, 397, 749, 1100]);
 });
 
@@ -64,8 +64,8 @@ test('API table: one row per API with a description of the call', () => {
   assert.ok(login.description.includes('Entry call from the App.'));
   assert.ok(login.description.includes('Calls, in order: Enterprise /idm/user/profile/get → Enterprise /enq/customer/portfolio.'));
   assert.ok(desc('Enterprise /enq/customer/portfolio')[0].startsWith('Called by eComm '));
-  assert.ok(desc('Host dge-enq.enq.customer.portfolio.VN.V2.3').includes('Takes 749 ms (median; 397–1100 ms over 2 responses).'));
-  assert.ok(desc('Host dge-enq.enq.customer.portfolio.VN.V2.3').some((s) => s.startsWith('SvcCodes (request ~ response): BA_ACCT_INFO_N3 ~ BA_ACCT_INFO_N3')));
+  assert.ok(desc('Host dge-enq:enq.customer.portfolio.VN.V2.3').includes('Takes 749 ms (median; 397–1100 ms over 2 responses).'));
+  assert.ok(desc('Host dge-enq:enq.customer.portfolio.VN.V2.3').some((s) => s.startsWith('SvcCodes (request ~ response): BA_ACCT_INFO_N3 ~ BA_ACCT_INFO_N3')));
   assert.ok(desc('WS /dge-bfs/bfs/bp/initiate').includes('No response once (possible timeout).'));
   assert.ok(desc(r.routing.find((x) => x.entry.endsWith('/security/preLogin')).entry).includes('Handled internally (no downstream call).'));
 });

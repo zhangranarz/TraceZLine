@@ -45,10 +45,10 @@
 | eval API=case(LayerName="eComm",coalesce(Endpoint,"N/A"),
     LayerName="Enterprise",coalesce(Endpoint,"N/A"),
     LayerName="WS",coalesce(URL,LastWsURL,DGEEndpoint,LastDGEEndpoint,Endpoint,"N/A"),
-    LayerName="Host",replace(coalesce(DGEEndpoint,LastDGEEndpoint,"N/A"),":","."))
+    LayerName="Host",coalesce(DGEEndpoint,"N/A"))
 | eval DirectionSymbol=if(Direction="Request","?","!")
 | eval ServiceInfo=if(LayerName="Host", mvmap(HostPairs,"- [".HostPairs."] [".DirectionSymbol."]"),null())
-| eval PairKey=case(LayerName="Host",coalesce(DGEEndpoint,LastDGEEndpoint,""),true(),API)
+| eval PairKey=case(LayerName="Host",coalesce(DGEEndpoint,""),true(),API)
 | eval ReqTime=if(Direction="Request",_time,null())
 | streamstats last(ReqTime) as LastReqTime by sessionId Layer PairKey
 | eval ElapsedMs=if(Direction="Response" AND isnotnull(LastReqTime),round((_time-LastReqTime)*1000,0),null())
