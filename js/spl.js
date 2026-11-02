@@ -73,8 +73,9 @@
 | streamstats last(CurrentWsURL) as LastWsURL last(CurrentDGEEndpoint) as LastDGEEndpoint by sessionId
 | eval pairIndex=mvrange(0,ceil(mvcount(SvcCode)/2))
 | eval HostPairs=mvmap(pairIndex, mvindex(SvcCode,pairIndex*2) . " ~ ".coalesce(mvindex(SvcCode,pairIndex*2+1),mvindex(SvcCode,pairIndex*2)))
-| eval API=case(LayerName="eComm",Endpoint,LayerName="Enterprise",Endpoint,
-    LayerName="WS",coalesce(URL,LastWsURL,DGEEndpoint,"N/A"),
+| eval API=case(LayerName="eComm",coalesce(Endpoint,"N/A"),
+    LayerName="Enterprise",coalesce(Endpoint,"N/A"),
+    LayerName="WS",coalesce(URL,LastWsURL,DGEEndpoint,LastDGEEndpoint,Endpoint,"N/A"),
     LayerName="Host",replace(coalesce(DGEEndpoint,LastDGEEndpoint,"N/A"),":","."))
 | eval DirectionSymbol=if(Direction="Request","?","!")
 | eval ServiceInfo=if(LayerName="Host", mvmap(HostPairs,"- [".HostPairs."] [".DirectionSymbol."]"),null())

@@ -204,8 +204,8 @@
       for (let k = 0; k < Math.ceil(sv.length / 2); k++) pairs.push(`${sv[k * 2]} ~ ${sv[k * 2 + 1] ?? sv[k * 2]}`);
       // A Host event without its own [:dge-…] takes the endpoint of the WS call that sent it.
       ev.API = {
-        eComm: ev.Endpoint, Enterprise: ev.Endpoint,
-        WS: ev.URL || ev.LastWsURL || ev.DGEEndpoint || 'N/A',
+        eComm: ev.Endpoint || 'N/A', Enterprise: ev.Endpoint || 'N/A',
+        WS: ev.URL || ev.LastWsURL || ev.DGEEndpoint || ev.LastDGEEndpoint || ev.Endpoint || 'N/A',
         Host: (ev.DGEEndpoint || ev.LastDGEEndpoint || 'N/A').replace(/:/g, '.'),
       }[ev.LayerName];
       ev.DirectionSymbol = ev.Direction === 'Request' ? '?' : '!';
