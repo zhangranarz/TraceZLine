@@ -9,7 +9,7 @@
 		(("WSAppLog" ("request:" OR "RESPONSE from" OR "Response:")) OR ("<EAI>" "<SvcCode>" ("Request Message" OR "Response Message")))
 	)
 )
-| "2576dfc8-495a-837a-8a2f291fd003d" OR "7f269c48-f03a-4fef-bc3007538ec1a2"
+"2576dfc8-495a-837a-8a2f291fd003d" OR "7f269c48-f03a-4fef-bc3007538ec1a2"
 | eval LayerName=case(match(_raw,"\[SPLMessage\]"),"eComm",match(_raw,"\[SPLHostMessage\]"),"Enterprise",
     match(_raw,"<SvcCode>") AND match(_raw,"(?i)(request|response) message"),"Host", match(_raw,"WSAppLog"),"WS")
 | eval Layer=case(LayerName="eComm",1,LayerName="Enterprise",2,LayerName="WS",2,LayerName="Host",3)

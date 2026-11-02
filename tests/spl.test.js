@@ -31,9 +31,10 @@ test('Layer=case() follows layer number order, LayerName=case() keeps list order
 test('search terms are quoted, escaped and OR-joined; empty list drops the line', () => {
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
   cfg.terms = ['abc', 'a"b'];
-  assert.match(spl.generate(cfg), /^\| "abc" OR "a\\"b"$/m);
+  // right after the source block, without a leading |
+  assert.match(spl.generate(cfg), /^\)\n"abc" OR "a\\"b"\n\| eval/m);
   cfg.terms = [];
-  assert.doesNotMatch(spl.generate(cfg), /^\| "/m);
+  assert.match(spl.generate(cfg), /^\)\n\| eval/m);
 });
 
 test('parseTerms splits on newlines and commas', () => {
@@ -120,7 +121,7 @@ test('groupSources wraps each source in its own parentheses inside the outer one
   cfg.groupSources = true;
   const out = spl.generate(cfg);
   assert.ok(out.startsWith('(\n\t(\n\t\tsource="/var/log/pods/spl-banking-*log"\n\t\t("[SPLMessage]" OR "[SPLHostMessage]")\n\t)\n\tOR\n\t(\n\t\tsource="/var/log/pods/spl-ms-*log"\n'));
-  assert.match(out, /Response Message"\)\)\)\n\t\)\n\)\n\| "/);
+  assert.match(out, /Response Message"\)\)\)\n\t\)\n\)\n"2576dfc8/);
 });
 
 test('a filter with a top-level OR is wrapped in parentheses', () => {
