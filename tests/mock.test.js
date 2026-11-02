@@ -148,3 +148,13 @@ test('pairing is by layer name: an Enterprise request and a WS response with the
     ['WS', 'Response', 'WS|/same/api', null],
   ]);
 });
+
+test('a * in a search term is a wildcard: "*WSAppLog*" finds [ENQWSAppLog] lines', () => {
+  const log = '2026-10-26 09:30:00.000 [x] [INFO ] [ENQWSAppLog] [t] - [::dge-enq:enq.a.VN.V1] - X: | WLS:aaaaaaaa-0000-4000-8000-000000000004 | URL is /dge-enq/a request:\n';
+  const cfg = spl.clone(spl.DEFAULT_CONFIG);
+  const found = (filter) => { cfg.sources[1].filter = filter; return flow.run(cfg, [{ name: 'spl-ms-x.log', text: log }], []).length; };
+  assert.strictEqual(found('("*WSAppLog*" ("request:"))'), 1);
+  assert.strictEqual(found('("*WSAppLog" ("request:"))'), 1);
+  assert.strictEqual(found('("WSApp*Log" ("request:"))'), 1);
+  assert.strictEqual(found('("*OPIAppLog*" ("request:"))'), 0);
+});

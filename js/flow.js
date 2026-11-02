@@ -51,6 +51,8 @@
     if (node.and) return node.and.every((n) => matches(n, ev));
     if (node.or) return node.or.some((n) => matches(n, ev));
     if (node.source) return ev.anySource || globToRe(basename(node.source)).test(basename(ev.source));
+    // * is a wildcard, as in Splunk: "*WSAppLog*" finds [ENQWSAppLog]
+    if (node.term.includes('*')) return new RegExp(node.term.split('*').map((s) => s.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*')).test(ev.lower);
     return ev.lower.includes(node.term);
   }
 
