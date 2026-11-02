@@ -180,6 +180,7 @@
     Object.keys(SECTIONS).forEach(renderList);
     document.getElementById('terms').value = state.terms.join('\n');
     document.getElementById('group-sources').checked = state.groupSources;
+    document.getElementById('drop-no-direction').checked = state.dropNoDirection;
     document.getElementById('dir-word-rex').value = state.dirWordRex;
     document.getElementById('dir-first').value = state.directionFirst;
     refreshDatalists();
@@ -226,6 +227,11 @@
 
   document.getElementById('group-sources').addEventListener('change', (e) => {
     state.groupSources = e.target.checked;
+    update();
+  });
+
+  document.getElementById('drop-no-direction').addEventListener('change', (e) => {
+    state.dropNoDirection = e.target.checked;
     update();
   });
 

@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const spl = require('../js/spl.js');
 const sim = require('../tools/simulate.js');
+const flow = require('../js/flow.js');
 
 const mock = (f) => path.join(__dirname, '..', 'mock', f);
 const files = [mock('spl-banking-mock.log'), mock('spl-ms-mock.log')];
@@ -84,3 +85,13 @@ test('PlantUML server encoding uses its 64-character alphabet, 4 characters per 
 function simPuml() {
   return require('../js/flow.js').toPlantUml(rows, spl.DEFAULT_CONFIG);
 }
+
+test('dropNoDirection: an event no direction rule matches is excluded, or kept when off', () => {
+  const log = '2026-10-26 09:30:00.000 [x] INFO\n[SPLMessage][aaaaaaaa-0000-4000-8000-000000000009][U][VN][9.14][t][A][][] -/x/hello - note -\n';
+  const cfg = spl.clone(spl.DEFAULT_CONFIG);
+  const trace = [];
+  assert.strictEqual(flow.run(cfg, [{ name: 'a.log', text: log, anySource: true }], [], trace).length, 0);
+  assert.ok(trace.some((t) => /no Direction/.test(t.reason || '')));
+  cfg.dropNoDirection = false;
+  assert.strictEqual(flow.run(cfg, [{ name: 'a.log', text: log, anySource: true }], []).length, 1);
+});

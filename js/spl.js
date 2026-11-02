@@ -11,6 +11,9 @@
     version: 1,
     // true: each source in its own ( ) inside the outer ( ); false: sources only share the outer ( ).
     groupSources: true,
+    // true: | where isnotnull(Direction) drops events no direction rule matched; they would
+    // otherwise read as responses ([!]) further down.
+    dropNoDirection: true,
     sources: [
       {
         enabled: true,
@@ -158,6 +161,7 @@ __INDENT__
       .map((d) => `LayerName="${d.layer.trim()}" AND match(_raw,"${d.pattern.trim()}"),"${d.direction}"`);
     if (cfg.directionFirst.trim()) dirCases.unshift(cfg.directionFirst.trim());
     out.push('| eval Direction=case(' + dirCases.join(',\n    ') + ')');
+    if (cfg.dropNoDirection) out.push('| where isnotnull(Direction)');
 
     const eps = cfg.endpointRules.filter((r) => r.field.trim());
     eps.filter((r) => r.rex.trim()).forEach((r) => out.push(`| rex field=_raw "${r.rex.trim()}"`));

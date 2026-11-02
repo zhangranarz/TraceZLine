@@ -169,6 +169,7 @@
         const d = cfg.directions.find((x) => ev.LayerName === x.layer && rx(x.pattern).test(r));
         ev.Direction = d ? d.direction : null;
       }
+      if (cfg.dropNoDirection && ev.Direction == null) { if (rec) rec.reason = 'Excluded: no Direction (where isnotnull(Direction))'; continue; }
       for (const ep of cfg.endpointRules) if (ep.rex.trim()) Object.assign(ev, extract(rx(ep.rex), r));
       ev.Endpoint = cfg.endpointRules.map((ep) => ev[ep.field]).find((v) => v != null);
       for (const sr of cfg.sessionRules) if (sr.rex.trim()) Object.assign(ev, extract(rx(sr.rex), r));
