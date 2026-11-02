@@ -30,7 +30,7 @@
 | rex field=_raw "(?i)\bWLS:\s*(?<sidWls>[0-9a-fA-F-]{36})"
 | rex field=_raw "(?<sidAny>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})"
 | eval sessionId=coalesce(sidEcomm, sidEnterprise, sidWls, sidAny)
-| rex field=_raw "\[::?(?<DGEEndpoint>[^]]+)\]"
+| rex field=_raw "\[::(?<DGEEndpoint>[^]]+)\]"
 | rex field=_raw "\bURL(?:\s+is\s+|\s*:\s*)(?<URL>/[^\s:|]+)"
 | rex field=_raw max_match=0 "<SvcCode>(?<SvcCode>[^<]+)</SvcCode>"
 | where LayerName!="Host" OR mvcount(SvcCode)>=1

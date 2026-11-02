@@ -68,14 +68,14 @@ ${entHeader(style, sid, p, `${ms}ms`, 'Response')}
 // WS service tag, DGE endpoint and URL, e.g. ws('ENQ', 'dge-enq:enq.card.transactions.VN.V2.0', '/dge-enq/enq/card/transactions')
 function wsReq(t, sid, w, thread, txnCode) {
   const tc = txnCode ? `,"transactionCode":"${txnCode}"` : '';
-  return { t, file: 'ms', text: `${ts(t)} [http-nio-9443-exec-${thread}] [INFO ] [${w.tag}WSAppLog] [${trace()}] - [:${w.dge}] - RestEndPointUFWAspect: | URL is ${w.url} request:
+  return { t, file: 'ms', text: `${ts(t)} [http-nio-9443-exec-${thread}] [INFO ] [${w.tag}WSAppLog] [${trace()}] - [::${w.dge}] - RestEndPointUFWAspect: | URL is ${w.url} request:
 {"serviceRequestHeader":{"requesterContext":{"applicationCode":"SPL","requesterUserIdentity":"${USER}","sessionIdentity":"${sid}"${tc}}}}` };
 }
 
 function wsRes(t, sid, w, thread, { code = '00000000', desc = 'Success', txnCode, txnRef, oneLine = false } = {}) {
   const tc = txnCode ? `,"transactionCode":"${txnCode}"` : '';
   const tr = txnRef ? `,"transactionReferenceNumber":"${txnRef}"` : '';
-  return { t, file: 'ms', text: `${ts(t)} [http-nio-9443-exec-${thread}] [INFO ] [${w.tag}WSAppLog] [${trace()}] - [:${w.dge.replace(':', '.')}] - WebLogUFWAspect: UId:${USER} | JId:${jid()} | CIF:${CIF} | WLS:${sid} | SSO: | URL:${w.url} | StartTime:1700000000000 | Response Code:${code} |${oneLine ? ' ' : '\n'}Response:{"serviceResponseHeader":{"responseContext":{"responseCode":"${code}","responseDescription":"${desc}"},"requesterContext":{"sessionIdentity":"${sid}"${tc}${tr}}}}` };
+  return { t, file: 'ms', text: `${ts(t)} [http-nio-9443-exec-${thread}] [INFO ] [${w.tag}WSAppLog] [${trace()}] - [::${w.dge.replace(':', '.')}] - WebLogUFWAspect: UId:${USER} | JId:${jid()} | CIF:${CIF} | WLS:${sid} | SSO: | URL:${w.url} | StartTime:1700000000000 | Response Code:${code} |${oneLine ? ' ' : '\n'}Response:{"serviceResponseHeader":{"responseContext":{"responseCode":"${code}","responseDescription":"${desc}"},"requesterContext":{"sessionIdentity":"${sid}"${tc}${tr}}}}` };
 }
 
 // Host/EAI: svc is the main SvcCode, subs the SubSvc codes (one or more).
@@ -87,7 +87,7 @@ function hostReq(t, sid, w, thread, svc, subs) {
 <TxnRef>99900000000${pad(seq * 10 + i, 5)}</TxnRef>
 </SubSvcRqHeader>
 </SubSvc>`).join('\n');
-  return { t, file: 'ms', text: `${ts(t)} [http-nio-9443-exec-${thread}] [INFO ] [${w.tag}MQLog] [] - [:${w.dge}] - MQAdapterServiceOnlineImpl: UId:${USER} | JId:${jid()} | CIF:${CIF} | WLS:${sid} | SERVICE CODE:${svc}  USER ID:${USER}  Request Q
+  return { t, file: 'ms', text: `${ts(t)} [http-nio-9443-exec-${thread}] [INFO ] [${w.tag}MQLog] [] - [::${w.dge}] - MQAdapterServiceOnlineImpl: UId:${USER} | JId:${jid()} | CIF:${CIF} | WLS:${sid} | SERVICE CODE:${svc}  USER ID:${USER}  Request Q
 Name::/MOCKQMGR/MOCK.EAI.REQ?targetClient=1&version=6
 Request Message:<?xml version="1.0" encoding="UTF-8" ?> <EAI>
 <SvcRq>
@@ -110,7 +110,7 @@ function hostRes(t, sid, w, thread, svc, subs, { status = '00000000', errCode = 
 ${err}
 </SubSvcRsHeader>
 </SubSvcRs>`).join('\n');
-  return { t, file: 'ms', text: `${ts(t)} [http-nio-9443-exec-${thread}] [INFO ] [${w.tag}MQLog] [] - [:${w.dge}] - MQAdapterServiceOnlineImpl: UId:${USER} | JId:${jid()} | CIF:${CIF} | WLS:${sid} | SERVICE_CODE:${svc}  USER ID:${USER}  RESPONSE Q
+  return { t, file: 'ms', text: `${ts(t)} [http-nio-9443-exec-${thread}] [INFO ] [${w.tag}MQLog] [] - [::${w.dge}] - MQAdapterServiceOnlineImpl: UId:${USER} | JId:${jid()} | CIF:${CIF} | WLS:${sid} | SERVICE_CODE:${svc}  USER ID:${USER}  RESPONSE Q
 NAME::queue://MOCKQMGR/MOCK.EAI.REPLY?targetClient=1&version=6
 Response Message:<?xml version="1.0" encoding="UTF-8"?> <EAI>
 <SvcRs>
