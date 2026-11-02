@@ -104,13 +104,63 @@
     }).sort((a, b) => b.max - a.max);
 
     const svcCodes = new Set(real.flatMap(svcOf).flatMap((p) => p.split(/\s*~\s*/)));
-    return {
+    const result = {
       sessions: models.length,
       calls: real.length,
       distinctApis: new Set(real.map(name)).size,
       svcCodes: svcCodes.size,
       routing, edges, ordering, gaps, latency,
     };
+    result.apis = describeApis(all, childrenOf, result);
+    return result;
+  }
+
+  // 6. One row per API, in order of first appearance: { api, description: [sentences] }.
+  // The description sums up the rules above for that API.
+  function describeApis(all, childrenOf, r) {
+    const byApi = new Map();
+    for (const c of all) {
+      const key = name(c);
+      if (!byApi.has(key)) byApi.set(key, { api: key, calls: [], sessions: new Set() });
+      byApi.get(key).calls.push(c);
+      byApi.get(key).sessions.add(c.sid);
+    }
+    const list = (xs) => (xs.length > 1 ? xs.slice(0, -1).join(', ') + ' and ' + xs[xs.length - 1] : xs[0] || '');
+    const times = (n) => (n === 1 ? 'once' : `${n} times`);
+    return [...byApi.values()].map(({ api, calls, sessions }) => {
+      const d = [];
+      const reqs = calls.filter((c) => c.req);
+      const callers = [...new Set(reqs.map((c) => (c.parent ? name(c.parent) : 'App')))];
+      if (callers.length) d.push(callers.length === 1 && callers[0] === 'App' ? 'Entry call from the App.' : `Called by ${list(callers)}.`);
+
+      // what it calls: each distinct ordered list of direct calls
+      const variants = [...new Set(reqs.map((c) => childrenOf(c).map(name).join(' → ')))];
+      if (variants.length === 1 && variants[0]) d.push(`Calls, in order: ${variants[0]}.`);
+      else if (variants.length > 1) d.push(`Calls vary: ${variants.map((v) => v || 'nothing').join('; or ')}.`);
+      else if (reqs.length) d.push(reqs[0].parent ? 'No downstream call.' : 'Handled internally (no downstream call).');
+
+      const svc = [...new Set(reqs.flatMap(svcOf))];
+      if (svc.length) d.push(`SvcCodes (request ~ response): ${svc.join(', ')}.`);
+
+      const order = r.ordering.find((o) => o.parent === api);
+      if (order) d.push(order.verdict === 'Sequential' ? 'Its downstream calls run one after another.' : `Its downstream calls overlap: ${order.verdict.toLowerCase()}.`);
+
+      for (const g of r.gaps.filter((x) => x.call === api)) {
+        d.push(g.kind === 'No response' ? `No response ${times(g.occurrences)} (possible timeout).`
+          : g.kind === 'Response without a request' ? `Response without a request ${times(g.occurrences)}.`
+            : `Direction unknown ${times(g.occurrences)}.`);
+      }
+
+      const lat = r.latency.find((x) => x.call === api);
+      if (lat) {
+        d.push(lat.n === 1 ? `Takes ${lat.median} ms.` : `Takes ${lat.median} ms (median; ${lat.min}–${lat.max} ms over ${lat.n} responses).`);
+        if (lat.outliers.length) d.push(`Slow outliers: ${lat.outliers.join(', ')} ms.`);
+      }
+
+      d.push(sessions.size >= 2 ? `Seen ${times(reqs.length || calls.length)} in ${sessions.size} sessions.`
+        : `Seen ${times(reqs.length || calls.length)} in one session (single-sample observation).`);
+      return { api, description: d };
+    });
   }
 
   // ---------- Markdown ----------
@@ -126,24 +176,7 @@
       `${r.sessions} sessions, ${r.calls} calls, ${r.distinctApis} distinct APIs, ${r.svcCodes} SvcCodes.`
       + ' A rule seen in one session is a single-sample observation, not a confirmed rule.', ''];
     if (r.sessions < 2) out.push('> Only one session: every rule below is a hypothesis until more sessions confirm it.', '');
-    out.push('## Routing (entry calls and what they call)', '',
-      table(['Entry call', 'Calls, in order', 'Sessions', 'Occurrences', 'Confidence'],
-        r.routing.map((x) => [x.entry, x.calls.length ? x.calls.join('\n') : 'Handled internally (no downstream call)', x.sessions, x.occurrences, x.confidence])), '');
-    out.push('## Call map (caller → callee)', '',
-      table(['Caller', 'Callee', 'SvcCodes', 'Sessions', 'Occurrences', 'Confidence'],
-        r.edges.map((x) => [x.caller, x.callee, x.svc.join('\n'), x.sessions, x.occurrences, x.confidence])), '');
-    out.push('## Order of calls', '',
-      r.ordering.length ? table(['Caller', 'Order', 'Occurrences', 'Sessions', 'Notes'],
-        r.ordering.map((x) => [x.parent, x.verdict, x.occurrences, x.sessions, x.examples.join('\n')])) : 'No call makes more than one downstream call.', '');
-    out.push('## Gaps', '',
-      r.gaps.length ? table(['Kind', 'Call', 'Called by', 'Sessions', 'Occurrences'],
-        r.gaps.map((x) => [x.kind, x.call, x.caller, x.sessions, x.occurrences])) : 'Every request has a response.', '');
-    out.push('## Latency baseline (ElapsedMs)', '',
-      table(['Call', 'Responses', 'Min', 'Median', 'Max', 'Outliers'],
-        r.latency.map((x) => [x.call, x.n, x.min, x.median, x.max, x.outliers.join(', ')])), '');
-    out.push('## Not covered yet', '',
-      '- Success / failure (HopStatus, SessionStatus, error codes): the flow table has no response codes yet.',
-      '- Retries and fallbacks: need response codes to tell a retry from a second business call.', '');
+    out.push(table(['API', 'Description'], r.apis.map((x) => [x.api, x.description.join('\n')])), '');
     return out.join('\n');
   }
 

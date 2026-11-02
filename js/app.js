@@ -532,39 +532,22 @@
     }
     const r = window.TraceRules.analyze(models);
     rulesMd = window.TraceRules.toMarkdown(r);
-    const conf = (c) => el('span', { class: c.startsWith('Observed') ? 'conf-ok' : 'conf-single' }, [c]);
-    const lines = (xs) => xs.map((x, i) => el('div', { class: i ? 'sub' : '' }, [x]));
-    const table = (head, rows) => el('div', { class: 'table-wrap rules-table' }, [el('table', {}, [
-      el('thead', {}, [el('tr', {}, head.map((h) => el('th', {}, [h])))]),
-      el('tbody', {}, rows.map((cells) => el('tr', {}, cells.map((c) => el('td', {}, Array.isArray(c) ? c : [c == null ? '' : c]))))),
-    ])]);
-    const section = (title, note, body) => [el('h3', {}, [title]), ...(note ? [el('p', { class: 'note' }, [note])] : []), body];
-
+    // API = layer + endpoint; Description = one sentence per line
+    const apiCell = (api) => {
+      const [layer, ...rest] = api.split(' ');
+      return [el('div', { class: 'hint' }, [layer]), el('code', {}, [rest.join(' ')])];
+    };
     host.replaceChildren(
       el('p', { class: 'rules-head' }, [`${r.sessions} sessions · ${r.calls} calls · ${r.distinctApis} distinct APIs · ${r.svcCodes} SvcCodes. `
-        + 'Rules come from the Flow rows and the Sequence call tree. A rule seen in one session is a single-sample observation, not a confirmed rule.']),
+        + 'From the Flow rows and the Sequence call tree. A rule seen in one session is a single-sample observation, not a confirmed rule.']),
       ...(r.sessions < 2 ? [el('p', { class: 'problem' }, ['Only one session: every rule below is a hypothesis until more sessions confirm it.'])] : []),
-      ...section('Routing', 'What each entry call from the App does, as the ordered list of its direct downstream calls.',
-        table(['Entry call', 'Calls, in order', 'Sessions', 'Occurrences', 'Confidence'],
-          r.routing.map((x) => [x.entry, lines(x.calls.length ? x.calls : ['Handled internally (no downstream call)']), String(x.sessions), String(x.occurrences), [conf(x.confidence)]]))),
-      ...section('Call map', 'Every caller → callee link, with the Host SvcCodes sent.',
-        table(['Caller', 'Callee', 'SvcCodes', 'Sessions', 'Occurrences', 'Confidence'],
-          r.edges.map((x) => [x.caller, x.callee, lines(x.svc), String(x.sessions), String(x.occurrences), [conf(x.confidence)]]))),
-      ...section('Order of calls', 'For calls that make more than one downstream call: sequential when each call returns before the next starts.',
-        r.ordering.length ? table(['Caller', 'Order', 'Occurrences', 'Sessions', 'Notes'],
-          r.ordering.map((x) => [x.parent, x.verdict, String(x.occurrences), String(x.sessions), lines(x.examples)]))
-          : el('p', { class: 'note' }, ['No call makes more than one downstream call.'])),
-      ...section('Gaps', 'Requests without a response (possible timeouts), responses without a request, rows with an unknown direction.',
-        r.gaps.length ? table(['Kind', 'Call', 'Called by', 'Sessions', 'Occurrences'],
-          r.gaps.map((x) => [x.kind, x.call, x.caller, String(x.sessions), String(x.occurrences)]))
-          : el('p', { class: 'note' }, ['Every request has a response.'])),
-      ...section('Latency baseline', 'ElapsedMs per call. Outliers are more than 3× the median and at least 500 ms above it.',
-        table(['Call', 'Responses', 'Min', 'Median', 'Max', 'Outliers'],
-          r.latency.map((x) => [x.call, String(x.n), String(x.min), String(x.median), String(x.max), x.outliers.join(', ')]))),
-      ...section('Not covered yet', null, el('ul', {}, [
-        el('li', {}, ['Success / failure (HopStatus, SessionStatus, error codes): the flow has no response codes yet.']),
-        el('li', {}, ['Retries and fallbacks: need response codes to tell a retry from a second business call.']),
-      ])),
+      el('div', { class: 'table-wrap rules-table' }, [el('table', {}, [
+        el('thead', {}, [el('tr', {}, [el('th', {}, ['API']), el('th', {}, ['Description'])])]),
+        el('tbody', {}, r.apis.map((x) => el('tr', {}, [
+          el('td', { class: 'api' }, apiCell(x.api)),
+          el('td', {}, x.description.map((s) => el('div', {}, [s]))),
+        ]))),
+      ])]),
     );
   }
 

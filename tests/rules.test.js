@@ -57,9 +57,24 @@ test('order of calls: overlapping calls are reported as such', () => {
   assert.strictEqual(r3.ordering[0].verdict, 'Overlapping');
 });
 
-test('Markdown export has every section and flags a single session', () => {
+test('API table: one row per API with a description of the call', () => {
+  assert.strictEqual(r.apis.length, r.distinctApis);
+  const desc = (api) => r.apis.find((x) => x.api === api).description;
+  const login = r.apis.find((x) => x.api.endsWith('/security/auth/v2/login'));
+  assert.ok(login.description.includes('Entry call from the App.'));
+  assert.ok(login.description.includes('Calls, in order: Enterprise /idm/user/profile/get → Enterprise /enq/customer/portfolio.'));
+  assert.ok(desc('Enterprise /enq/customer/portfolio')[0].startsWith('Called by eComm '));
+  assert.ok(desc('Host dge-enq.enq.customer.portfolio.VN.V2.3').includes('Takes 749 ms (median; 397–1100 ms over 2 responses).'));
+  assert.ok(desc('Host dge-enq.enq.customer.portfolio.VN.V2.3').some((s) => s.startsWith('SvcCodes (request ~ response): BA_ACCT_INFO_N3 ~ BA_ACCT_INFO_N3')));
+  assert.ok(desc('WS /dge-bfs/bfs/bp/initiate').includes('No response once (possible timeout).'));
+  assert.ok(desc(r.routing.find((x) => x.entry.endsWith('/security/preLogin')).entry).includes('Handled internally (no downstream call).'));
+});
+
+test('Markdown export is the two-column API table and flags a single session', () => {
   const md = rules.toMarkdown(r);
-  for (const h of ['# Processing rules', '## Routing', '## Call map', '## Order of calls', '## Gaps', '## Latency baseline', '## Not covered yet']) assert.ok(md.includes(h), h);
+  assert.ok(md.includes('# Processing rules'));
+  assert.ok(md.includes('| API | Description |'));
+  assert.ok(!md.includes('## Routing'));
   const one = rules.toMarkdown(rules.analyze(flow.sequenceModel(rows.filter((x) => x.sessionId === rows[0].sessionId), spl.DEFAULT_CONFIG)));
   assert.match(one, /Only one session: every rule below is a hypothesis/);
 });
