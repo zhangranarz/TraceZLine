@@ -136,3 +136,15 @@ test('an eComm event without an Endpoint shows API N/A instead of dropping out',
   const rows = flow.run(spl.DEFAULT_CONFIG, [{ name: 'a.log', text: log, anySource: true }], []);
   assert.deepStrictEqual(rows.map((r) => [r.LayerName, r.Direction, r.API, r.Flow]), [['eComm', 'Request', 'N/A', 'eComm: N/A [?]']]);
 });
+
+test('pairing is by layer name: an Enterprise request and a WS response with the same API do not pair', () => {
+  const sid = 'aaaaaaaa-0000-4000-8000-000000000005';
+  const at = (ms, line) => `2026-10-26 09:30:00.${ms} [x] INFO\n${line}\n`;
+  const log = at('100', `[SPLHostMessage][${sid}][U][VN][9.14][t][A][] -/same/api - Request -`)
+    + at('300', `WSAppLog | WLS:${sid} | Response: URL:/same/api |`);
+  const rows = flow.run(spl.DEFAULT_CONFIG, [{ name: 'a.log', text: log, anySource: true }], []);
+  assert.deepStrictEqual(rows.map((r) => [r.LayerName, r.Direction, r.PairKey, r.ElapsedMs ?? null]), [
+    ['Enterprise', 'Request', 'Enterprise|/same/api', null],
+    ['WS', 'Response', 'WS|/same/api', null],
+  ]);
+});

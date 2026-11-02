@@ -209,8 +209,9 @@
         Host: ev.DGEEndpoint || 'N/A',
       }[ev.LayerName];
       ev.DirectionSymbol = ev.Direction === 'Request' ? '?' : '!';
-      ev.PairKey = ev.LayerName === 'Host' ? (ev.DGEEndpoint || '') : ev.API;
-      const key = [sid, ev.Layer, ev.PairKey].join('|');
+      // Requests and responses pair by layer name, not number: Enterprise and WS are both 2.
+      ev.PairKey = `${ev.LayerName}|${(ev.LayerName === 'Host' ? ev.DGEEndpoint : ev.API) || 'N/A'}`;
+      const key = [sid, ev.LayerName, ev.PairKey].join('|');
       if (ev.Direction === 'Response' && lastReq[key] != null) ev.ElapsedMs = Math.round(ev.time - lastReq[key]);
       if (ev.Direction === 'Request') lastReq[key] = ev.time;
       const L = layers.find((l) => l.name === ev.LayerName);
@@ -234,7 +235,7 @@
       if (!s) out.set(ev.sessionId, s = { steps: 0, start: ev.time, end: ev.time, slowest: null, pending: new Map() });
       s.steps++;
       s.end = ev.time;
-      const key = [ev.Layer, ev.PairKey].join('|');
+      const key = [ev.LayerName, ev.PairKey].join('|');
       if (ev.Direction === 'Request') s.pending.set(key, ev);
       else if (ev.Direction === 'Response') s.pending.delete(key);
       if (ev.ElapsedMs != null && (!s.slowest || ev.ElapsedMs > s.slowest.ElapsedMs)) s.slowest = ev;
@@ -301,7 +302,7 @@
       const stack = [];
       for (const r of rs) {
         const me = alias(r.LayerName);
-        const key = r.Layer + '|' + r.PairKey;
+        const key = r.LayerName + '|' + r.PairKey;
         if (r.Direction === 'Request') {
           const open = stack.filter((s) => rankOf(s.row.LayerName) < rankOf(r.LayerName));
           const mine = norm(r.API);

@@ -175,7 +175,7 @@
         LayerName: name,
         Layer: layer,
         API: m[2],
-        PairKey: m[2],
+        PairKey: `${name}|${m[2] || 'N/A'}`,
         Direction: !m[3] ? null : /[?>]/.test(m[3]) ? 'Request' : 'Response',
         DirectionSymbol: m[3] || '',
         Flow: first,

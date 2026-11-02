@@ -79,9 +79,9 @@
     LayerName="Host",coalesce(DGEEndpoint,"N/A"))
 | eval DirectionSymbol=if(Direction="Request","?","!")
 | eval ServiceInfo=if(LayerName="Host", mvmap(HostPairs,"- [".HostPairs."] [".DirectionSymbol."]"),null())
-| eval PairKey=case(LayerName="Host",coalesce(DGEEndpoint,""),true(),API)
+| eval PairKey=case(LayerName="Host",LayerName."|".coalesce(DGEEndpoint,"N/A"),true(),LayerName."|".coalesce(API,"N/A"))
 | eval ReqTime=if(Direction="Request",_time,null())
-| streamstats last(ReqTime) as LastReqTime by sessionId Layer PairKey
+| streamstats last(ReqTime) as LastReqTime by sessionId LayerName PairKey
 | eval ElapsedMs=if(Direction="Response" AND isnotnull(LastReqTime),round((_time-LastReqTime)*1000,0),null())
 __INDENT__
 | eval Flow=Indent.LayerName.": ".API." [".DirectionSymbol."]"
