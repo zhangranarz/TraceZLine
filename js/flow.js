@@ -284,7 +284,7 @@
       const total = Math.round(rs[rs.length - 1].time - rs[0].time);
       const items = [];
       const label = (r, ms) => {
-        const lines = [{ text: (r.API ?? 'N/A') + (ms != null ? ` (${ms} ms)` : '') }];
+        const lines = [{ text: (r.API ?? 'N/A') + (ms != null ? ` (${ms} ms)` : ''), plain: r.API ?? 'N/A' }];
         if (r.LayerName === 'Host' && Array.isArray(r.ServiceInfo)) {
           r.ServiceInfo.slice(1).filter((s) => /^- \[/.test(s)).forEach((s) => lines.push({ text: s.replace(/^- \[(.*)\] \[.\]$/, '$1') }));
         }
@@ -368,12 +368,24 @@
     }];
   }
 
-  // One @startuml block per session, or one for all with { combine: true }.
-  function toPlantUml(rows, cfg, { combine = false } = {}) {
+  // What a diagram shows: notes: false drops the notes (No response, Response without a
+  // request, Direction unknown); elapsed: false drops the "(123 ms)" from the labels.
+  function viewDiagram(d, { notes = true, elapsed = true } = {}) {
+    if (notes && elapsed) return d;
+    const items = d.items
+      .filter((it) => notes || it.t !== 'note')
+      .map((it) => (elapsed || !it.lines ? it
+        : { ...it, lines: it.lines.map((l) => (l.plain != null ? { ...l, text: l.plain } : l)) }));
+    return { ...d, items };
+  }
+
+  // One @startuml block per session, or one for all with { combine: true }; notes and
+  // elapsed as in viewDiagram().
+  function toPlantUml(rows, cfg, { combine = false, notes = true, elapsed = true } = {}) {
     // Labels are single-line PlantUML text: lines are joined with a literal \n, so real newlines are dropped.
     const esc = (s) => String(s).replace(/[\r\n]+/g, ' ');
     const text = (lines) => lines.map((l) => (l.small ? `<size:10>${esc(l.text)}</size>` : esc(l.text))).join('\\n');
-    const models = sequenceModel(rows, cfg);
+    const models = sequenceModel(rows, cfg).map((d) => viewDiagram(d, { notes, elapsed }));
     const blocks = (combine ? combineDiagrams(models) : models).map((d) => {
       const out = [
         '@startuml',
@@ -426,5 +438,5 @@
     return out.join('\n') + '\n';
   }
 
-  return { parseEvents, describeLog, matchesAnySource, run, summarize, sequenceModel, combineDiagrams, toPlantUml, plantUmlEncode64, format, parseSearch };
+  return { parseEvents, describeLog, matchesAnySource, run, summarize, sequenceModel, combineDiagrams, viewDiagram, toPlantUml, plantUmlEncode64, format, parseSearch };
 });

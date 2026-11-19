@@ -178,3 +178,22 @@ test('one diagram for all sessions: sessions in time order, separated by divider
   assert.ok(svg.includes(`>Session ${S3} · `));
   assert.strictEqual((svg.match(/<text [^>]*font-weight="600"[^>]*>Session /g) || []).length, 3);
 });
+
+test('diagram options: notes and elapsed times can be left out', () => {
+  const s3 = flow.sequenceModel(bySession(S3), spl.DEFAULT_CONFIG)[0];
+  const texts = (d) => d.items.filter((it) => it.lines).map((it) => it.lines[0].text);
+  assert.ok(s3.items.some((it) => it.t === 'note'), 'S3 has a No response note');
+  assert.ok(texts(s3).some((t) => / \(\d+ ms\)$/.test(t)));
+
+  const noNotes = flow.viewDiagram(s3, { notes: false });
+  assert.ok(!noNotes.items.some((it) => it.t === 'note'));
+  assert.strictEqual(noNotes.items.length, s3.items.length - s3.items.filter((it) => it.t === 'note').length);
+
+  const noTimes = flow.viewDiagram(s3, { elapsed: false });
+  assert.ok(!texts(noTimes).some((t) => / ms\)$/.test(t)), 'no (123 ms) left');
+  assert.ok(texts(noTimes).includes('/spl-banking/services/vn/payment/precapture'));
+  assert.strictEqual(flow.viewDiagram(s3), s3, 'defaults: unchanged');
+
+  const puml = flow.toPlantUml(bySession(S3), spl.DEFAULT_CONFIG, { notes: false, elapsed: false });
+  assert.doesNotMatch(puml, /note over|ms\)/);
+});

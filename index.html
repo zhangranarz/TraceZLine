@@ -128,6 +128,8 @@
           </span>
           <span class="view-actions" data-for="diagram" hidden>
             <label class="check" title="All sessions in one continuous diagram, in time order"><input type="checkbox" class="combine-sessions"> One diagram for all sessions</label>
+            <label class="check" title="Orange notes: No response, Response without a request, Direction unknown"><input type="checkbox" class="seq-notes"> Notes</label>
+            <label class="check" title="The (123 ms) on response arrows"><input type="checkbox" class="seq-elapsed"> Elapsed time</label>
             <button type="button" id="btn-copy-puml" disabled title="Copy the PlantUML text">Copy</button>
             <button type="button" id="btn-download-puml" disabled title="Save the PlantUML as a .puml file">Download</button>
             <button type="button" id="btn-render-puml" disabled title="Draws the diagram with the public PlantUML server">Render</button>
@@ -145,6 +147,8 @@
           </span>
           <span class="view-actions" data-for="sequence" hidden>
             <label class="check" title="All sessions in one continuous diagram, in time order"><input type="checkbox" class="combine-sessions"> One diagram for all sessions</label>
+            <label class="check" title="Orange notes: No response, Response without a request, Direction unknown"><input type="checkbox" class="seq-notes"> Notes</label>
+            <label class="check" title="The (123 ms) on response arrows"><input type="checkbox" class="seq-elapsed"> Elapsed time</label>
             <label class="check"><input type="checkbox" id="seq-fit"> Fit to width</label>
             <button type="button" id="btn-svg" disabled>Download SVG</button>
           </span>

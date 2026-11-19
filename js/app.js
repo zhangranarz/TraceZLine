@@ -540,23 +540,28 @@
   let svgs = [];
   let diagramRows = [];
 
-  // One continuous diagram for all sessions (Sequence and PlantUML); kept in this browser.
-  const COMBINE_KEY = 'tracezline.combineSessions';
-  let combineSessions = false;
-  try { combineSessions = localStorage.getItem(COMBINE_KEY) === '1'; } catch (e) { /* ignore */ }
-  document.querySelectorAll('.combine-sessions').forEach((box) => {
-    box.checked = combineSessions;
-    box.addEventListener('change', () => {
-      combineSessions = box.checked;
-      document.querySelectorAll('.combine-sessions').forEach((b) => { b.checked = combineSessions; });
-      try { localStorage.setItem(COMBINE_KEY, combineSessions ? '1' : '0'); } catch (e) { /* ignore */ }
-      renderDiagram(diagramRows);
+  // Diagram options shared by the Sequence and PlantUML views, kept in this browser:
+  // one diagram for all sessions, notes, elapsed times. The same checkbox sits in both views.
+  const diagramOpts = { combine: false, notes: true, elapsed: true };
+  [['combine', '.combine-sessions', 'tracezline.combineSessions'],
+    ['notes', '.seq-notes', 'tracezline.seqNotes'],
+    ['elapsed', '.seq-elapsed', 'tracezline.seqElapsed']].forEach(([opt, selector, key]) => {
+    try { const v = localStorage.getItem(key); if (v != null) diagramOpts[opt] = v === '1'; } catch (e) { /* ignore */ }
+    const boxes = document.querySelectorAll(selector);
+    boxes.forEach((box) => {
+      box.checked = diagramOpts[opt];
+      box.addEventListener('change', () => {
+        diagramOpts[opt] = box.checked;
+        boxes.forEach((b) => { b.checked = box.checked; });
+        try { localStorage.setItem(key, box.checked ? '1' : '0'); } catch (e) { /* ignore */ }
+        renderDiagram(diagramRows);
+      });
     });
   });
 
   function renderDiagram(rows) {
     diagramRows = rows;
-    pumlText = window.TraceFlow.toPlantUml(rows, state, { combine: combineSessions });
+    pumlText = window.TraceFlow.toPlantUml(rows, state, diagramOpts);
     document.getElementById('puml').textContent = pumlText || '(no sessions)';
     // Images belong to the previous text; drop them so they never show a stale flow.
     document.getElementById('puml-images').replaceChildren();
@@ -566,7 +571,8 @@
 
     // render() escapes every log-derived string, so the markup is safe to insert.
     const models = window.TraceFlow.sequenceModel(rows, state);
-    const shown = combineSessions ? window.TraceFlow.combineDiagrams(models) : models;
+    const views = models.map((d) => window.TraceFlow.viewDiagram(d, diagramOpts));
+    const shown = diagramOpts.combine ? window.TraceFlow.combineDiagrams(views) : views;
     svgs = shown.map((d) => ({ sessionId: d.sessionId, svg: window.TraceSequence.render(d) }));
     const host = document.getElementById('sequence');
     host.innerHTML = svgs.map((s) => `<figure class="seq-fig">${s.svg}</figure>`).join('');
