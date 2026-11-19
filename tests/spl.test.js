@@ -107,7 +107,7 @@ test('endpoint rules: add, remove and coalesce order', () => {
   cfg.endpointRules = [cfg.endpointRules[2], { field: 'EpX', rex: '(?<EpX>\\S+)' }];
   const out = spl.generate(cfg);
   assert.match(out, /\| eval Endpoint=coalesce\(Endpoint3,EpX\)/);
-  assert.doesNotMatch(out, /Endpoint1/);
+  assert.doesNotMatch(out, /eCommEndpoint/);
 });
 
 test('empty DirWord rex and first rule drop out of the query', () => {
@@ -183,7 +183,7 @@ test('Flow format: per-layer indent and [?]/[!] direction markers', () => {
   assert.match(out, /LayerName="Host",coalesce\(DGEEndpoint,"N\/A"\)\)/);
 });
 
-test('URL, Endpoint1 (eComm) and Endpoint2 (Enterprise) read their line formats', () => {
+test('URL, eCommEndpoint (eComm) and Endpoint2 (Enterprise) read their line formats', () => {
   // SPL rex strings use \" for a literal quote; a leading (?i) becomes the JS i flag.
   const toJs = (rex) => {
     const src = rex.replace(/\\"/g, '"');
@@ -201,14 +201,14 @@ test('URL, Endpoint1 (eComm) and Endpoint2 (Enterprise) read their line formats'
   for (const sep of ['-', ' ']) {
     for (const path of ['/dge-asv/aaa/bbb', 'dge-asv/aaa/bbb']) {
       for (const dir of ['Request', 'Response']) {
-        assert.strictEqual(`${head}${sep}${path} - ${dir}-`.match(ecomm)?.groups.Endpoint1, path, `${sep}${path} - ${dir}-`);
+        assert.strictEqual(`${head}${sep}${path} - ${dir}-`.match(ecomm)?.groups.eCommEndpoint, path, `${sep}${path} - ${dir}-`);
       }
     }
   }
-  assert.strictEqual(`${head}\n-/spl-banking/services/vn/security/preLogin - Request -`.match(ecomm).groups.Endpoint1, '/spl-banking/services/vn/security/preLogin');
+  assert.strictEqual(`${head}\n-/spl-banking/services/vn/security/preLogin - Request -`.match(ecomm).groups.eCommEndpoint, '/spl-banking/services/vn/security/preLogin');
   // eComm responses log no direction word: the payload follows on the next line or the same line
-  assert.strictEqual(`${head} -/spl-banking/a/b -\n{"x":1}`.match(ecomm).groups.Endpoint1, '/spl-banking/a/b');
-  assert.strictEqual(`${head} -/spl-banking/a/b - {"x":1}`.match(ecomm).groups.Endpoint1, '/spl-banking/a/b');
+  assert.strictEqual(`${head} -/spl-banking/a/b -\n{"x":1}`.match(ecomm).groups.eCommEndpoint, '/spl-banking/a/b');
+  assert.strictEqual(`${head} -/spl-banking/a/b - {"x":1}`.match(ecomm).groups.eCommEndpoint, '/spl-banking/a/b');
   assert.strictEqual(`${head} -/spl-banking/a/b - something else`.match(ecomm), null, 'not before other text');
   assert.strictEqual('[SPLHostMessage][x][] -/idm/user/profile/get - [Response]:'.match(ecomm), null, 'eComm only');
 
@@ -266,7 +266,7 @@ test('transactionRef / transactionCode read the JSON keys, not a longer key that
 test('renameMarker: a marker renamed in a source filter is renamed in the layer logic', () => {
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
   const changed = spl.renameMarker(cfg, '"[SPLMessage]"', '"[MightyMesage]"');
-  assert.deepStrictEqual(changed, ['Layer eComm', 'Session rule sidEcomm', 'Endpoint rule Endpoint1']);
+  assert.deepStrictEqual(changed, ['Layer eComm', 'Session rule sidEcomm', 'Endpoint rule eCommEndpoint']);
   assert.strictEqual(cfg.layers[0].match, String.raw`match(_raw,"\[MightyMesage\]")`);
   assert.ok(cfg.sessionRules[0].rex.startsWith(String.raw`(?i)\[MightyMesage\](?:\s*`), cfg.sessionRules[0].rex);
   assert.strictEqual(cfg.layers[1].match, String.raw`match(_raw,"\[SPLHostMessage\]")`, 'other markers untouched');

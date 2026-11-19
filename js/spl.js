@@ -44,8 +44,8 @@
     endpointRules: [
       // The API is the path before "- Request-" / "- Response-" (also "- [Response]:"), or before
       // "-" when the payload follows (eComm responses log no direction word). The path comes after
-      // a ] and a - or a space, with or without the leading /. Endpoint1: eComm, Endpoint2: Enterprise.
-      { field: 'Endpoint1', rex: String.raw`(?i)\[SPLMessage\][\s\S]*?\]\s*(?:-\s*)?(?<Endpoint1>(?:/[^\s\[\]/]+)+|[^\s\[\]/-][^\s\[\]/]*(?:/[^\s\[\]/]+)+)\s*-\s*(?:\[?(?:Request|Response)\b|\{|\r?\n|$)` },
+      // a ] and a - or a space, with or without the leading /. eCommEndpoint: eComm, Endpoint2: Enterprise.
+      { field: 'eCommEndpoint', rex: String.raw`(?i)\[SPLMessage\][\s\S]*?\]\s*(?:-\s*)?(?<eCommEndpoint>(?:/[^\s\[\]/]+)+|[^\s\[\]/-][^\s\[\]/]*(?:/[^\s\[\]/]+)+)\s*-\s*(?:\[?(?:Request|Response)\b|\{|\r?\n|$)` },
       { field: 'Endpoint2', rex: String.raw`(?i)\[SPLHostMessage\][\s\S]*?\]\s*(?:-\s*)?(?<Endpoint2>(?:/[^\s\[\]/]+)+|[^\s\[\]/-][^\s\[\]/]*(?:/[^\s\[\]/]+)+)\s*-\s*(?:\[?(?:Request|Response)\b|\{|\r?\n|$)` },
       { field: 'Endpoint3', rex: String.raw`(?i)endpoint\"?\s*[:=]\s*\"?(?<Endpoint3>[^\",]+)` },
     ],

@@ -31,10 +31,10 @@
     LayerName="WS" AND match(_raw,"(?i)request:"),"Request",
     LayerName="WS" AND match(_raw,"(?i)(RESPONSE from|Response:)"),"Response")
 | where isnotnull(Direction)
-| rex field=_raw "(?i)\[SPLMessage\][\s\S]*?\]\s*(?:-\s*)?(?<Endpoint1>(?:/[^\s\[\]/]+)+|[^\s\[\]/-][^\s\[\]/]*(?:/[^\s\[\]/]+)+)\s*-\s*(?:\[?(?:Request|Response)\b|\{|\r?\n|$)"
+| rex field=_raw "(?i)\[SPLMessage\][\s\S]*?\]\s*(?:-\s*)?(?<eCommEndpoint>(?:/[^\s\[\]/]+)+|[^\s\[\]/-][^\s\[\]/]*(?:/[^\s\[\]/]+)+)\s*-\s*(?:\[?(?:Request|Response)\b|\{|\r?\n|$)"
 | rex field=_raw "(?i)\[SPLHostMessage\][\s\S]*?\]\s*(?:-\s*)?(?<Endpoint2>(?:/[^\s\[\]/]+)+|[^\s\[\]/-][^\s\[\]/]*(?:/[^\s\[\]/]+)+)\s*-\s*(?:\[?(?:Request|Response)\b|\{|\r?\n|$)"
 | rex field=_raw "(?i)endpoint\"?\s*[:=]\s*\"?(?<Endpoint3>[^\",]+)"
-| eval Endpoint=coalesce(Endpoint1,Endpoint2,Endpoint3)
+| eval Endpoint=coalesce(eCommEndpoint,Endpoint2,Endpoint3)
 | rex field=_raw "(?i)\[SPLMessage\](?:\s*\[?|[\s\S]*?\"session(?:Id|Identity)\"\s*:\s*\")(?<sidEcomm>[0-9a-fA-F-]{36})"
 | rex field=_raw "(?i)\[SPLHostMessage\](?:\s*\[?|[\s\S]*?\"session(?:Id|Identity)\"\s*:\s*\")(?<sidEnterprise>[0-9a-fA-F-]{36})"
 | rex field=_raw "(?i)(?:\bWLS:\s*|WSAppLog(?![\s\S]*\bWLS:)[\s\S]*?\"session(?:Id|Identity)\"\s*:\s*\")(?<sidWls>[0-9a-fA-F-]{36})"
