@@ -183,29 +183,40 @@ test('Flow format: per-layer indent and [?]/[!] direction markers', () => {
   assert.match(out, /LayerName="Host",coalesce\(DGEEndpoint,"N\/A"\)\)/);
 });
 
-test('URL and Endpoint1 rules read the WS, eComm and Enterprise line formats', () => {
-  const toJs = (rex) => new RegExp(rex.replace(/\\"/g, '"'));
+test('URL, Endpoint1 (eComm) and Endpoint2 (Enterprise) read their line formats', () => {
+  // SPL rex strings use \" for a literal quote; a leading (?i) becomes the JS i flag.
+  const toJs = (rex) => {
+    const src = rex.replace(/\\"/g, '"');
+    return src.startsWith('(?i)') ? new RegExp(src.slice(4), 'i') : new RegExp(src);
+  };
   const urlLine = spl.generate(spl.DEFAULT_CONFIG).split('\n').find((l) => l.includes('(?<URL>'));
   const url = toJs(urlLine.match(/"(.*)"$/)[1]);
   assert.strictEqual('RestEndPointUFWAspect: | URL is /dge-idm/idm/user/profile/get:'.match(url).groups.URL, '/dge-idm/idm/user/profile/get');
   assert.strictEqual('WebLogUFWAspect: | URL:/dge-enq/enq/customer/portfolio | StartTime'.match(url).groups.URL, '/dge-enq/enq/customer/portfolio');
-  const ep = toJs(spl.DEFAULT_CONFIG.endpointRules[0].rex);
-  assert.strictEqual('[6adeb69a][][]\n-/spl-banking/services/vn/security/preLogin - Request -'.match(ep).groups.Endpoint1, '/spl-banking/services/vn/security/preLogin');
-  assert.strictEqual('[Android-SPL][49ms] -/idm/user/profile/get - [Response]:'.match(ep).groups.Endpoint1, '/idm/user/profile/get');
-  assert.strictEqual('[SPLHostMessage][11ms] - /insights/initInsights - [Response]:'.match(ep).groups.Endpoint1, '/insights/initInsights');
-  // eComm: after a - or a space, with or without the leading /
+
+  const ecomm = toJs(spl.DEFAULT_CONFIG.endpointRules[0].rex);
+  const ent = toJs(spl.DEFAULT_CONFIG.endpointRules[1].rex);
+  const head = '[SPLMessage][dddddddd-0000-4000-8000-000000000004][U][VN][9.14][t][Android-SPL][][]';
+  // eComm: the path before "- Request-" / "- Response-", after a - or a space, with or without the leading /
   for (const sep of ['-', ' ']) {
     for (const path of ['/dge-asv/aaa/bbb', 'dge-asv/aaa/bbb']) {
       for (const dir of ['Request', 'Response']) {
-        assert.strictEqual(`[Android-SPL][][]${sep}${path} - ${dir}-`.match(ep)?.groups.Endpoint1, path, `${sep}${path} - ${dir}-`);
+        assert.strictEqual(`${head}${sep}${path} - ${dir}-`.match(ecomm)?.groups.Endpoint1, path, `${sep}${path} - ${dir}-`);
       }
     }
   }
-  // response with its payload on the next line or the same line
-  assert.strictEqual('[][4ms] -/spl-banking/a/b -\n{"x":1}'.match(ep).groups.Endpoint1, '/spl-banking/a/b');
-  assert.strictEqual('[][4ms] -/spl-banking/a/b - {"x":1}'.match(ep).groups.Endpoint1, '/spl-banking/a/b');
-  // no path after the ] (WS header): no match
-  assert.strictEqual('[ENQWSAppLog] [t] - [::dge-enq:enq.a] - RestEndPointUFWAspect: | URL is /a request:'.match(ep), null);
+  assert.strictEqual(`${head}\n-/spl-banking/services/vn/security/preLogin - Request -`.match(ecomm).groups.Endpoint1, '/spl-banking/services/vn/security/preLogin');
+  // eComm responses log no direction word: the payload follows on the next line or the same line
+  assert.strictEqual(`${head} -/spl-banking/a/b -\n{"x":1}`.match(ecomm).groups.Endpoint1, '/spl-banking/a/b');
+  assert.strictEqual(`${head} -/spl-banking/a/b - {"x":1}`.match(ecomm).groups.Endpoint1, '/spl-banking/a/b');
+  assert.strictEqual(`${head} -/spl-banking/a/b - something else`.match(ecomm), null, 'not before other text');
+  assert.strictEqual('[SPLHostMessage][x][] -/idm/user/profile/get - [Response]:'.match(ecomm), null, 'eComm only');
+
+  // Enterprise: the same, after [SPLHostMessage]
+  assert.strictEqual('[SPLHostMessage][x][Android-SPL][49ms] -/idm/user/profile/get - [Response]:'.match(ent).groups.Endpoint2, '/idm/user/profile/get');
+  assert.strictEqual('[SPLHostMessage] [x]|[u]\n[Android-SPL] - /insights/initInsights - [Request]:'.match(ent).groups.Endpoint2, '/insights/initInsights');
+  assert.strictEqual(`${head} -/spl-banking/a/b - Request -`.match(ent), null, 'Enterprise only');
+  assert.strictEqual('[ENQWSAppLog] [t] - [::dge-enq:enq.a] - RestEndPointUFWAspect: | URL is /a request:'.match(ent), null);
 });
 
 test('SubLayer: WS is layer 2 with sub-layer 1; a layer without a sub-layer number counts as 0', () => {
@@ -255,11 +266,11 @@ test('transactionRef / transactionCode read the JSON keys, not a longer key that
 test('renameMarker: a marker renamed in a source filter is renamed in the layer logic', () => {
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
   const changed = spl.renameMarker(cfg, '"[SPLMessage]"', '"[MightyMesage]"');
-  assert.deepStrictEqual(changed, ['Layer eComm', 'Session rule sidEcomm']);
+  assert.deepStrictEqual(changed, ['Layer eComm', 'Session rule sidEcomm', 'Endpoint rule Endpoint1']);
   assert.strictEqual(cfg.layers[0].match, String.raw`match(_raw,"\[MightyMesage\]")`);
   assert.ok(cfg.sessionRules[0].rex.startsWith(String.raw`(?i)\[MightyMesage\](?:\s*`), cfg.sessionRules[0].rex);
   assert.strictEqual(cfg.layers[1].match, String.raw`match(_raw,"\[SPLHostMessage\]")`, 'other markers untouched');
-  assert.deepStrictEqual(spl.renameMarker(cfg, '"[SPLHostMessage]"', '"[MightyHostMessage]"'), ['Layer Enterprise', 'Session rule sidEnterprise']);
+  assert.deepStrictEqual(spl.renameMarker(cfg, '"[SPLHostMessage]"', '"[MightyHostMessage]"'), ['Layer Enterprise', 'Session rule sidEnterprise', 'Endpoint rule Endpoint2']);
   assert.strictEqual(cfg.layers[1].match, String.raw`match(_raw,"\[MightyHostMessage\]")`);
   assert.ok(cfg.sessionRules[1].rex.startsWith(String.raw`(?i)\[MightyHostMessage\](?:\s*`), cfg.sessionRules[1].rex);
   // wildcards are not copied into the regex

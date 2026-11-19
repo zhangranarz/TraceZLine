@@ -117,10 +117,14 @@
         r.rex = DEFAULT_CONFIG.sessionRules.find((d) => d.field === r.field).rex;
       }
     });
-    // Endpoint1 saved before it also read a path after a space (] /a/b - Request-).
+    // Endpoint1 / Endpoint2 saved before they were the eComm and Enterprise rules.
+    const OLD_EP = {
+      Endpoint1: [String.raw`\]\s*-\s*(?<Endpoint1>[^\s\[\]]*/\S*)\s+-`, String.raw`\]\s*(?:-\s*)?(?<Endpoint1>(?:/[^\s\[\]/]+)+|[^\s\[\]/-][^\s\[\]/]*(?:/[^\s\[\]/]+)+)\s*-`],
+      Endpoint2: [String.raw`\s\s\s(?<Endpoint2>[^ ]+)\s\-\s(?:'?Request|Response)'`],
+    };
     out.endpointRules.forEach((r) => {
-      if (r && r.field === 'Endpoint1' && r.rex === String.raw`\]\s*-\s*(?<Endpoint1>[^\s\[\]]*/\S*)\s+-`) {
-        r.rex = DEFAULT_CONFIG.endpointRules.find((d) => d.field === 'Endpoint1').rex;
+      if (r && OLD_EP[r.field] && OLD_EP[r.field].includes(r.rex)) {
+        r.rex = DEFAULT_CONFIG.endpointRules.find((d) => d.field === r.field).rex;
       }
     });
     // Host condition saved before it was <EAI> AND <SvcCode>.

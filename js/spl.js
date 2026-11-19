@@ -42,10 +42,11 @@
       { layer: 'WS', pattern: '(?i)(RESPONSE from|Response:)', direction: 'Response' },
     ],
     endpointRules: [
-      // eComm and Enterprise: the path after a ] and a - or a space, with or without a leading /,
-      // up to the next " -": ] -/a/b - Request -, ]-a/b - Response-, ] /a/b - [Response]:, ] a/b -
-      { field: 'Endpoint1', rex: String.raw`\]\s*(?:-\s*)?(?<Endpoint1>(?:/[^\s\[\]/]+)+|[^\s\[\]/-][^\s\[\]/]*(?:/[^\s\[\]/]+)+)\s*-` },
-      { field: 'Endpoint2', rex: String.raw`\s\s\s(?<Endpoint2>[^ ]+)\s\-\s(?:'?Request|Response)'` },
+      // The API is the path before "- Request-" / "- Response-" (also "- [Response]:"), or before
+      // "-" when the payload follows (eComm responses log no direction word). The path comes after
+      // a ] and a - or a space, with or without the leading /. Endpoint1: eComm, Endpoint2: Enterprise.
+      { field: 'Endpoint1', rex: String.raw`(?i)\[SPLMessage\][\s\S]*?\]\s*(?:-\s*)?(?<Endpoint1>(?:/[^\s\[\]/]+)+|[^\s\[\]/-][^\s\[\]/]*(?:/[^\s\[\]/]+)+)\s*-\s*(?:\[?(?:Request|Response)\b|\{|\r?\n|$)` },
+      { field: 'Endpoint2', rex: String.raw`(?i)\[SPLHostMessage\][\s\S]*?\]\s*(?:-\s*)?(?<Endpoint2>(?:/[^\s\[\]/]+)+|[^\s\[\]/-][^\s\[\]/]*(?:/[^\s\[\]/]+)+)\s*-\s*(?:\[?(?:Request|Response)\b|\{|\r?\n|$)` },
       { field: 'Endpoint3', rex: String.raw`(?i)endpoint\"?\s*[:=]\s*\"?(?<Endpoint3>[^\",]+)` },
     ],
     sessionRules: [
