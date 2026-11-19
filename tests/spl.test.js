@@ -161,6 +161,10 @@ test('sessionId rules extract a dashed UUID from each layer format', () => {
   assert.strictEqual(`INFO [SPLMessage][][u] -/x -\n{"requesterContext":{"sessionIdentity": "${uuid}"}}`.match(ecomm).groups.sidEcomm, uuid);
   assert.strictEqual(`INFO [SPLHostMessage][x] {"sessionId":"${uuid}"}`.match(ecomm), null, 'not in other layers');
   assert.strictEqual(`INFO [SPLHostMessage][${uuid}][<<USER_ID>>]`.match(ent).groups.sidEnterprise, uuid);
+  assert.strictEqual(`INFO [SPLHostMessage] [${uuid}]|[<<USER_ID>>]`.match(ent).groups.sidEnterprise, uuid);
+  assert.strictEqual(`INFO [SPLHostMessage][][u] - /enq/x - [Request]:\n{"meta":{"sessionId":"${uuid}"}}`.match(ent).groups.sidEnterprise, uuid);
+  assert.strictEqual(`INFO [SPLHostMessage][][u] - /enq/x - [Response]: {"sessionIdentity": "${uuid}"}`.match(ent).groups.sidEnterprise, uuid);
+  assert.strictEqual(`INFO [SPLMessage][x] {"sessionId":"${uuid}"}`.match(ent), null, 'not in other layers');
   assert.strictEqual(`| CIF:<<CIF_NUM>> | WLS:${uuid} | WS`.match(wls).groups.sidWls, uuid);
   assert.strictEqual(`id=${uuid};`.match(any).groups.sidAny, uuid);
   assert.strictEqual('id=--------------------------------------;'.match(any), null);
@@ -238,7 +242,7 @@ test('renameMarker: a marker renamed in a source filter is renamed in the layer 
   assert.strictEqual(cfg.layers[1].match, String.raw`match(_raw,"\[SPLHostMessage\]")`, 'other markers untouched');
   assert.deepStrictEqual(spl.renameMarker(cfg, '"[SPLHostMessage]"', '"[MightyHostMessage]"'), ['Layer Enterprise', 'Session rule sidEnterprise']);
   assert.strictEqual(cfg.layers[1].match, String.raw`match(_raw,"\[MightyHostMessage\]")`);
-  assert.ok(cfg.sessionRules[1].rex.startsWith(String.raw`(?i)\[MightyHostMessage\]\s*`), cfg.sessionRules[1].rex);
+  assert.ok(cfg.sessionRules[1].rex.startsWith(String.raw`(?i)\[MightyHostMessage\](?:\s*`), cfg.sessionRules[1].rex);
   // wildcards are not copied into the regex
   assert.deepStrictEqual(spl.renameMarker(cfg, '"*WSAppLog*" ("request:")', '"*OPIAppLog*" ("request:")'), ['Layer WS']);
   assert.strictEqual(cfg.layers.find((l) => l.name === 'WS').match, 'match(_raw,"OPIAppLog")');

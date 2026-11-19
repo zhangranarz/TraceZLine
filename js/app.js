@@ -106,10 +106,14 @@
       ['/var/log/pods/spl-banking-*log', '("[SPLMessage]" OR "[SPLHostMessage]")'],
       ['/var/log/pods/spl-ms-*log', '("*WSAppLog*" ("request:" OR "RESPONSE from" OR "Response:")) OR ("<EAI>" "<SvcCode>" ("Request Message" OR "Response Message"))'],
     ];
-    // sidEcomm saved before it also read "sessionId" / "sessionIdentity" in eComm events.
+    // sidEcomm / sidEnterprise saved before they also read "sessionId" / "sessionIdentity".
+    const OLD_SID = {
+      sidEcomm: String.raw`(?i)\[SPLMessage\]\s*\[?(?<sidEcomm>[0-9a-fA-F-]{36})`,
+      sidEnterprise: String.raw`(?i)\[SPLHostMessage\]\s*\[?(?<sidEnterprise>[0-9a-fA-F-]{36})`,
+    };
     out.sessionRules.forEach((r) => {
-      if (r && r.field === 'sidEcomm' && r.rex === String.raw`(?i)\[SPLMessage\]\s*\[?(?<sidEcomm>[0-9a-fA-F-]{36})`) {
-        r.rex = DEFAULT_CONFIG.sessionRules.find((d) => d.field === 'sidEcomm').rex;
+      if (r && OLD_SID[r.field] && r.rex === OLD_SID[r.field]) {
+        r.rex = DEFAULT_CONFIG.sessionRules.find((d) => d.field === r.field).rex;
       }
     });
     // Host condition saved before it was <EAI> AND <SvcCode>.
