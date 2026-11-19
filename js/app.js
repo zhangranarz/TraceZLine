@@ -124,6 +124,10 @@
       const f = r && (r.field === 'sidEcomm' || r.field === 'sidEnterprise') ? r.field : null;
       const m = f && String(r.rex).match(new RegExp(String.raw`^\(\?i\)(\\\[.+?\\\])\\s\*\\\[\?\(\?<${f}>\[\^\\"\]\+\)\\"$`));
       if (m) r.rex = `(?i)${m[1]}\\[(?<${f}>[^\\]]+)\\]`;
+      // sidWls saved as the UUID-only default: any value up to a space or |
+      if (r && r.field === 'sidWls' && r.rex === String.raw`(?i)\bWLS:\s*(?<sidWls>[0-9a-fA-F-]{36})`) {
+        r.rex = DEFAULT_CONFIG.sessionRules.find((d) => d.field === 'sidWls').rex;
+      }
     });
     if (OLD_SID_SETS.some((set) => JSON.stringify(set) === sidKey(out.sessionRules))) out.sessionRules = clone(DEFAULT_CONFIG.sessionRules);
     // Endpoint rules saved before they were the eComm and Enterprise rules, and before they were

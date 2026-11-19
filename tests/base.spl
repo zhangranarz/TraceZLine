@@ -40,7 +40,7 @@
 | rex field=_raw "\"sessionIdentity\"\s*:\s*\"(?<sidSessionIdentity>[^\"]+)\""
 | rex field=_raw "(?i)\[SPLMessage\]\[(?<sidEcomm>[^\]]+)\]"
 | rex field=_raw "(?i)\[SPLHostMessage\]\[(?<sidEnterprise>[^\]]+)\]"
-| rex field=_raw "(?i)\bWLS:\s*(?<sidWls>[0-9a-fA-F-]{36})"
+| rex field=_raw "(?i)\bWLS:\s*(?<sidWls>[^\s|]+)"
 | eval sessionId=coalesce(sidSessionId, sidSessionIdentity, sidEcomm, sidEnterprise, sidWls, "NA")
 | rex field=_raw "\s*-\s*(?<eCommEndpoint>/\S+)\s*-\s*(?:Request|Response|\{|\r?\n|$)"
 | rex field=_raw "\s*-\s*(?<EnterpriseEndpoint>/\S+)\s*-\s*\[(?:Request|Response)\]"

@@ -176,6 +176,9 @@ test('session rules: five forms, sessionId is the first one found, else NA', () 
   assert.strictEqual(`INFO [SPLHostMessage][${uuid}]|[u] - /x - [Request]: {"a":1}`.match(ent).groups.sidEnterprise, uuid);
   assert.strictEqual(`INFO [SPLHostMessage] [${uuid}]|[<<USER_ID>>]`.match(ent), null, 'a space before [ is not read');
   assert.strictEqual(`| CIF:<<CIF_NUM>> | WLS:${uuid} | WS`.match(wls).groups.sidWls, uuid);
+  // any value up to a space or |, not only a UUID; an empty WLS: is not a session
+  assert.strictEqual('| WLS: S-0042 | SSO:'.match(wls).groups.sidWls, 'S-0042');
+  assert.strictEqual('| WLS: | SSO:'.match(wls), null);
   assert.match(spl.generate(spl.DEFAULT_CONFIG), /\n\| eval sessionId=coalesce\(sidSessionId, sidSessionIdentity, sidEcomm, sidEnterprise, sidWls, "NA"\)\n/);
 });
 

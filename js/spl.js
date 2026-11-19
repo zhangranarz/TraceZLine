@@ -60,7 +60,7 @@
       { field: 'sidSessionIdentity', rex: String.raw`\"sessionIdentity\"\s*:\s*\"(?<sidSessionIdentity>[^\"]+)\"` },
       { field: 'sidEcomm', rex: String.raw`(?i)\[SPLMessage\]\[(?<sidEcomm>[^\]]+)\]` },
       { field: 'sidEnterprise', rex: String.raw`(?i)\[SPLHostMessage\]\[(?<sidEnterprise>[^\]]+)\]` },
-      { field: 'sidWls', rex: String.raw`(?i)\bWLS:\s*(?<sidWls>[0-9a-fA-F-]{36})` },
+      { field: 'sidWls', rex: String.raw`(?i)\bWLS:\s*(?<sidWls>[^\s|]+)` },
     ],
     params: [
       { field: 'transactionRef', label: 'TxnRefNo', rex: String.raw`(?i)\btransactionRef(?:erenceNumber)?\"?\s*[:=]\s*\"?(?<transactionRef>[^\",]+)` },
