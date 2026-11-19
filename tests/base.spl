@@ -24,6 +24,7 @@
     match(_raw,"<EAI>") AND match(_raw,"<SvcCode>"),"Host", match(_raw,"WSAppLog"),"WS")
 | eval Layer=case(LayerName="eComm",1,LayerName="Enterprise",2,LayerName="WS",2,LayerName="Host",3)
 | eval SubLayer=case(LayerName="eComm",0,LayerName="Enterprise",0,LayerName="WS",1,LayerName="Host",0)
+| eval LayerOrder=Layer*10+SubLayer
 | eval Direction=case(LayerName="eComm" AND match(_raw,"(?i)- Request -"),"Request",
     LayerName="eComm" AND match(_raw,"(?i)- Response -"),"Response",
     LayerName="Enterprise" AND match(_raw,"(?i)\[Request\]"),"Request",
@@ -33,6 +34,7 @@
     LayerName="WS" AND match(_raw,"(?i)request:"),"Request",
     LayerName="WS" AND match(_raw,"(?i)(RESPONSE from|Response:)"),"Response")
 | where isnotnull(Direction)
+| eval SortKey=if(Direction="Request",LayerOrder,-LayerOrder)
 | rex field=_raw "\"sessionId\"\s*:\s*\"(?<sidSessionId>[0-9a-fA-F-]{36})"
 | rex field=_raw "\"sessionIdentity\"\s*:\s*\"(?<sidSessionIdentity>[0-9a-fA-F-]{36})"
 | rex field=_raw "(?i)\[SPLMessage\]\s*\[?(?<sidEcomm>[0-9a-fA-F-]{36})"
@@ -49,8 +51,6 @@
     LayerName="Host",coalesce(DGEEndpoint,"NA"))
 | rex field=_raw max_match=0 "<SvcCode>(?<SvcCode>[^<]+)</SvcCode>"
 | where LayerName!="Host" OR mvcount(SvcCode)>=1
-| eval LayerOrder=Layer*10+SubLayer
-| eval SortKey=if(Direction="Request",LayerOrder,-LayerOrder)
 | sort 0 _time SortKey
 | eval CurrentWsURL=if(LayerName="WS",URL,null())
 | eval CurrentDGEEndpoint=if(LayerName="WS",DGEEndpoint,null())

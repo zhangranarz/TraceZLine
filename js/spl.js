@@ -74,8 +74,6 @@
 __ENDPOINT__
 | rex field=_raw max_match=0 "<SvcCode>(?<SvcCode>[^<]+)</SvcCode>"
 | where LayerName!="Host" OR mvcount(SvcCode)>=1
-| eval LayerOrder=Layer*10+SubLayer
-| eval SortKey=if(Direction="Request",LayerOrder,-LayerOrder)
 | sort 0 _time SortKey
 | eval CurrentWsURL=if(LayerName="WS",URL,null())
 | eval CurrentDGEEndpoint=if(LayerName="WS",DGEEndpoint,null())
@@ -207,6 +205,7 @@ __INDENT__
     out.push('| eval SubLayer=case('
       + byNumber.map((l) => `LayerName="${l.name.trim()}",${Number(l.subLayer) || 0}`).join(',')
       + ')');
+    out.push('| eval LayerOrder=Layer*10+SubLayer');
 
     if (cfg.dirWordRex.trim()) out.push(`| rex field=_raw "${cfg.dirWordRex.trim()}"`);
     const dirCases = cfg.directions.filter((d) => d.layer.trim() && d.pattern.trim())
@@ -214,6 +213,9 @@ __INDENT__
     if (cfg.directionFirst.trim()) dirCases.unshift(cfg.directionFirst.trim());
     out.push('| eval Direction=case(' + dirCases.join(',\n    ') + ')');
     if (cfg.dropNoDirection) out.push('| where isnotnull(Direction)');
+    // Order within one millisecond: requests down the layers, responses back up. The sort itself
+    // stays later, just before the first streamstats (after the where clauses, so less to sort).
+    out.push('| eval SortKey=if(Direction="Request",LayerOrder,-LayerOrder)');
 
     // Endpoint rules: their rex lines go with the DGEEndpoint and URL rex, just above Endpoint=case().
     // Endpoint=case() per layer: each rule's field for its layer, else N/A (several rules for one
