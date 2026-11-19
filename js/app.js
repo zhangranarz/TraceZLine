@@ -38,10 +38,11 @@
     },
     endpointRules: {
       fields: [
-        { key: 'field', label: 'Field', placeholder: 'Endpoint4', size: 's' },
-        { key: 'rex', label: 'rex', placeholder: '(?<Endpoint4>/[^\\s]+)', size: 'l' },
+        { key: 'field', label: 'Field', placeholder: 'OPIEndpoint', size: 's' },
+        { key: 'layer', label: 'Layer', size: 's', list: 'dl-layers' },
+        { key: 'rex', label: 'rex', placeholder: '(?<OPIEndpoint>/[^\\s]+)', size: 'l' },
       ],
-      blank: () => ({ field: '', rex: '' }),
+      blank: () => ({ field: '', layer: '', rex: '' }),
     },
     sessionRules: {
       fields: [
@@ -133,6 +134,8 @@
     out.endpointRules.forEach((r) => {
       const old = r && OLD_EP[r.field];
       if (old && old.rex.includes(r.rex)) Object.assign(r, DEFAULT_CONFIG.endpointRules.find((d) => d.field === old.now));
+      // Endpoint rules saved before they had a layer: the default rule of the same name gives it.
+      if (r && r.layer === undefined) r.layer = DEFAULT_CONFIG.endpointRules.find((d) => d.field === r.field)?.layer ?? '';
     });
     // The default Endpoint3 rule (endpoint: … in a payload) is gone: WS uses WSEndpoint (URL and [::…]).
     out.endpointRules = out.endpointRules.filter((r) => !(r && r.field === 'Endpoint3' && r.rex === String.raw`(?i)endpoint\"?\s*[:=]\s*\"?(?<Endpoint3>[^\",]+)`));

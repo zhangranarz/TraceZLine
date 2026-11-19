@@ -102,12 +102,15 @@ test('DirectionSymbol is set before ServiceInfo uses it', () => {
   assert.ok(out.indexOf('| eval DirectionSymbol=') < out.indexOf('| eval ServiceInfo='));
 });
 
-test('endpoint rules: add, remove and coalesce order', () => {
+test('endpoint rules: one Endpoint per layer; several rules for a layer are coalesced', () => {
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
-  cfg.endpointRules = [cfg.endpointRules[1], { field: 'EpX', rex: '(?<EpX>\\S+)' }];
+  cfg.endpointRules = [cfg.endpointRules[1], { field: 'EpX', layer: 'Enterprise', rex: '(?<EpX>\\S+)' }, { field: 'EpY', layer: '', rex: '(?<EpY>\\S+)' }];
   const out = spl.generate(cfg);
-  assert.match(out, /\| eval Endpoint=coalesce\(EnterpriseEndpoint,EpX\)/);
+  assert.ok(out.includes('\n| eval Endpoint=case(LayerName="Enterprise",coalesce(EnterpriseEndpoint,EpX),\n'
+    + '    LayerName="WS",mvappend(coalesce(URL,"NA"),coalesce(DGEEndpoint,"NA")),\n'
+    + '    LayerName="Host",coalesce(DGEEndpoint,"NA"))\n'));
   assert.doesNotMatch(out, /eCommEndpoint/);
+  assert.ok(spl.validate(cfg).some((w) => /"EpY" has no layer/.test(w)));
 });
 
 test('empty DirWord rex and first rule drop out of the query', () => {
@@ -168,9 +171,9 @@ test('Flow format: per-layer indent and [?]/[!] direction markers', () => {
   const out = spl.generate(spl.DEFAULT_CONFIG);
   assert.match(out, /\| eval Indent=case\(LayerName="eComm","",LayerName="Enterprise","> ",LayerName="Host",">>> ",LayerName="WS",">> "\)/);
   assert.match(out, /\| eval DirectionSymbol=if\(Direction="Request","\?","!"\)/);
-  assert.match(out, /\n\| eval HostEndpoint=if\(LayerName="Host",coalesce\(DGEEndpoint,"NA"\),null\(\)\)\n/);
-  assert.match(out, /LayerName="Host",HostEndpoint\)\n/);
-  assert.match(out, /\| eval PairKey=case\(LayerName="Host",LayerName\."\|"\.HostEndpoint,/);
+  assert.ok(out.includes('\n    LayerName="Host",coalesce(DGEEndpoint,"NA"))\n'), 'Endpoint for Host');
+  assert.ok(out.includes('\n    LayerName="Host",Endpoint)\n'), 'API for Host');
+  assert.ok(out.includes('| eval PairKey=case(LayerName="Host",LayerName."|".Endpoint,'));
 });
 
 test('URL, eCommEndpoint (eComm) and EnterpriseEndpoint (Enterprise) read their line formats', () => {

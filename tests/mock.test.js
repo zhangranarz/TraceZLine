@@ -62,7 +62,7 @@ test('PlantUML: one diagram per session with nested calls and elapsed times', ()
   const s1 = blocks[0];
   assert.match(s1, /^actor App as P_App$/m);
   assert.match(s1, /^participant "Host" as P_Host$/m);
-  // a WS call shows its WSEndpoint: the URL, then the service endpoint
+  // a WS call shows its Endpoint: the URL, then the service endpoint
   assert.match(s1, /^P_Enterprise -> P_WS : \/dge-idm\/idm\/user\/profile\/get\\ndge-idm:idm\.user\.profile\.get\.VN\.V7\.6\\n<size:10>TxnCode=SEC02<\/size>$/m);
   assert.match(s1, /^P_Host --> P_WS : dge-enq:enq\.customer\.portfolio\.VN\.V2\.3 \(1100 ms\)\\nAC_ACCT_SUM_X ~ AC_RBK_SUMM_N\\nAC_VSA_SUMM_N ~ AC_VSA_SUMM_N$/m);
   assert.match(s1, /^P_eComm --> P_App : \/spl-banking\/services\/vn\/security\/auth\/v2\/login \(2110 ms\)$/m);
@@ -115,7 +115,7 @@ test('same millisecond: requests eComm > Enterprise > WS > Host, responses Host 
   assert.deepStrictEqual(order(res), ['Host Response -30', 'WS Response -21', 'Enterprise Response -20', 'eComm Response -10']);
 });
 
-test('a Host event without its own [::dge-…] shows HostEndpoint NA; a WS response without a URL takes LastWsURL', () => {
+test('a Host event without its own [::dge-…] shows Endpoint NA; a WS response without a URL takes LastWsURL', () => {
   const sid = 'aaaaaaaa-0000-4000-8000-000000000008';
   const at = (ms, line) => `2026-10-26 09:30:00.${ms} [x] INFO\n${line}\n`;
   const log = at('100', `WSAppLog | WLS:${sid} | request: URL:/dge-enq/a | [::dge-enq:enq.a.VN.V1]`)
@@ -212,13 +212,13 @@ test('Start time / End time keep only the events in the window', () => {
   assert.ok(trace.some((t) => t.reason === 'Excluded: outside Start time / End time'));
 });
 
-test('WSEndpoint: URL and service endpoint, NA when missing; pairing still uses the API', () => {
+test('WS Endpoint: URL and service endpoint, NA when missing; pairing still uses the API', () => {
   const sid = 'aaaaaaaa-0000-4000-8000-000000000003';
   const at = (ms, line) => `2026-10-26 09:30:00.${ms} [x] INFO\n${line}\n`;
   const log = at('100', `[ENQWSAppLog] [t] - [::dge-enq:enq.a.VN.V1] - X: | WLS:${sid} | URL is /dge-enq/a request:`)
     + at('300', `[ENQWSAppLog] [t] - Y: | WLS:${sid} | Response: {}`);
   const rows = flow.run(spl.DEFAULT_CONFIG, [{ name: 'a.log', text: log, anySource: true }], []);
-  assert.deepStrictEqual(rows.map((r) => r.WSEndpoint), [['/dge-enq/a', 'dge-enq:enq.a.VN.V1'], ['NA', 'NA']]);
+  assert.deepStrictEqual(rows.map((r) => r.Endpoint), [['/dge-enq/a', 'dge-enq:enq.a.VN.V1'], ['NA', 'NA']]);
   assert.deepStrictEqual(rows.map((r) => r.ServiceInfo), [
     ['>> WS [Enterprise]: /dge-enq/a [?]', 'dge-enq:enq.a.VN.V1'],
     ['>> WS [Enterprise]: NA [!]', 'NA'],

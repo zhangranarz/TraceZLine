@@ -44,9 +44,9 @@
     endpointRules: [
       // eComm: -/path - Request-, -/path - Response-, or -/path - then the payload
       // (eComm responses log no direction word).
-      { field: 'eCommEndpoint', rex: String.raw`\s*-\s*(?<eCommEndpoint>/\S+)\s*-\s*(?:Request|Response|\{|\r?\n|$)` },
+      { field: 'eCommEndpoint', layer: 'eComm', rex: String.raw`\s*-\s*(?<eCommEndpoint>/\S+)\s*-\s*(?:Request|Response|\{|\r?\n|$)` },
       // Enterprise: -/path or - /path before [Request] / [Response]
-      { field: 'EnterpriseEndpoint', rex: String.raw`\s*-\s*(?<EnterpriseEndpoint>/\S+)\s*-\s*\[(?:Request|Response)\]` },
+      { field: 'EnterpriseEndpoint', layer: 'Enterprise', rex: String.raw`\s*-\s*(?<EnterpriseEndpoint>/\S+)\s*-\s*\[(?:Request|Response)\]` },
     ],
     // sessionId = the first of these that is found, else "NA". The marker in sidEcomm and
     // sidEnterprise follows the source filter (renaming a marker there renames it here).
@@ -66,6 +66,7 @@
 
   const FLOW_BLOCK = String.raw`| rex field=_raw "\[::(?<DGEEndpoint>[^]]+)\]"
 | rex field=_raw "\bURL(?:\s+is\s+|\s*:\s*)(?<URL>/[^\s:|]+)"
+__ENDPOINT__
 | rex field=_raw max_match=0 "<SvcCode>(?<SvcCode>[^<]+)</SvcCode>"
 | where LayerName!="Host" OR mvcount(SvcCode)>=1
 | eval LayerOrder=Layer*10+SubLayer
@@ -74,24 +75,22 @@
 | eval CurrentWsURL=if(LayerName="WS",URL,null())
 | eval CurrentDGEEndpoint=if(LayerName="WS",DGEEndpoint,null())
 | streamstats last(CurrentWsURL) as LastWsURL last(CurrentDGEEndpoint) as LastDGEEndpoint by sessionId
-| eval WSEndpoint=if(LayerName="WS",mvappend(coalesce(URL,"NA"),coalesce(DGEEndpoint,"NA")),null())
-| eval HostEndpoint=if(LayerName="Host",coalesce(DGEEndpoint,"NA"),null())
 | eval pairIndex=if(LayerName="Host",mvrange(0,ceil(mvcount(SvcCode)/2)),null())
 | eval HostPairs=if(LayerName="Host",mvmap(pairIndex, mvindex(SvcCode,pairIndex*2) . " ~ ".coalesce(mvindex(SvcCode,pairIndex*2+1),mvindex(SvcCode,pairIndex*2))),null())
 | eval API=case(LayerName="eComm",coalesce(Endpoint,"N/A"),
     LayerName="Enterprise",coalesce(Endpoint,"N/A"),
-    LayerName="WS",coalesce(URL,LastWsURL,DGEEndpoint,LastDGEEndpoint,Endpoint,"N/A"),
-    LayerName="Host",HostEndpoint)
+    LayerName="WS",coalesce(URL,LastWsURL,DGEEndpoint,LastDGEEndpoint,"N/A"),
+    LayerName="Host",Endpoint)
 | eval DirectionSymbol=if(Direction="Request","?","!")
-| eval PairKey=case(LayerName="Host",LayerName."|".HostEndpoint,true(),LayerName."|".coalesce(API,"N/A"))
+| eval PairKey=case(LayerName="Host",LayerName."|".Endpoint,true(),LayerName."|".coalesce(API,"N/A"))
 | eval ReqTime=if(Direction="Request",_time,null())
 | streamstats last(ReqTime) as LastReqTime by sessionId LayerName PairKey
 | eval ElapsedMs=if(Direction="Response" AND isnotnull(LastReqTime),round((_time-LastReqTime)*1000,0),null())
 __INDENT__
 | eval DisplayLayer=if(LayerName="WS","WS [Enterprise]",LayerName)
-| eval FlowHead=Indent.DisplayLayer.": ".if(LayerName="WS",mvindex(WSEndpoint,0),coalesce(API,"N/A"))." [".DirectionSymbol."]"
+| eval FlowHead=Indent.DisplayLayer.": ".if(LayerName="WS",mvindex(Endpoint,0),coalesce(API,"N/A"))." [".DirectionSymbol."]"
 | eval ServiceLines=if(LayerName="Host",mvmap(HostPairs,"- [".HostPairs."] [".DirectionSymbol."]"),null())
-| eval WsDetails=if(LayerName="WS",mvindex(WSEndpoint,1),null())
+| eval WsDetails=if(LayerName="WS",mvindex(Endpoint,1),null())
 | eval Flow=case(LayerName="Host" AND isnotnull(ServiceLines),mvappend(FlowHead,ServiceLines),
     LayerName="WS" AND isnotnull(WsDetails),mvappend(FlowHead,WsDetails),
     true(),FlowHead)
@@ -213,7 +212,17 @@ __INDENT__
 
     const eps = cfg.endpointRules.filter((r) => r.field.trim());
     eps.filter((r) => r.rex.trim()).forEach((r) => out.push(`| rex field=_raw "${r.rex.trim()}"`));
-    out.push('| eval Endpoint=coalesce(' + eps.map((r) => r.field.trim()).join(',') + ')');
+    // Endpoint=case() per layer: each rule's field for its layer (several rules for one layer:
+    // coalesce), then WS = URL and service endpoint on separate lines, Host = service endpoint.
+    const byLayer = new Map();
+    eps.filter((r) => String(r.layer ?? '').trim()).forEach((r) => {
+      const k = r.layer.trim();
+      if (!byLayer.has(k)) byLayer.set(k, []);
+      byLayer.get(k).push(r.field.trim());
+    });
+    const endpointCases = [...byLayer].map(([layer, f]) => `LayerName="${layer}",${f.length > 1 ? `coalesce(${f.join(',')})` : f[0]}`)
+      .concat(['LayerName="WS",mvappend(coalesce(URL,"NA"),coalesce(DGEEndpoint,"NA"))', 'LayerName="Host",coalesce(DGEEndpoint,"NA")']);
+    const endpointLine = '| eval Endpoint=case(' + endpointCases.join(',\n    ') + ')';
 
     const sids = cfg.sessionRules.filter((r) => r.field.trim());
     sids.filter((r) => r.rex.trim()).forEach((r) => out.push(`| rex field=_raw "${r.rex.trim()}"`));
@@ -222,7 +231,7 @@ __INDENT__
     // Indent is per layer name: layers can share a number (Enterprise and WS are both 2).
     const indentLine = '| eval Indent=case('
       + layers.map((l) => `LayerName="${l.name.trim()}","${l.indent ?? ''}"`).join(',') + ')';
-    out.push(FLOW_BLOCK.replace('__INDENT__', indentLine));
+    out.push(FLOW_BLOCK.replace('__ENDPOINT__', endpointLine).replace('__INDENT__', indentLine));
 
     const params = cfg.params.filter((p) => p.field.trim());
     params.filter((p) => p.rex.trim()).forEach((p) => out.push(`| rex field=_raw "${p.rex.trim()}"`));
@@ -287,7 +296,13 @@ __INDENT__
       }
     }
     if (!cfg.sessionRules.some((r) => r.field.trim())) warnings.push('No sessionId rules: coalesce() is empty.');
-    if (!cfg.endpointRules.some((r) => r.field.trim())) warnings.push('No Endpoint rules: Endpoint=coalesce() is empty.');
+    if (!cfg.endpointRules.some((r) => r.field.trim())) warnings.push('No Endpoint rules: the eComm and Enterprise API will be N/A.');
+    cfg.endpointRules.forEach((r) => {
+      if (!r.field.trim()) return;
+      const layer = String(r.layer ?? '').trim();
+      if (!layer) warnings.push(`Endpoint rule "${r.field}" has no layer: it is not used for Endpoint.`);
+      else if (!layerNames.has(layer)) warnings.push(`Endpoint rule "${r.field}" refers to unknown layer "${layer}".`);
+    });
     // Splunk rejects a rex with no named group ("does not extract anything"), which fails the whole search.
     generate(cfg).split('\n').filter((l) => /^\| rex /.test(l) && !l.includes('(?<')).forEach((l) => {
       warnings.push('Splunk will reject this rex because it has no (?<name>...) group: ' + l);
