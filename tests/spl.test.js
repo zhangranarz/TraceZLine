@@ -193,6 +193,19 @@ test('URL and Endpoint1 rules read the WS, eComm and Enterprise line formats', (
   assert.strictEqual('[6adeb69a][][]\n-/spl-banking/services/vn/security/preLogin - Request -'.match(ep).groups.Endpoint1, '/spl-banking/services/vn/security/preLogin');
   assert.strictEqual('[Android-SPL][49ms] -/idm/user/profile/get - [Response]:'.match(ep).groups.Endpoint1, '/idm/user/profile/get');
   assert.strictEqual('[SPLHostMessage][11ms] - /insights/initInsights - [Response]:'.match(ep).groups.Endpoint1, '/insights/initInsights');
+  // eComm: after a - or a space, with or without the leading /
+  for (const sep of ['-', ' ']) {
+    for (const path of ['/dge-asv/aaa/bbb', 'dge-asv/aaa/bbb']) {
+      for (const dir of ['Request', 'Response']) {
+        assert.strictEqual(`[Android-SPL][][]${sep}${path} - ${dir}-`.match(ep)?.groups.Endpoint1, path, `${sep}${path} - ${dir}-`);
+      }
+    }
+  }
+  // response with its payload on the next line or the same line
+  assert.strictEqual('[][4ms] -/spl-banking/a/b -\n{"x":1}'.match(ep).groups.Endpoint1, '/spl-banking/a/b');
+  assert.strictEqual('[][4ms] -/spl-banking/a/b - {"x":1}'.match(ep).groups.Endpoint1, '/spl-banking/a/b');
+  // no path after the ] (WS header): no match
+  assert.strictEqual('[ENQWSAppLog] [t] - [::dge-enq:enq.a] - RestEndPointUFWAspect: | URL is /a request:'.match(ep), null);
 });
 
 test('SubLayer: WS is layer 2 with sub-layer 1; a layer without a sub-layer number counts as 0', () => {

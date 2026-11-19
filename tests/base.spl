@@ -31,7 +31,7 @@
     LayerName="WS" AND match(_raw,"(?i)request:"),"Request",
     LayerName="WS" AND match(_raw,"(?i)(RESPONSE from|Response:)"),"Response")
 | where isnotnull(Direction)
-| rex field=_raw "\]\s*-\s*(?<Endpoint1>[^\s\[\]]*/\S*)\s+-"
+| rex field=_raw "\]\s*(?:-\s*)?(?<Endpoint1>(?:/[^\s\[\]/]+)+|[^\s\[\]/-][^\s\[\]/]*(?:/[^\s\[\]/]+)+)\s*-"
 | rex field=_raw "\s\s\s(?<Endpoint2>[^ ]+)\s\-\s(?:'?Request|Response)'"
 | rex field=_raw "(?i)endpoint\"?\s*[:=]\s*\"?(?<Endpoint3>[^\",]+)"
 | eval Endpoint=coalesce(Endpoint1,Endpoint2,Endpoint3)

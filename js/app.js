@@ -117,6 +117,12 @@
         r.rex = DEFAULT_CONFIG.sessionRules.find((d) => d.field === r.field).rex;
       }
     });
+    // Endpoint1 saved before it also read a path after a space (] /a/b - Request-).
+    out.endpointRules.forEach((r) => {
+      if (r && r.field === 'Endpoint1' && r.rex === String.raw`\]\s*-\s*(?<Endpoint1>[^\s\[\]]*/\S*)\s+-`) {
+        r.rex = DEFAULT_CONFIG.endpointRules.find((d) => d.field === 'Endpoint1').rex;
+      }
+    });
     // Host condition saved before it was <EAI> AND <SvcCode>.
     out.layers.forEach((l) => {
       if (l && l.name === 'Host' && l.match === String.raw`match(_raw,"<SvcCode>") AND match(_raw,"(?i)(request|response) message")`) {
