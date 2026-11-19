@@ -220,6 +220,8 @@ test('URL, eCommEndpoint (eComm) and EnterpriseEndpoint (Enterprise) read their 
   // Enterprise: the same, after [SPLHostMessage]
   assert.strictEqual('[SPLHostMessage][x][Android-SPL][49ms] -/idm/user/profile/get - [Response]:'.match(ent).groups.EnterpriseEndpoint, '/idm/user/profile/get');
   assert.strictEqual('[SPLHostMessage] [x]|[u]\n[Android-SPL] - /insights/initInsights - [Request]:'.match(ent).groups.EnterpriseEndpoint, '/insights/initInsights');
+  assert.strictEqual('[SPLHostMessage][x][A] /enq/a - [Request]:'.match(ent).groups.EnterpriseEndpoint, '/enq/a', 'a space alone before the path');
+  assert.strictEqual('[SPLHostMessage][x][A]-/enq/a - [Request]:'.match(ent), null, 'no space before the - : not read');
   assert.strictEqual(`${head} -/spl-banking/a/b - Request -`.match(ent), null, 'not before a plain Request');
   assert.strictEqual('[SPLHostMessage][x][] -/idm/user/profile/get - Request -'.match(ent), null, 'only before [Request] / [Response]');
   assert.strictEqual('[ENQWSAppLog] [t] - [::dge-enq:enq.a] - RestEndPointUFWAspect: | URL is /a request:'.match(ent), null);
