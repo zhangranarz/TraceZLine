@@ -219,6 +219,7 @@
     document.getElementById('dir-first').value = state.directionFirst;
     document.getElementById('start-time').value = toPicker(state.startTime);
     document.getElementById('end-time').value = toPicker(state.endTime);
+    limitTimePickers();
     refreshDatalists();
     update();
   }
@@ -280,9 +281,26 @@
   function toPicker(v) {
     return window.TraceSpl.parseTime(v) == null ? '' : String(v).trim().replace(' ', 'T');
   }
+  // Start time must be earlier than End time: each picker is limited by the other (the
+  // calendar greys out the rest), and a typed value that breaks the order is undone.
+  function limitTimePickers() {
+    const start = document.getElementById('start-time');
+    const end = document.getElementById('end-time');
+    end.min = start.value || '';
+    start.max = end.value || '';
+  }
   [['start-time', 'startTime'], ['end-time', 'endTime']].forEach(([id, key]) => {
     document.getElementById(id).addEventListener('input', (e) => {
-      state[key] = fromPicker(e.target.value);
+      const next = fromPicker(e.target.value);
+      const from = window.TraceSpl.parseTime(key === 'startTime' ? next : state.startTime);
+      const to = window.TraceSpl.parseTime(key === 'endTime' ? next : state.endTime);
+      if (from != null && to != null && from >= to) {
+        e.target.value = toPicker(state[key]);
+        toast('Start time must be earlier than End time');
+        return;
+      }
+      state[key] = next;
+      limitTimePickers();
       update();
     });
   });

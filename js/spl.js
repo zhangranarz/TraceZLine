@@ -251,7 +251,7 @@ __INDENT__
       if (String(v ?? '').trim() && parseTime(v) == null) warnings.push(`${label} "${v}" is not a time like 2026-11-18 15:28:25.554; it is ignored.`);
     });
     const range = timeRange(cfg);
-    if (range && range.from != null && range.to != null && range.from > range.to) warnings.push('Start time is after End time: nothing can match.');
+    if (range && range.from != null && range.to != null && range.from >= range.to) warnings.push('Start time must be earlier than End time: nothing can match.');
     if (!layerNames.size) warnings.push('No layers defined: LayerName=case() is empty and Splunk will reject it.');
     cfg.layers.forEach((l) => {
       if (l.name.trim() && !l.match.trim()) warnings.push(`Layer "${l.name}" has no match condition.`);

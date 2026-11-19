@@ -255,7 +255,9 @@ test('Start time / End time: earliest/latest in whole seconds and a where clause
   cfg.endTime = '';
   assert.ok(spl.generate(cfg).includes('\nearliest="11/18/2026:15:28:25"\n| where _time>=strptime("2026-11-18 15:28:25.554"'));
   cfg.endTime = '2026-11-18 15:00:00.000';
-  assert.ok(spl.validate(cfg).some((w) => /after End time/.test(w)));
+  assert.ok(spl.validate(cfg).some((w) => /Start time must be earlier than End time/.test(w)));
+  cfg.endTime = cfg.startTime;
+  assert.ok(spl.validate(cfg).some((w) => /Start time must be earlier than End time/.test(w)), 'equal times too');
   cfg.startTime = '2026-02-30 10:00:00';
   assert.ok(spl.validate(cfg).some((w) => /Start time .* is not a time/.test(w)));
 });
