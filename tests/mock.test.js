@@ -230,7 +230,8 @@ test('WS Endpoint: URL and service endpoint, NA when missing; pairing still uses
 });
 
 test('an event with none of the session forms gets sessionId NA', () => {
-  const log = '2026-10-26 09:30:00.000 [x] INFO\n[SPLMessage][][U][VN][9.14][t][A][][] -/x/y - Request -\n{"meta":{}}\n';
+  // a WS request line with no WLS: and no "sessionId" / "sessionIdentity"
+  const log = '2026-10-26 09:30:00.000 [x] [INFO ] [ENQWSAppLog] [t] - [::dge-enq:enq.a.VN.V1] - X: | URL is /dge-enq/a request:\n';
   const rows = flow.run(spl.DEFAULT_CONFIG, [{ name: 'a.log', text: log, anySource: true }], []);
-  assert.deepStrictEqual(rows.map((r) => [r.LayerName, r.sessionId]), [['eComm', 'NA']]);
+  assert.deepStrictEqual(rows.map((r) => [r.LayerName, r.sessionId]), [['WS', 'NA']]);
 });

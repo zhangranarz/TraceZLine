@@ -168,7 +168,10 @@ test('session rules: five forms, sessionId is the first one found, else NA', () 
   assert.strictEqual('{"sessionIdentity":"S-0042"}'.match(sessionIdentity).groups.sidSessionIdentity, 'S-0042');
   assert.strictEqual('{"sessionIdentity":""}'.match(sessionIdentity), null);
   assert.strictEqual(`{"sessionIdentity":"${uuid}"}`.match(sessionId), null, 'sessionId is not sessionIdentity');
-  assert.strictEqual(`INFO [SPLMessage][${uuid}][][VN]`.match(ecomm).groups.sidEcomm, uuid);
+  // sidEcomm: everything after "[SPLMessage][" up to the next quote (the rule as chosen): the header
+  // ID and the rest of the header up to the payload; a header with no quote after it gives nothing.
+  assert.strictEqual(`INFO [SPLMessage][${uuid}][U] -/x - Request -\n{"a":1}`.match(ecomm).groups.sidEcomm, `${uuid}][U] -/x - Request -\n{`);
+  assert.strictEqual(`INFO [SPLMessage][${uuid}][][VN]`.match(ecomm), null);
   assert.strictEqual(`INFO [SPLHostMessage] [${uuid}]|[<<USER_ID>>]`.match(ent).groups.sidEnterprise, uuid);
   assert.strictEqual(`| CIF:<<CIF_NUM>> | WLS:${uuid} | WS`.match(wls).groups.sidWls, uuid);
   assert.match(spl.generate(spl.DEFAULT_CONFIG), /\n\| eval sessionId=coalesce\(sidSessionId, sidSessionIdentity, sidEcomm, sidEnterprise, sidWls, "NA"\)\n/);

@@ -38,7 +38,7 @@
 | eval SortKey=if(Direction="Request",LayerOrder,-LayerOrder)
 | rex field=_raw "\"sessionId\"\s*:\s*\"(?<sidSessionId>[^\"]+)\""
 | rex field=_raw "\"sessionIdentity\"\s*:\s*\"(?<sidSessionIdentity>[^\"]+)\""
-| rex field=_raw "(?i)\[SPLMessage\]\s*\[?(?<sidEcomm>[0-9a-fA-F-]{36})"
+| rex field=_raw "(?i)\[SPLMessage\]\s*\[?(?<sidEcomm>[^\"]+)\""
 | rex field=_raw "(?i)\[SPLHostMessage\]\s*\[?(?<sidEnterprise>[0-9a-fA-F-]{36})"
 | rex field=_raw "(?i)\bWLS:\s*(?<sidWls>[0-9a-fA-F-]{36})"
 | eval sessionId=coalesce(sidSessionId, sidSessionIdentity, sidEcomm, sidEnterprise, sidWls, "NA")
