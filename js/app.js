@@ -217,8 +217,8 @@
     document.getElementById('drop-no-direction').checked = state.dropNoDirection;
     document.getElementById('dir-word-rex').value = state.dirWordRex;
     document.getElementById('dir-first').value = state.directionFirst;
-    document.getElementById('start-time').value = state.startTime;
-    document.getElementById('end-time').value = state.endTime;
+    document.getElementById('start-time').value = toPicker(state.startTime);
+    document.getElementById('end-time').value = toPicker(state.endTime);
     refreshDatalists();
     update();
   }
@@ -271,7 +271,23 @@
     update();
   });
 
-  [['dir-word-rex', 'dirWordRex'], ['dir-first', 'directionFirst'], ['start-time', 'startTime'], ['end-time', 'endTime']].forEach(([id, key]) => {
+  // Start / End time use the browser's date-time picker (calendar and clock). Its value is
+  // "2026-11-18T15:28" or "2026-11-18T15:28:25.554"; the settings keep "2026-11-18 15:28:25.554".
+  function fromPicker(v) {
+    const m = String(v || '').match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/);
+    return m ? `${m[1]} ${m[2]}:${m[3] || '00'}.${(m[4] || '0').padEnd(3, '0')}` : '';
+  }
+  function toPicker(v) {
+    return window.TraceSpl.parseTime(v) == null ? '' : String(v).trim().replace(' ', 'T');
+  }
+  [['start-time', 'startTime'], ['end-time', 'endTime']].forEach(([id, key]) => {
+    document.getElementById(id).addEventListener('input', (e) => {
+      state[key] = fromPicker(e.target.value);
+      update();
+    });
+  });
+
+  [['dir-word-rex', 'dirWordRex'], ['dir-first', 'directionFirst']].forEach(([id, key]) => {
     document.getElementById(id).addEventListener('input', (e) => {
       state[key] = e.target.value;
       update();
