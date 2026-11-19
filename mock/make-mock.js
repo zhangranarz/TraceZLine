@@ -36,7 +36,7 @@ function ecommReq(t, sid, p, thread) {
 
 function ecommRes(t, sid, p, thread, ms, code = '00000000', desc = 'Success', err = '') {
   return { t, file: 'banking', text: `${ts(t)} [http-nio-8443-exec-${thread}] INFO
-[SPLMessage][${sid}][${USER}][VN][9.14][${trace()}][Android-SPL][][${ms}ms] -${p} -
+[SPLMessage][${sid}][${USER}][VN][9.14][${trace()}][Android-SPL][][${ms}ms] -${p} - Response -
 {"response":{"responseHeader":{"responseContext":{"responseCode":"${code}","responseDescription":"${desc}"${err}}},"requesterContext":{"sessionId":"${sid}"}}}` };
 }
 

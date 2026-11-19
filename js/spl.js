@@ -16,8 +16,8 @@
     dropNoDirection: true,
     // One source block per layer marker: eComm, Enterprise, WS, Host.
     sources: [
-      { enabled: true, source: '/var/log/pods/spl-banking-*log', filter: '"[SPLMessage]" ("Request" OR "Response")' },
-      { enabled: true, source: '/var/log/pods/spl-banking-*log', filter: '"[SPLHostMessage]" ("Request" OR "Response")' },
+      { enabled: true, source: '/var/log/pods/spl-banking-*log', filter: '"[SPLMessage]" ("- Request -" OR "- Response -")' },
+      { enabled: true, source: '/var/log/pods/spl-banking-*log', filter: '"[SPLHostMessage]" ("[Request]" OR "[Response]")' },
       { enabled: true, source: '/var/log/pods/spl-ms-*log', filter: '"*WSAppLog*" ("request:" OR "RESPONSE from" OR "Response:")' },
       { enabled: true, source: '/var/log/pods/spl-ms-*log', filter: '"<EAI>" "<SvcCode>" ("Request Message" OR "Response Message")' },
     ],

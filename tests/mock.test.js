@@ -134,7 +134,8 @@ test('a Host event without its own [::dge-…] shows Endpoint NA; a WS response 
 });
 
 test('an eComm event without an Endpoint shows API N/A instead of dropping out', () => {
-  const log = '2026-10-26 09:30:00.000 [x] INFO\n[SPLMessage][aaaaaaaa-0000-4000-8000-000000000006][U][VN][9.14][t][A][][] Request received\n';
+  // the endpoint is not after the - (the rex needs -/path), but the line still has "- Request -"
+  const log = '2026-10-26 09:30:00.000 [x] INFO\n[SPLMessage][aaaaaaaa-0000-4000-8000-000000000006][U][VN][9.14][t][A][][] received - Request -\n';
   const rows = flow.run(spl.DEFAULT_CONFIG, [{ name: 'a.log', text: log, anySource: true }], []);
   assert.deepStrictEqual(rows.map((r) => [r.LayerName, r.Direction, r.API, r.Flow]), [['eComm', 'Request', 'N/A', 'eComm: N/A [?]']]);
 });

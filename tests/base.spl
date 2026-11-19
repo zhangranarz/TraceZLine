@@ -1,12 +1,12 @@
 (
 	(
 		source="/var/log/pods/spl-banking-*log"
-		"[SPLMessage]" ("Request" OR "Response")
+		"[SPLMessage]" ("- Request -" OR "- Response -")
 	)
 	OR
 	(
 		source="/var/log/pods/spl-banking-*log"
-		"[SPLHostMessage]" ("Request" OR "Response")
+		"[SPLHostMessage]" ("[Request]" OR "[Response]")
 	)
 	OR
 	(
