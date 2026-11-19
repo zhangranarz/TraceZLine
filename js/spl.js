@@ -45,8 +45,8 @@
       // eComm: -/path - Request-, -/path - Response-, or -/path - then the payload
       // (eComm responses log no direction word).
       { field: 'eCommEndpoint', rex: String.raw`\s*-\s*(?<eCommEndpoint>/\S+)\s*-\s*(?:Request|Response|\{|\r?\n|$)` },
-      // Enterprise: before "- [Request]" / "- [Response]".
-      { field: 'EnterpriseEndpoint', rex: String.raw`(?i)\[SPLHostMessage\][\s\S]*?\]\s*(?:-\s*)?(?<EnterpriseEndpoint>(?:/[^\s\[\]/]+)+|[^\s\[\]/-][^\s\[\]/]*(?:/[^\s\[\]/]+)+)\s*-\s*\[(?:Request|Response)\]` },
+      // Enterprise: -/path or - /path before [Request] / [Response]
+      { field: 'EnterpriseEndpoint', rex: String.raw`\s*-\s*(?<EnterpriseEndpoint>/\S+)\s*-\s*\[(?:Request|Response)\]` },
     ],
     // sessionId = the first of these that is found, else "NA". The marker in sidEcomm and
     // sidEnterprise follows the source filter (renaming a marker there renames it here).

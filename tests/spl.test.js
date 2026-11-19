@@ -202,7 +202,7 @@ test('URL, eCommEndpoint (eComm) and EnterpriseEndpoint (Enterprise) read their 
   // Enterprise: the same, after [SPLHostMessage]
   assert.strictEqual('[SPLHostMessage][x][Android-SPL][49ms] -/idm/user/profile/get - [Response]:'.match(ent).groups.EnterpriseEndpoint, '/idm/user/profile/get');
   assert.strictEqual('[SPLHostMessage] [x]|[u]\n[Android-SPL] - /insights/initInsights - [Request]:'.match(ent).groups.EnterpriseEndpoint, '/insights/initInsights');
-  assert.strictEqual(`${head} -/spl-banking/a/b - Request -`.match(ent), null, 'Enterprise only');
+  assert.strictEqual(`${head} -/spl-banking/a/b - Request -`.match(ent), null, 'not before a plain Request');
   assert.strictEqual('[SPLHostMessage][x][] -/idm/user/profile/get - Request -'.match(ent), null, 'only before [Request] / [Response]');
   assert.strictEqual('[ENQWSAppLog] [t] - [::dge-enq:enq.a] - RestEndPointUFWAspect: | URL is /a request:'.match(ent), null);
 });
@@ -259,7 +259,7 @@ test('renameMarker: a marker renamed in a source filter is renamed in the layer 
   const sid = (field) => cfg.sessionRules.find((r) => r.field === field).rex;
   assert.ok(sid('sidEcomm').startsWith(String.raw`(?i)\[MightyMesage\]\s*`), sid('sidEcomm'));
   assert.strictEqual(cfg.layers[1].match, String.raw`match(_raw,"\[SPLHostMessage\]")`, 'other markers untouched');
-  assert.deepStrictEqual(spl.renameMarker(cfg, '"[SPLHostMessage]"', '"[MightyHostMessage]"'), ['Layer Enterprise', 'Session rule sidEnterprise', 'Endpoint rule EnterpriseEndpoint']);
+  assert.deepStrictEqual(spl.renameMarker(cfg, '"[SPLHostMessage]"', '"[MightyHostMessage]"'), ['Layer Enterprise', 'Session rule sidEnterprise']);
   assert.strictEqual(cfg.layers[1].match, String.raw`match(_raw,"\[MightyHostMessage\]")`);
   assert.ok(sid('sidEnterprise').startsWith(String.raw`(?i)\[MightyHostMessage\]\s*`), sid('sidEnterprise'));
   // wildcards are not copied into the regex
