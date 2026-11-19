@@ -538,9 +538,25 @@
   let pumlText = '';
 
   let svgs = [];
+  let diagramRows = [];
+
+  // One continuous diagram for all sessions (Sequence and PlantUML); kept in this browser.
+  const COMBINE_KEY = 'tracezline.combineSessions';
+  let combineSessions = false;
+  try { combineSessions = localStorage.getItem(COMBINE_KEY) === '1'; } catch (e) { /* ignore */ }
+  document.querySelectorAll('.combine-sessions').forEach((box) => {
+    box.checked = combineSessions;
+    box.addEventListener('change', () => {
+      combineSessions = box.checked;
+      document.querySelectorAll('.combine-sessions').forEach((b) => { b.checked = combineSessions; });
+      try { localStorage.setItem(COMBINE_KEY, combineSessions ? '1' : '0'); } catch (e) { /* ignore */ }
+      renderDiagram(diagramRows);
+    });
+  });
 
   function renderDiagram(rows) {
-    pumlText = window.TraceFlow.toPlantUml(rows, state);
+    diagramRows = rows;
+    pumlText = window.TraceFlow.toPlantUml(rows, state, { combine: combineSessions });
     document.getElementById('puml').textContent = pumlText || '(no sessions)';
     // Images belong to the previous text; drop them so they never show a stale flow.
     document.getElementById('puml-images').replaceChildren();
@@ -550,7 +566,8 @@
 
     // render() escapes every log-derived string, so the markup is safe to insert.
     const models = window.TraceFlow.sequenceModel(rows, state);
-    svgs = models.map((d) => ({ sessionId: d.sessionId, svg: window.TraceSequence.render(d) }));
+    const shown = combineSessions ? window.TraceFlow.combineDiagrams(models) : models;
+    svgs = shown.map((d) => ({ sessionId: d.sessionId, svg: window.TraceSequence.render(d) }));
     const host = document.getElementById('sequence');
     host.innerHTML = svgs.map((s) => `<figure class="seq-fig">${s.svg}</figure>`).join('');
     if (!svgs.length) host.textContent = '(no sessions)';
@@ -657,7 +674,7 @@
     document.getElementById('sequence').classList.toggle('fit', e.target.checked);
   });
 
-  // One file per session; with one session selected, a single download.
+  // One file per session (one file when combined or with one session selected).
   document.getElementById('btn-svg').addEventListener('click', () => {
     svgs.forEach((s) => download(`tracezline-sequence-${s.sessionId}.svg`, s.svg, 'image/svg+xml'));
   });

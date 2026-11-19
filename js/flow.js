@@ -341,10 +341,10 @@
       diagrams.push({
         sessionId: sid,
         title: [`Session ${sid}`, `${rs.length} steps, ${total} ms`],
-        participants: [{ id: 'P_App', name: 'App', actor: true },
-          ...order.filter((l) => used.has(l.name)).map((l) => ({ id: alias(l.name), name: l.name })),
+        participants: [{ id: 'P_App', name: 'App', actor: true, rank: -1 },
+          ...order.filter((l) => used.has(l.name)).map((l) => ({ id: alias(l.name), name: l.name, rank: rankOf(l.name) })),
           // Layers not in the settings (possible in an imported result) go after the known ones.
-          ...[...used].filter((n) => !order.some((l) => l.name === n)).map((n) => ({ id: alias(n), name: n }))],
+          ...[...used].filter((n) => !order.some((l) => l.name === n)).map((n) => ({ id: alias(n), name: n, rank: order.length }))],
         items,
         calls,
       });
@@ -352,12 +352,29 @@
     return diagrams;
   }
 
-  // One @startuml block per session.
-  function toPlantUml(rows, cfg) {
+  // All sessions as one continuous diagram, in time order: the participants of every
+  // session, and a divider ({ t: 'divider', text }) where each session starts.
+  function combineDiagrams(diagrams) {
+    if (diagrams.length < 2) return diagrams;
+    const seen = new Map();
+    diagrams.forEach((d) => d.participants.forEach((p) => { if (!seen.has(p.id)) seen.set(p.id, p); }));
+    const steps = diagrams.reduce((t, d) => t + (parseInt(d.title[1], 10) || 0), 0); // title[1]: "16 steps, 5110 ms"
+    return [{
+      sessionId: 'combined',
+      title: [`${diagrams.length} sessions`, `${steps} steps`],
+      participants: [...seen.values()].sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0)),
+      items: diagrams.flatMap((d) => [{ t: 'divider', text: `${d.title[0]} · ${d.title[1]}` }, ...d.items]),
+      calls: diagrams.flatMap((d) => d.calls),
+    }];
+  }
+
+  // One @startuml block per session, or one for all with { combine: true }.
+  function toPlantUml(rows, cfg, { combine = false } = {}) {
     // Labels are single-line PlantUML text: lines are joined with a literal \n, so real newlines are dropped.
     const esc = (s) => String(s).replace(/[\r\n]+/g, ' ');
     const text = (lines) => lines.map((l) => (l.small ? `<size:10>${esc(l.text)}</size>` : esc(l.text))).join('\\n');
-    const blocks = sequenceModel(rows, cfg).map((d) => {
+    const models = sequenceModel(rows, cfg);
+    const blocks = (combine ? combineDiagrams(models) : models).map((d) => {
       const out = [
         '@startuml',
         `title ${d.title.map(esc).join('\\n')}`,
@@ -370,6 +387,7 @@
         if (it.t === 'msg') out.push(`${it.from} ${it.dashed ? '-->' : '->'} ${it.to} : ${text(it.lines)}`);
         else if (it.t === 'act') out.push(`activate ${it.who}`);
         else if (it.t === 'deact') out.push(`deactivate ${it.who}`);
+        else if (it.t === 'divider') out.push(`== ${esc(it.text)} ==`);
         else out.push(`note over ${it.who} #FFE0B2 : ${text(it.lines)}`);
       }
       out.push('@enduml');
@@ -408,5 +426,5 @@
     return out.join('\n') + '\n';
   }
 
-  return { parseEvents, describeLog, matchesAnySource, run, summarize, sequenceModel, toPlantUml, plantUmlEncode64, format, parseSearch };
+  return { parseEvents, describeLog, matchesAnySource, run, summarize, sequenceModel, combineDiagrams, toPlantUml, plantUmlEncode64, format, parseSearch };
 });

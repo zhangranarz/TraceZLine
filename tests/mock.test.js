@@ -158,3 +158,23 @@ test('a * in a search term is a wildcard: "*WSAppLog*" finds [ENQWSAppLog] lines
   assert.strictEqual(found('("WSApp*Log" ("request:"))'), 1);
   assert.strictEqual(found('("*OPIAppLog*" ("request:"))'), 0);
 });
+
+test('one diagram for all sessions: sessions in time order, separated by dividers', () => {
+  const seq = require('../js/sequence.js');
+  const models = flow.sequenceModel(rows, spl.DEFAULT_CONFIG);
+  const [all] = flow.combineDiagrams(models);
+  assert.deepStrictEqual(all.title, ['3 sessions', '33 steps']);
+  assert.deepStrictEqual(all.participants.map((p) => p.name), ['App', 'eComm', 'Enterprise', 'WS', 'Host']);
+  assert.deepStrictEqual(all.items.filter((it) => it.t === 'divider').map((it) => it.text.split(' · ')[0]), [`Session ${S1}`, `Session ${S2}`, `Session ${S3}`]);
+  assert.strictEqual(all.items.length, models.reduce((t, d) => t + d.items.length + 1, 0));
+  assert.deepStrictEqual(flow.combineDiagrams(models.slice(0, 1)), models.slice(0, 1), 'one session: unchanged');
+
+  const puml = flow.toPlantUml(rows, spl.DEFAULT_CONFIG, { combine: true });
+  assert.strictEqual(puml.match(/@startuml/g).length, 1);
+  assert.match(puml, new RegExp(`^== Session ${S2} · 8 steps, [0-9]+ ms ==$`, 'm'));
+  assert.strictEqual(flow.toPlantUml(rows, spl.DEFAULT_CONFIG).match(/@startuml/g).length, 3);
+
+  const svg = seq.render(all, (t, size) => t.length * size * 0.56);
+  assert.ok(svg.includes(`>Session ${S3} · `));
+  assert.strictEqual((svg.match(/<text [^>]*font-weight="600"[^>]*>Session /g) || []).length, 3);
+});

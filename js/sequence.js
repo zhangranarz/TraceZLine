@@ -112,6 +112,18 @@
       } else if (it.t === 'deact') {
         const b = open[it.who].pop();
         if (b) bars.push({ id: it.who, y1: b.y, y2: Math.max(lastArrowY, b.y + 8), depth: b.depth });
+      } else if (it.t === 'divider') {
+        const x0 = cx[0] - boxW[0] / 2;
+        const x9 = cx[cx.length - 1] + boxW[boxW.length - 1] / 2;
+        const my = y + 10;
+        const w = measure(it.text, SIZE) + 20;
+        const mx = (x0 + x9) / 2;
+        out.push(`<line x1="${x0.toFixed(1)}" y1="${my - 2}" x2="${x9.toFixed(1)}" y2="${my - 2}" stroke="${C.stroke}"/>`
+          + `<line x1="${x0.toFixed(1)}" y1="${my + 2}" x2="${x9.toFixed(1)}" y2="${my + 2}" stroke="${C.stroke}"/>`
+          + `<rect x="${(mx - w / 2).toFixed(1)}" y="${my - 11}" width="${w.toFixed(1)}" height="22" fill="${C.box}" stroke="${C.stroke}"/>`
+          + `<text x="${mx.toFixed(1)}" y="${my + 4}" text-anchor="middle" font-size="${SIZE}" font-weight="600" fill="${C.text}">${xml(it.text)}</text>`);
+        lastArrowY = my + 11;
+        y = my + 22;
       } else {
         const w = blockW(it.lines) + 20;
         const h = blockH(it.lines) + 10;
