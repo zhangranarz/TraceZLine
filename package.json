@@ -5,7 +5,7 @@
   "description": "Browser-only Splunk API flow tracer",
   "scripts": {
     "test": "node --test tests/*.test.js",
-    "mock": "node mock/make-mock.js",
+    "mock": "node mock/make-mock.js && node mock/make-mock-flow.js",
     "simulate": "node tools/simulate.js",
     "security-scan": "node tools/security-scan.js"
   }

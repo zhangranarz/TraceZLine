@@ -35,8 +35,10 @@ Expected statuses, for when HopStatus / SessionStatus are added to the query:
 | 2 | Host `CC_INFO_STMT_X`, WS `/dge-enq/enq/card/transactions`, Enterprise `/enq/card/transactions` (business error with `00000000`), eComm | FAILED | Host `CC_INFO_STMT_X` |
 | 3 | WS `/dge-bfs/bfs/bp/initiate` (no response), Enterprise `/bfs/quick/bp/initiate`, eComm | PARTIAL | WS `/dge-bfs/bfs/bp/initiate` |
 
-`mock-flow.csv` and `mock-flow.xlsx` are the flow table for these logs, laid out like a
-Splunk export (Host service lines on continuation rows), for **Upload** in the Flow view.
+`mock-flow.csv` and `mock-flow.xlsx` are the flow table for these logs (written by
+`make-mock-flow.js`, part of `npm run mock`), laid out like a
+Splunk export (Host SvcCode lines and the WS service endpoint on continuation rows), for
+**Upload** in the Flow view.
 
 ## Running the query locally
 

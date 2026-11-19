@@ -104,9 +104,9 @@ test('DirectionSymbol is set before ServiceInfo uses it', () => {
 
 test('endpoint rules: add, remove and coalesce order', () => {
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
-  cfg.endpointRules = [cfg.endpointRules[2], { field: 'EpX', rex: '(?<EpX>\\S+)' }];
+  cfg.endpointRules = [cfg.endpointRules[1], { field: 'EpX', rex: '(?<EpX>\\S+)' }];
   const out = spl.generate(cfg);
-  assert.match(out, /\| eval Endpoint=coalesce\(Endpoint3,EpX\)/);
+  assert.match(out, /\| eval Endpoint=coalesce\(EnterpriseEndpoint,EpX\)/);
   assert.doesNotMatch(out, /eCommEndpoint/);
 });
 

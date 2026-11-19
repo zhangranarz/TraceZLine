@@ -189,8 +189,12 @@
       });
     });
     // Host rows list their SvcCode pairs as "- [A ~ B] [?]" lines, which the diagrams read from ServiceInfo.
+    // A WS row's next line is its service endpoint (WSEndpoint = URL, service endpoint).
     rows.forEach((row) => {
-      if (Array.isArray(row.ServiceInfo)) row.ServiceInfo = [row.Flow, ...row.ServiceInfo.slice(1).filter((s) => SERVICE_RE.test(s))];
+      if (!Array.isArray(row.ServiceInfo)) return;
+      const more = row.ServiceInfo.slice(1);
+      if (row.LayerName === 'WS' && more.length && !SERVICE_RE.test(more[0])) row.WSEndpoint = [row.API || 'NA', more[0].replace(/^Endpoint:\s*/, '')];
+      row.ServiceInfo = [row.Flow, ...more.filter((s) => SERVICE_RE.test(s))];
     });
     return { rows, problems };
   }

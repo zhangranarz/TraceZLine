@@ -132,6 +132,8 @@
       const old = r && OLD_EP[r.field];
       if (old && old.rex.includes(r.rex)) Object.assign(r, DEFAULT_CONFIG.endpointRules.find((d) => d.field === old.now));
     });
+    // The default Endpoint3 rule (endpoint: … in a payload) is gone: WS uses WSEndpoint (URL and [::…]).
+    out.endpointRules = out.endpointRules.filter((r) => !(r && r.field === 'Endpoint3' && r.rex === String.raw`(?i)endpoint\"?\s*[:=]\s*\"?(?<Endpoint3>[^\",]+)`));
     // Host condition saved before it was <EAI> AND <SvcCode>.
     out.layers.forEach((l) => {
       if (l && l.name === 'Host' && l.match === String.raw`match(_raw,"<SvcCode>") AND match(_raw,"(?i)(request|response) message")`) {

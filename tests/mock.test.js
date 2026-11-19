@@ -62,7 +62,8 @@ test('PlantUML: one diagram per session with nested calls and elapsed times', ()
   const s1 = blocks[0];
   assert.match(s1, /^actor App as P_App$/m);
   assert.match(s1, /^participant "Host" as P_Host$/m);
-  assert.match(s1, /^P_Enterprise -> P_WS : \/dge-idm\/idm\/user\/profile\/get\\n<size:10>TxnCode=SEC02<\/size>$/m);
+  // a WS call shows its WSEndpoint: the URL, then the service endpoint
+  assert.match(s1, /^P_Enterprise -> P_WS : \/dge-idm\/idm\/user\/profile\/get\\ndge-idm:idm\.user\.profile\.get\.VN\.V7\.6\\n<size:10>TxnCode=SEC02<\/size>$/m);
   assert.match(s1, /^P_Host --> P_WS : dge-enq:enq\.customer\.portfolio\.VN\.V2\.3 \(1100 ms\)\\nAC_ACCT_SUM_X ~ AC_RBK_SUMM_N\\nAC_VSA_SUMM_N ~ AC_VSA_SUMM_N$/m);
   assert.match(s1, /^P_eComm --> P_App : \/spl-banking\/services\/vn\/security\/auth\/v2\/login \(2110 ms\)$/m);
   // every activate has a matching deactivate
@@ -209,4 +210,19 @@ test('Start time / End time keep only the events in the window', () => {
   assert.ok(kept.every((r) => r.EventTime >= '2026-10-26 09:30:03.000' && r.EventTime <= '2026-10-26 09:30:03.110'));
   assert.ok(kept.some((r) => r.EventTime === '2026-10-26 09:30:03.110'), 'End time is included');
   assert.ok(trace.some((t) => t.reason === 'Excluded: outside Start time / End time'));
+});
+
+test('WSEndpoint: URL and service endpoint, NA when missing; pairing still uses the API', () => {
+  const sid = 'aaaaaaaa-0000-4000-8000-000000000003';
+  const at = (ms, line) => `2026-10-26 09:30:00.${ms} [x] INFO\n${line}\n`;
+  const log = at('100', `[ENQWSAppLog] [t] - [::dge-enq:enq.a.VN.V1] - X: | WLS:${sid} | URL is /dge-enq/a request:`)
+    + at('300', `[ENQWSAppLog] [t] - Y: | WLS:${sid} | Response: {}`);
+  const rows = flow.run(spl.DEFAULT_CONFIG, [{ name: 'a.log', text: log, anySource: true }], []);
+  assert.deepStrictEqual(rows.map((r) => r.WSEndpoint), [['/dge-enq/a', 'dge-enq:enq.a.VN.V1'], ['NA', 'NA']]);
+  assert.deepStrictEqual(rows.map((r) => r.ServiceInfo), [
+    ['>> WS [Enterprise]: /dge-enq/a [?]', 'dge-enq:enq.a.VN.V1'],
+    ['>> WS [Enterprise]: NA [!]', 'NA'],
+  ]);
+  assert.strictEqual(rows[1].API, '/dge-enq/a', 'API keeps the previous WS URL for pairing');
+  assert.strictEqual(rows[1].ElapsedMs, 200);
 });

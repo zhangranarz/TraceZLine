@@ -222,12 +222,15 @@
       if (ev.Direction === 'Response' && lastReq[key] != null) ev.ElapsedMs = Math.round(ev.time - lastReq[key]);
       if (ev.Direction === 'Request') lastReq[key] = ev.time;
       const L = layers.find((l) => l.name === ev.LayerName);
-      // FlowHead is the first line; Host adds its SvcCode pairs, WS its DGE endpoint (Flow=case()).
+      // WSEndpoint: the WS URL and its service endpoint [::…], each NA when the event has none
+      // (shown as is; pairing keeps using API, which falls back to the previous WS URL).
+      ev.WSEndpoint = ev.LayerName === 'WS' ? [ev.URL || 'NA', ev.DGEEndpoint || 'NA'] : null;
+      // FlowHead is the first line; Host adds its SvcCode pairs, WS its service endpoint (Flow=case()).
       ev.DisplayLayer = ev.LayerName === 'WS' ? 'WS [Enterprise]' : ev.LayerName;
-      ev.FlowHead = ev.LayerName == null ? null : `${L.indent ?? ''}${ev.DisplayLayer}: ${ev.API ?? 'N/A'} [${ev.DirectionSymbol}]`;
+      const shown = ev.WSEndpoint ? ev.WSEndpoint[0] : ev.API ?? 'N/A';
+      ev.FlowHead = ev.LayerName == null ? null : `${L.indent ?? ''}${ev.DisplayLayer}: ${shown} [${ev.DirectionSymbol}]`;
       const svc = ev.LayerName === 'Host' ? pairs.map((p) => `- [${p}] [${ev.DirectionSymbol}]`) : [];
-      const dge = ev.LayerName === 'WS' ? (ev.DGEEndpoint || ev.LastDGEEndpoint) : null;
-      const more = svc.length ? svc : dge ? [`Endpoint: ${dge}`] : [];
+      const more = svc.length ? svc : ev.WSEndpoint ? [ev.WSEndpoint[1]] : [];
       ev.Flow = ev.FlowHead == null ? null : more.length ? [ev.FlowHead, ...more] : ev.FlowHead;
       ev.ServiceInfo = ev.Flow;
       ev.Params = cfg.params.filter((p) => ev[p.field] && ev[p.field].trim()).map((p) => `${p.label || p.field}=${ev[p.field]}`);
@@ -289,7 +292,9 @@
       const total = Math.round(rs[rs.length - 1].time - rs[0].time);
       const items = [];
       const label = (r, ms) => {
-        const lines = [{ text: (r.API ?? 'N/A') + (ms != null ? ` (${ms} ms)` : ''), plain: r.API ?? 'N/A' }];
+        const name = Array.isArray(r.WSEndpoint) ? r.WSEndpoint[0] : r.API ?? 'N/A';
+        const lines = [{ text: name + (ms != null ? ` (${ms} ms)` : ''), plain: name }];
+        if (Array.isArray(r.WSEndpoint)) lines.push({ text: r.WSEndpoint[1] });
         if (r.LayerName === 'Host' && Array.isArray(r.ServiceInfo)) {
           r.ServiceInfo.slice(1).filter((s) => /^- \[/.test(s)).forEach((s) => lines.push({ text: s.replace(/^- \[(.*)\] \[.\]$/, '$1') }));
         }

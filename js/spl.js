@@ -48,7 +48,6 @@
       { field: 'eCommEndpoint', rex: String.raw`(?i)\[SPLMessage\][\s\S]*?\]\s*(?:-\s*)?(?<eCommEndpoint>(?:/[^\s\[\]/]+)+|[^\s\[\]/-][^\s\[\]/]*(?:/[^\s\[\]/]+)+)\s*-\s*(?:\[?(?:Request|Response)\b|\{|\r?\n|$)` },
       // Enterprise: before "- [Request]" / "- [Response]".
       { field: 'EnterpriseEndpoint', rex: String.raw`(?i)\[SPLHostMessage\][\s\S]*?\]\s*(?:-\s*)?(?<EnterpriseEndpoint>(?:/[^\s\[\]/]+)+|[^\s\[\]/-][^\s\[\]/]*(?:/[^\s\[\]/]+)+)\s*-\s*\[(?:Request|Response)\]` },
-      { field: 'Endpoint3', rex: String.raw`(?i)endpoint\"?\s*[:=]\s*\"?(?<Endpoint3>[^\",]+)` },
     ],
     sessionRules: [
       // eComm: [SPLMessage][id], else "sessionId":"id" or "sessionIdentity":"id" in the same
@@ -77,6 +76,7 @@
 | eval CurrentWsURL=if(LayerName="WS",URL,null())
 | eval CurrentDGEEndpoint=if(LayerName="WS",DGEEndpoint,null())
 | streamstats last(CurrentWsURL) as LastWsURL last(CurrentDGEEndpoint) as LastDGEEndpoint by sessionId
+| eval WSEndpoint=if(LayerName="WS",mvappend(coalesce(URL,"NA"),coalesce(DGEEndpoint,"NA")),null())
 | eval pairIndex=if(LayerName="Host",mvrange(0,ceil(mvcount(SvcCode)/2)),null())
 | eval HostPairs=if(LayerName="Host",mvmap(pairIndex, mvindex(SvcCode,pairIndex*2) . " ~ ".coalesce(mvindex(SvcCode,pairIndex*2+1),mvindex(SvcCode,pairIndex*2))),null())
 | eval API=case(LayerName="eComm",coalesce(Endpoint,"N/A"),
@@ -90,9 +90,9 @@
 | eval ElapsedMs=if(Direction="Response" AND isnotnull(LastReqTime),round((_time-LastReqTime)*1000,0),null())
 __INDENT__
 | eval DisplayLayer=if(LayerName="WS","WS [Enterprise]",LayerName)
-| eval FlowHead=Indent.DisplayLayer.": ".coalesce(API,"N/A")." [".DirectionSymbol."]"
+| eval FlowHead=Indent.DisplayLayer.": ".if(LayerName="WS",mvindex(WSEndpoint,0),coalesce(API,"N/A"))." [".DirectionSymbol."]"
 | eval ServiceLines=if(LayerName="Host",mvmap(HostPairs,"- [".HostPairs."] [".DirectionSymbol."]"),null())
-| eval WsDetails=if(LayerName="WS" AND isnotnull(coalesce(DGEEndpoint,LastDGEEndpoint)),"Endpoint: ".coalesce(DGEEndpoint,LastDGEEndpoint),null())
+| eval WsDetails=if(LayerName="WS",mvindex(WSEndpoint,1),null())
 | eval Flow=case(LayerName="Host" AND isnotnull(ServiceLines),mvappend(FlowHead,ServiceLines),
     LayerName="WS" AND isnotnull(WsDetails),mvappend(FlowHead,WsDetails),
     true(),FlowHead)
