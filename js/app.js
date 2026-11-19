@@ -106,10 +106,11 @@
       ['/var/log/pods/spl-banking-*log', '("[SPLMessage]" OR "[SPLHostMessage]")'],
       ['/var/log/pods/spl-ms-*log', '("*WSAppLog*" ("request:" OR "RESPONSE from" OR "Response:")) OR ("<EAI>" "<SvcCode>" ("Request Message" OR "Response Message"))'],
     ];
-    // sidEcomm / sidEnterprise saved before they also read "sessionId" / "sessionIdentity".
+    // sidEcomm / sidEnterprise / sidWls saved before they also read "sessionId" / "sessionIdentity".
     const OLD_SID = {
       sidEcomm: String.raw`(?i)\[SPLMessage\]\s*\[?(?<sidEcomm>[0-9a-fA-F-]{36})`,
       sidEnterprise: String.raw`(?i)\[SPLHostMessage\]\s*\[?(?<sidEnterprise>[0-9a-fA-F-]{36})`,
+      sidWls: String.raw`(?i)\bWLS:\s*(?<sidWls>[0-9a-fA-F-]{36})`,
     };
     out.sessionRules.forEach((r) => {
       if (r && OLD_SID[r.field] && r.rex === OLD_SID[r.field]) {

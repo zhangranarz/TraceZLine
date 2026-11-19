@@ -52,7 +52,8 @@
       { field: 'sidEcomm', rex: String.raw`(?i)\[SPLMessage\](?:\s*\[?|[\s\S]*?\"session(?:Id|Identity)\"\s*:\s*\")(?<sidEcomm>[0-9a-fA-F-]{36})` },
       // Enterprise: the same three forms, tied to the [SPLHostMessage] marker
       { field: 'sidEnterprise', rex: String.raw`(?i)\[SPLHostMessage\](?:\s*\[?|[\s\S]*?\"session(?:Id|Identity)\"\s*:\s*\")(?<sidEnterprise>[0-9a-fA-F-]{36})` },
-      { field: 'sidWls', rex: String.raw`(?i)\bWLS:\s*(?<sidWls>[0-9a-fA-F-]{36})` },
+      // WS: WLS:id; without WLS:, "sessionId":"id" or "sessionIdentity":"id" in the WSAppLog event
+      { field: 'sidWls', rex: String.raw`(?i)(?:\bWLS:\s*|WSAppLog(?![\s\S]*\bWLS:)[\s\S]*?\"session(?:Id|Identity)\"\s*:\s*\")(?<sidWls>[0-9a-fA-F-]{36})` },
       { field: 'sidAny', rex: String.raw`(?<sidAny>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})` },
     ],
     params: [

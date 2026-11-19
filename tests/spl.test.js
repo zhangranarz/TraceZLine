@@ -166,6 +166,12 @@ test('sessionId rules extract a dashed UUID from each layer format', () => {
   assert.strictEqual(`INFO [SPLHostMessage][][u] - /enq/x - [Response]: {"sessionIdentity": "${uuid}"}`.match(ent).groups.sidEnterprise, uuid);
   assert.strictEqual(`INFO [SPLMessage][x] {"sessionId":"${uuid}"}`.match(ent), null, 'not in other layers');
   assert.strictEqual(`| CIF:<<CIF_NUM>> | WLS:${uuid} | WS`.match(wls).groups.sidWls, uuid);
+  // without WLS: "sessionId" or "sessionIdentity" in the WSAppLog event; WLS: wins when both are there
+  const other = 'eeeeeeee-0000-4000-8000-000000000005';
+  assert.strictEqual(`[ENQWSAppLog] x | URL is /a request:\n{"meta":{"sessionId":"${uuid}"}}`.match(wls).groups.sidWls, uuid);
+  assert.strictEqual(`[ENQWSAppLog] x | Response: {"requesterContext":{"sessionIdentity": "${uuid}"}}`.match(wls).groups.sidWls, uuid);
+  assert.strictEqual(`[ENQWSAppLog] x | WLS:${uuid} | URL:/a |\nResponse:{"sessionIdentity":"${other}"}`.match(wls).groups.sidWls, uuid);
+  assert.strictEqual(`[SPLMessage][] {"sessionId":"${uuid}"}`.match(wls), null, 'not in other layers');
   assert.strictEqual(`id=${uuid};`.match(any).groups.sidAny, uuid);
   assert.strictEqual('id=--------------------------------------;'.match(any), null);
 });
@@ -244,7 +250,7 @@ test('renameMarker: a marker renamed in a source filter is renamed in the layer 
   assert.strictEqual(cfg.layers[1].match, String.raw`match(_raw,"\[MightyHostMessage\]")`);
   assert.ok(cfg.sessionRules[1].rex.startsWith(String.raw`(?i)\[MightyHostMessage\](?:\s*`), cfg.sessionRules[1].rex);
   // wildcards are not copied into the regex
-  assert.deepStrictEqual(spl.renameMarker(cfg, '"*WSAppLog*" ("request:")', '"*OPIAppLog*" ("request:")'), ['Layer WS']);
+  assert.deepStrictEqual(spl.renameMarker(cfg, '"*WSAppLog*" ("request:")', '"*OPIAppLog*" ("request:")'), ['Layer WS', 'Session rule sidWls']);
   assert.strictEqual(cfg.layers.find((l) => l.name === 'WS').match, 'match(_raw,"OPIAppLog")');
   // nothing when several terms change, or none
   assert.deepStrictEqual(spl.renameMarker(cfg, '"A" "B"', '"C" "D"'), []);

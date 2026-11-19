@@ -37,7 +37,7 @@
 | eval Endpoint=coalesce(Endpoint1,Endpoint2,Endpoint3)
 | rex field=_raw "(?i)\[SPLMessage\](?:\s*\[?|[\s\S]*?\"session(?:Id|Identity)\"\s*:\s*\")(?<sidEcomm>[0-9a-fA-F-]{36})"
 | rex field=_raw "(?i)\[SPLHostMessage\](?:\s*\[?|[\s\S]*?\"session(?:Id|Identity)\"\s*:\s*\")(?<sidEnterprise>[0-9a-fA-F-]{36})"
-| rex field=_raw "(?i)\bWLS:\s*(?<sidWls>[0-9a-fA-F-]{36})"
+| rex field=_raw "(?i)(?:\bWLS:\s*|WSAppLog(?![\s\S]*\bWLS:)[\s\S]*?\"session(?:Id|Identity)\"\s*:\s*\")(?<sidWls>[0-9a-fA-F-]{36})"
 | rex field=_raw "(?<sidAny>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})"
 | eval sessionId=coalesce(sidEcomm, sidEnterprise, sidWls, sidAny)
 | rex field=_raw "\[::(?<DGEEndpoint>[^]]+)\]"
