@@ -31,7 +31,7 @@
     LayerName="WS" AND match(_raw,"(?i)request:"),"Request",
     LayerName="WS" AND match(_raw,"(?i)(RESPONSE from|Response:)"),"Response")
 | where isnotnull(Direction)
-| rex field=_raw "(?i)\[SPLMessage\][\s\S]*?\]\s*(?:-\s*)?(?<eCommEndpoint>(?:/[^\s\[\]/]+)+|[^\s\[\]/-][^\s\[\]/]*(?:/[^\s\[\]/]+)+)\s*-\s*(?:\[?(?:Request|Response)\b|\{|\r?\n|$)"
+| rex field=_raw "\s*-\s*(?<eCommEndpoint>/\S+)\s*-\s*(?:Request|Response|\{|\r?\n|$)"
 | rex field=_raw "(?i)\[SPLHostMessage\][\s\S]*?\]\s*(?:-\s*)?(?<EnterpriseEndpoint>(?:/[^\s\[\]/]+)+|[^\s\[\]/-][^\s\[\]/]*(?:/[^\s\[\]/]+)+)\s*-\s*\[(?:Request|Response)\]"
 | eval Endpoint=coalesce(eCommEndpoint,EnterpriseEndpoint)
 | rex field=_raw "\"sessionId\"\s*:\s*\"(?<sidSessionId>[0-9a-fA-F-]{36})"

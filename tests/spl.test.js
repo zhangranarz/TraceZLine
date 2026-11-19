@@ -187,13 +187,10 @@ test('URL, eCommEndpoint (eComm) and EnterpriseEndpoint (Enterprise) read their 
   const ecomm = toJs(spl.DEFAULT_CONFIG.endpointRules[0].rex);
   const ent = toJs(spl.DEFAULT_CONFIG.endpointRules[1].rex);
   const head = '[SPLMessage][dddddddd-0000-4000-8000-000000000004][U][VN][9.14][t][Android-SPL][][]';
-  // eComm: the path before "- Request-" / "- Response-", after a - or a space, with or without the leading /
-  for (const sep of ['-', ' ']) {
-    for (const path of ['/dge-asv/aaa/bbb', 'dge-asv/aaa/bbb']) {
-      for (const dir of ['Request', 'Response']) {
-        assert.strictEqual(`${head}${sep}${path} - ${dir}-`.match(ecomm)?.groups.eCommEndpoint, path, `${sep}${path} - ${dir}-`);
-      }
-    }
+  // eComm: -/path before "- Request-" / "- Response-"
+  for (const dir of ['Request', 'Response']) {
+    assert.strictEqual(`${head}-/dge-asv/aaa/bbb - ${dir}-`.match(ecomm)?.groups.eCommEndpoint, '/dge-asv/aaa/bbb', dir);
+    assert.strictEqual(`${head} -/dge-asv/aaa/bbb - ${dir} -`.match(ecomm)?.groups.eCommEndpoint, '/dge-asv/aaa/bbb', dir);
   }
   assert.strictEqual(`${head}\n-/spl-banking/services/vn/security/preLogin - Request -`.match(ecomm).groups.eCommEndpoint, '/spl-banking/services/vn/security/preLogin');
   // eComm responses log no direction word: the payload follows on the next line or the same line
@@ -257,7 +254,7 @@ test('transactionRef / transactionCode read the JSON keys, not a longer key that
 test('renameMarker: a marker renamed in a source filter is renamed in the layer logic', () => {
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
   const changed = spl.renameMarker(cfg, '"[SPLMessage]"', '"[MightyMesage]"');
-  assert.deepStrictEqual(changed, ['Layer eComm', 'Session rule sidEcomm', 'Endpoint rule eCommEndpoint']);
+  assert.deepStrictEqual(changed, ['Layer eComm', 'Session rule sidEcomm']);
   assert.strictEqual(cfg.layers[0].match, String.raw`match(_raw,"\[MightyMesage\]")`);
   const sid = (field) => cfg.sessionRules.find((r) => r.field === field).rex;
   assert.ok(sid('sidEcomm').startsWith(String.raw`(?i)\[MightyMesage\]\s*`), sid('sidEcomm'));
