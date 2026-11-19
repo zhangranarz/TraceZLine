@@ -106,6 +106,12 @@
       ['/var/log/pods/spl-banking-*log', '("[SPLMessage]" OR "[SPLHostMessage]")'],
       ['/var/log/pods/spl-ms-*log', '("*WSAppLog*" ("request:" OR "RESPONSE from" OR "Response:")) OR ("<EAI>" "<SvcCode>" ("Request Message" OR "Response Message"))'],
     ];
+    // Host condition saved before it was <EAI> AND <SvcCode>.
+    out.layers.forEach((l) => {
+      if (l && l.name === 'Host' && l.match === String.raw`match(_raw,"<SvcCode>") AND match(_raw,"(?i)(request|response) message")`) {
+        l.match = DEFAULT_CONFIG.layers.find((d) => d.name === 'Host').match;
+      }
+    });
     const same = out.sources.length === OLD_SOURCES.length
       && out.sources.every((s, i) => s && s.enabled && s.source === OLD_SOURCES[i][0] && String(s.filter).trim() === OLD_SOURCES[i][1]);
     if (same) out.sources = clone(DEFAULT_CONFIG.sources);
