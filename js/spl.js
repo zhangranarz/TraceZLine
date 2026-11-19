@@ -57,7 +57,7 @@
     // sidEnterprise follows the source filter (renaming a marker there renames it here).
     sessionRules: [
       { field: 'sidSessionId', rex: String.raw`\"sessionId\"\s*:\s*\"(?<sidSessionId>[^\"]+)\"` },
-      { field: 'sidSessionIdentity', rex: String.raw`\"sessionIdentity\"\s*:\s*\"(?<sidSessionIdentity>[0-9a-fA-F-]{36})` },
+      { field: 'sidSessionIdentity', rex: String.raw`\"sessionIdentity\"\s*:\s*\"(?<sidSessionIdentity>[^\"]+)\"` },
       { field: 'sidEcomm', rex: String.raw`(?i)\[SPLMessage\]\s*\[?(?<sidEcomm>[0-9a-fA-F-]{36})` },
       { field: 'sidEnterprise', rex: String.raw`(?i)\[SPLHostMessage\]\s*\[?(?<sidEnterprise>[0-9a-fA-F-]{36})` },
       { field: 'sidWls', rex: String.raw`(?i)\bWLS:\s*(?<sidWls>[0-9a-fA-F-]{36})` },

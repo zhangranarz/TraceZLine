@@ -165,6 +165,8 @@ test('session rules: five forms, sessionId is the first one found, else NA', () 
   assert.strictEqual('{"meta":{"sessionId": "ABC-123_x"}}'.match(sessionId).groups.sidSessionId, 'ABC-123_x');
   assert.strictEqual('{"sessionId":""}'.match(sessionId), null);
   assert.strictEqual(`{"requesterContext":{"sessionIdentity": "${uuid}"}}`.match(sessionIdentity).groups.sidSessionIdentity, uuid);
+  assert.strictEqual('{"sessionIdentity":"S-0042"}'.match(sessionIdentity).groups.sidSessionIdentity, 'S-0042');
+  assert.strictEqual('{"sessionIdentity":""}'.match(sessionIdentity), null);
   assert.strictEqual(`{"sessionIdentity":"${uuid}"}`.match(sessionId), null, 'sessionId is not sessionIdentity');
   assert.strictEqual(`INFO [SPLMessage][${uuid}][][VN]`.match(ecomm).groups.sidEcomm, uuid);
   assert.strictEqual(`INFO [SPLHostMessage] [${uuid}]|[<<USER_ID>>]`.match(ent).groups.sidEnterprise, uuid);
