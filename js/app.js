@@ -542,7 +542,8 @@
 
   // Diagram options shared by the Sequence and PlantUML views, kept in this browser:
   // one diagram for all sessions, notes, elapsed times. The same checkbox sits in both views.
-  const diagramOpts = { combine: false, notes: true, elapsed: true };
+  // Defaults: one diagram for all sessions, without notes or elapsed times.
+  const diagramOpts = { combine: true, notes: false, elapsed: false };
   [['combine', '.combine-sessions', 'tracezline.combineSessions'],
     ['notes', '.seq-notes', 'tracezline.seqNotes'],
     ['elapsed', '.seq-elapsed', 'tracezline.seqElapsed']].forEach(([opt, selector, key]) => {

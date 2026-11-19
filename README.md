@@ -31,7 +31,7 @@ sequence diagrams, and the processing rules it observes. Nothing is uploaded.
 | **Mask** | Masks sensitive values in log/text files by JSON key, XML tag, exact text or Pre/Post text (replace with `<<MASK_NAME>>` or your own text, digits to `*`, keep last 4, or consistent pseudonyms), flags what still looks sensitive, and downloads the masked files |
 
 Views in Load File and Mock Test: **Flow** (session summary and flow table), **PlantUML**,
-**Sequence** (SVG diagram, per session or one for all sessions; notes and elapsed times can be hidden), **Processing Rule** (each API with a description of the call:
+**Sequence** (SVG diagram: one for all sessions or one per session, with optional notes and elapsed times), **Processing Rule** (each API with a description of the call:
 callers, downstream calls, SvcCodes, gaps, latency), **Debug** and **Log Files**.
 
 Everything runs in the browser; settings are saved there too. Demo links: `#mock`,
