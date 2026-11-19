@@ -183,7 +183,7 @@ test('Flow format: per-layer indent and [?]/[!] direction markers', () => {
   assert.match(out, /LayerName="Host",coalesce\(DGEEndpoint,"N\/A"\)\)/);
 });
 
-test('URL, eCommEndpoint (eComm) and Endpoint2 (Enterprise) read their line formats', () => {
+test('URL, eCommEndpoint (eComm) and EnterpriseEndpoint (Enterprise) read their line formats', () => {
   // SPL rex strings use \" for a literal quote; a leading (?i) becomes the JS i flag.
   const toJs = (rex) => {
     const src = rex.replace(/\\"/g, '"');
@@ -213,9 +213,10 @@ test('URL, eCommEndpoint (eComm) and Endpoint2 (Enterprise) read their line form
   assert.strictEqual('[SPLHostMessage][x][] -/idm/user/profile/get - [Response]:'.match(ecomm), null, 'eComm only');
 
   // Enterprise: the same, after [SPLHostMessage]
-  assert.strictEqual('[SPLHostMessage][x][Android-SPL][49ms] -/idm/user/profile/get - [Response]:'.match(ent).groups.Endpoint2, '/idm/user/profile/get');
-  assert.strictEqual('[SPLHostMessage] [x]|[u]\n[Android-SPL] - /insights/initInsights - [Request]:'.match(ent).groups.Endpoint2, '/insights/initInsights');
+  assert.strictEqual('[SPLHostMessage][x][Android-SPL][49ms] -/idm/user/profile/get - [Response]:'.match(ent).groups.EnterpriseEndpoint, '/idm/user/profile/get');
+  assert.strictEqual('[SPLHostMessage] [x]|[u]\n[Android-SPL] - /insights/initInsights - [Request]:'.match(ent).groups.EnterpriseEndpoint, '/insights/initInsights');
   assert.strictEqual(`${head} -/spl-banking/a/b - Request -`.match(ent), null, 'Enterprise only');
+  assert.strictEqual('[SPLHostMessage][x][] -/idm/user/profile/get - Request -'.match(ent), null, 'only before [Request] / [Response]');
   assert.strictEqual('[ENQWSAppLog] [t] - [::dge-enq:enq.a] - RestEndPointUFWAspect: | URL is /a request:'.match(ent), null);
 });
 
@@ -270,7 +271,7 @@ test('renameMarker: a marker renamed in a source filter is renamed in the layer 
   assert.strictEqual(cfg.layers[0].match, String.raw`match(_raw,"\[MightyMesage\]")`);
   assert.ok(cfg.sessionRules[0].rex.startsWith(String.raw`(?i)\[MightyMesage\](?:\s*`), cfg.sessionRules[0].rex);
   assert.strictEqual(cfg.layers[1].match, String.raw`match(_raw,"\[SPLHostMessage\]")`, 'other markers untouched');
-  assert.deepStrictEqual(spl.renameMarker(cfg, '"[SPLHostMessage]"', '"[MightyHostMessage]"'), ['Layer Enterprise', 'Session rule sidEnterprise', 'Endpoint rule Endpoint2']);
+  assert.deepStrictEqual(spl.renameMarker(cfg, '"[SPLHostMessage]"', '"[MightyHostMessage]"'), ['Layer Enterprise', 'Session rule sidEnterprise', 'Endpoint rule EnterpriseEndpoint']);
   assert.strictEqual(cfg.layers[1].match, String.raw`match(_raw,"\[MightyHostMessage\]")`);
   assert.ok(cfg.sessionRules[1].rex.startsWith(String.raw`(?i)\[MightyHostMessage\](?:\s*`), cfg.sessionRules[1].rex);
   // wildcards are not copied into the regex

@@ -102,10 +102,10 @@ test('same millisecond: requests eComm > Enterprise > WS > Host, responses Host 
   // written to the file in the wrong order on purpose
   const req = ev(`<EAI> <SvcCode>A_X</SvcCode> Request Message - [::dge-enq:enq.a.VN.V1] WLS:${sid} |`)
     + ev(`WSAppLog | WLS:${sid} | request: URL:/dge-enq/a |`)
-    + ev(`[SPLHostMessage][${sid}][U][VN][9.14][t][A][] -/enq/a - Request -`)
+    + ev(`[SPLHostMessage][${sid}][U][VN][9.14][t][A][] -/enq/a - [Request]:`)
     + ev(`[SPLMessage][${sid}][U][VN][9.14][t][A][][] -/spl-banking/a - Request -`);
   const res = ev(`[SPLMessage][${sid}][U][VN][9.14][t][A][][1ms] -/spl-banking/a - Response -`)
-    + ev(`[SPLHostMessage][${sid}][U][VN][9.14][t][A][1ms] -/enq/a - Response -`)
+    + ev(`[SPLHostMessage][${sid}][U][VN][9.14][t][A][1ms] -/enq/a - [Response]:`)
     + ev(`WSAppLog | WLS:${sid} | Response: URL:/dge-enq/a |`)
     + ev(`<EAI> <SvcCode>A_X</SvcCode> Response Message - [::dge-enq:enq.a.VN.V1] WLS:${sid} |`);
   const order = (text) => flow.run(spl.DEFAULT_CONFIG, [{ name: 'a.log', text, anySource: true }], [])
@@ -140,7 +140,7 @@ test('an eComm event without an Endpoint shows API N/A instead of dropping out',
 test('pairing is by layer name: an Enterprise request and a WS response with the same API do not pair', () => {
   const sid = 'aaaaaaaa-0000-4000-8000-000000000005';
   const at = (ms, line) => `2026-10-26 09:30:00.${ms} [x] INFO\n${line}\n`;
-  const log = at('100', `[SPLHostMessage][${sid}][U][VN][9.14][t][A][] -/same/api - Request -`)
+  const log = at('100', `[SPLHostMessage][${sid}][U][VN][9.14][t][A][] -/same/api - [Request]:`)
     + at('300', `WSAppLog | WLS:${sid} | Response: URL:/same/api |`);
   const rows = flow.run(spl.DEFAULT_CONFIG, [{ name: 'a.log', text: log, anySource: true }], []);
   assert.deepStrictEqual(rows.map((r) => [r.LayerName, r.Direction, r.PairKey, r.ElapsedMs ?? null]), [

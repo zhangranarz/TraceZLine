@@ -117,8 +117,8 @@
         r.rex = DEFAULT_CONFIG.sessionRules.find((d) => d.field === r.field).rex;
       }
     });
-    // Endpoint rules saved before they were the eComm and Enterprise rules, and before
-    // Endpoint1 was named eCommEndpoint: field -> [its earlier default rex] and the field now.
+    // Endpoint rules saved before they were the eComm and Enterprise rules, and before they were
+    // named eCommEndpoint / EnterpriseEndpoint: field -> [its earlier default rex] and the field now.
     const OLD_EP = {
       Endpoint1: {
         now: 'eCommEndpoint',
@@ -126,7 +126,7 @@
           String.raw`\]\s*(?:-\s*)?(?<Endpoint1>(?:/[^\s\[\]/]+)+|[^\s\[\]/-][^\s\[\]/]*(?:/[^\s\[\]/]+)+)\s*-`,
           String.raw`(?i)\[SPLMessage\][\s\S]*?\]\s*(?:-\s*)?(?<Endpoint1>(?:/[^\s\[\]/]+)+|[^\s\[\]/-][^\s\[\]/]*(?:/[^\s\[\]/]+)+)\s*-\s*(?:\[?(?:Request|Response)\b|\{|\r?\n|$)`],
       },
-      Endpoint2: { now: 'Endpoint2', rex: [String.raw`\s\s\s(?<Endpoint2>[^ ]+)\s\-\s(?:'?Request|Response)'`] },
+      Endpoint2: { now: 'EnterpriseEndpoint', rex: [String.raw`\s\s\s(?<Endpoint2>[^ ]+)\s\-\s(?:'?Request|Response)'`, String.raw`(?i)\[SPLHostMessage\][\s\S]*?\]\s*(?:-\s*)?(?<Endpoint2>(?:/[^\s\[\]/]+)+|[^\s\[\]/-][^\s\[\]/]*(?:/[^\s\[\]/]+)+)\s*-\s*(?:\[?(?:Request|Response)\b|\{|\r?\n|$)`] },
     };
     out.endpointRules.forEach((r) => {
       const old = r && OLD_EP[r.field];
