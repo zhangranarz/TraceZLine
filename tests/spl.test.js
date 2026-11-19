@@ -221,7 +221,7 @@ test('SubLayer: WS is layer 2 with sub-layer 1; a layer without a sub-layer numb
 
 test('dropNoDirection adds | where isnotnull(Direction) right after Direction', () => {
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
-  assert.match(spl.generate(cfg), /"Response"\)\n\| where isnotnull\(Direction\)\n\| eval SortKey=/);
+  assert.match(spl.generate(cfg), /"Response"\)\n\| where isnotnull\(Direction\)\n\| eval DirectionSymbol=if\(Direction="Request","\?","!"\)\n\| eval SortKey=/);
   cfg.dropNoDirection = false;
   assert.doesNotMatch(spl.generate(cfg), /isnotnull\(Direction\)/);
 });

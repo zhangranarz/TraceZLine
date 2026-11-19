@@ -84,7 +84,6 @@ __ENDPOINT__
     LayerName="Enterprise",coalesce(Endpoint,"N/A"),
     LayerName="WS",coalesce(URL,LastWsURL,DGEEndpoint,LastDGEEndpoint,"N/A"),
     LayerName="Host",Endpoint)
-| eval DirectionSymbol=if(Direction="Request","?","!")
 | eval PairKey=case(LayerName="Host",LayerName."|".Endpoint,true(),LayerName."|".coalesce(API,"N/A"))
 | eval ReqTime=if(Direction="Request",_time,null())
 | streamstats last(ReqTime) as LastReqTime by sessionId LayerName PairKey
@@ -213,6 +212,7 @@ __INDENT__
     if (cfg.directionFirst.trim()) dirCases.unshift(cfg.directionFirst.trim());
     out.push('| eval Direction=case(' + dirCases.join(',\n    ') + ')');
     if (cfg.dropNoDirection) out.push('| where isnotnull(Direction)');
+    out.push('| eval DirectionSymbol=if(Direction="Request","?","!")');
     // Order within one millisecond: requests down the layers, responses back up. The sort itself
     // stays later, just before the first streamstats (after the where clauses, so less to sort).
     out.push('| eval SortKey=if(Direction="Request",LayerOrder,-LayerOrder)');
