@@ -77,7 +77,7 @@ test('ungrouped sources and a Layer<=2 first rule are flagged', () => {
 test('ungrouped sources share only the outer parentheses', () => {
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
   cfg.groupSources = false;
-  assert.ok(spl.generate(cfg).startsWith('(\n\tsource="/var/log/pods/spl-banking-*log"\n\t"[SPLMessage]"\n\tOR\n\tsource="/var/log/pods/spl-banking-*log"\n\t"[SPLHostMessage]"\n\tOR\n'));
+  assert.ok(spl.generate(cfg).startsWith('(\n\tsource="/var/log/pods/spl-banking-*log"\n\t"[SPLMessage]" ("Request" OR "Response")\n\tOR\n\tsource="/var/log/pods/spl-banking-*log"\n\t"[SPLHostMessage]" ("Request" OR "Response")\n\tOR\n'));
 });
 
 test('DirWord and rex lines without a named group are flagged', () => {
@@ -126,7 +126,7 @@ test('groupSources wraps each source in its own parentheses inside the outer one
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
   cfg.groupSources = true;
   const out = spl.generate(cfg);
-  assert.ok(out.startsWith('(\n\t(\n\t\tsource="/var/log/pods/spl-banking-*log"\n\t\t"[SPLMessage]"\n\t)\n\tOR\n\t(\n\t\tsource="/var/log/pods/spl-banking-*log"\n\t\t"[SPLHostMessage]"\n\t)\n\tOR\n'));
+  assert.ok(out.startsWith('(\n\t(\n\t\tsource="/var/log/pods/spl-banking-*log"\n\t\t"[SPLMessage]" ("Request" OR "Response")\n\t)\n\tOR\n\t(\n\t\tsource="/var/log/pods/spl-banking-*log"\n\t\t"[SPLHostMessage]" ("Request" OR "Response")\n\t)\n\tOR\n'));
   assert.match(out, /Response Message"\)\n\t\)\n\)\n\("2576dfc8/);
 });
 

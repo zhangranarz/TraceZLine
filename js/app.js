@@ -145,6 +145,10 @@
         l.match = DEFAULT_CONFIG.layers.find((d) => d.name === 'Host').match;
       }
     });
+    // eComm / Enterprise source filters saved as the marker alone now also need Request or Response.
+    out.sources.forEach((s) => {
+      if (s && (s.filter === '"[SPLMessage]"' || s.filter === '"[SPLHostMessage]"')) s.filter += ' ("Request" OR "Response")';
+    });
     const same = out.sources.length === OLD_SOURCES.length
       && out.sources.every((s, i) => s && s.enabled && s.source === OLD_SOURCES[i][0] && String(s.filter).trim() === OLD_SOURCES[i][1]);
     if (same) out.sources = clone(DEFAULT_CONFIG.sources);
