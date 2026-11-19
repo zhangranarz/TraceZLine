@@ -210,17 +210,18 @@ __INDENT__
     out.push('| eval Direction=case(' + dirCases.join(',\n    ') + ')');
     if (cfg.dropNoDirection) out.push('| where isnotnull(Direction)');
 
+    // Endpoint rules: their rex lines go with the DGEEndpoint and URL rex, just above Endpoint=case().
+    // Endpoint=case() per layer: each rule's field for its layer, else N/A (several rules for one
+    // layer: the first found), then WS = URL and service endpoint on separate lines, Host = service endpoint.
     const eps = cfg.endpointRules.filter((r) => r.field.trim());
-    eps.filter((r) => r.rex.trim()).forEach((r) => out.push(`| rex field=_raw "${r.rex.trim()}"`));
-    // Endpoint=case() per layer: each rule's field for its layer (several rules for one layer:
-    // coalesce), then WS = URL and service endpoint on separate lines, Host = service endpoint.
+    const endpointRex = eps.filter((r) => r.rex.trim()).map((r) => `| rex field=_raw "${r.rex.trim()}"`);
     const byLayer = new Map();
     eps.filter((r) => String(r.layer ?? '').trim()).forEach((r) => {
       const k = r.layer.trim();
       if (!byLayer.has(k)) byLayer.set(k, []);
       byLayer.get(k).push(r.field.trim());
     });
-    const endpointCases = [...byLayer].map(([layer, f]) => `LayerName="${layer}",${f.length > 1 ? `coalesce(${f.join(',')})` : f[0]}`)
+    const endpointCases = [...byLayer].map(([layer, f]) => `LayerName="${layer}",coalesce(${f.join(',')},"N/A")`)
       .concat(['LayerName="WS",mvappend(coalesce(URL,"NA"),coalesce(DGEEndpoint,"NA"))', 'LayerName="Host",coalesce(DGEEndpoint,"NA")']);
     const endpointLine = '| eval Endpoint=case(' + endpointCases.join(',\n    ') + ')';
 
@@ -231,6 +232,7 @@ __INDENT__
     // Indent is per layer name: layers can share a number (Enterprise and WS are both 2).
     const indentLine = '| eval Indent=case('
       + layers.map((l) => `LayerName="${l.name.trim()}","${l.indent ?? ''}"`).join(',') + ')';
+    out.push(...endpointRex);
     out.push(FLOW_BLOCK.replace('__ENDPOINT__', endpointLine).replace('__INDENT__', indentLine));
 
     const params = cfg.params.filter((p) => p.field.trim());

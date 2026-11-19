@@ -106,7 +106,7 @@ test('endpoint rules: one Endpoint per layer; several rules for a layer are coal
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
   cfg.endpointRules = [cfg.endpointRules[1], { field: 'EpX', layer: 'Enterprise', rex: '(?<EpX>\\S+)' }, { field: 'EpY', layer: '', rex: '(?<EpY>\\S+)' }];
   const out = spl.generate(cfg);
-  assert.ok(out.includes('\n| eval Endpoint=case(LayerName="Enterprise",coalesce(EnterpriseEndpoint,EpX),\n'
+  assert.ok(out.includes('\n| eval Endpoint=case(LayerName="Enterprise",coalesce(EnterpriseEndpoint,EpX,"N/A"),\n'
     + '    LayerName="WS",mvappend(coalesce(URL,"NA"),coalesce(DGEEndpoint,"NA")),\n'
     + '    LayerName="Host",coalesce(DGEEndpoint,"NA"))\n'));
   assert.doesNotMatch(out, /eCommEndpoint/);

@@ -31,18 +31,18 @@
     LayerName="WS" AND match(_raw,"(?i)request:"),"Request",
     LayerName="WS" AND match(_raw,"(?i)(RESPONSE from|Response:)"),"Response")
 | where isnotnull(Direction)
-| rex field=_raw "\s*-\s*(?<eCommEndpoint>/\S+)\s*-\s*(?:Request|Response|\{|\r?\n|$)"
-| rex field=_raw "\s*-\s*(?<EnterpriseEndpoint>/\S+)\s*-\s*\[(?:Request|Response)\]"
 | rex field=_raw "\"sessionId\"\s*:\s*\"(?<sidSessionId>[0-9a-fA-F-]{36})"
 | rex field=_raw "\"sessionIdentity\"\s*:\s*\"(?<sidSessionIdentity>[0-9a-fA-F-]{36})"
 | rex field=_raw "(?i)\[SPLMessage\]\s*\[?(?<sidEcomm>[0-9a-fA-F-]{36})"
 | rex field=_raw "(?i)\[SPLHostMessage\]\s*\[?(?<sidEnterprise>[0-9a-fA-F-]{36})"
 | rex field=_raw "(?i)\bWLS:\s*(?<sidWls>[0-9a-fA-F-]{36})"
 | eval sessionId=coalesce(sidSessionId, sidSessionIdentity, sidEcomm, sidEnterprise, sidWls, "NA")
+| rex field=_raw "\s*-\s*(?<eCommEndpoint>/\S+)\s*-\s*(?:Request|Response|\{|\r?\n|$)"
+| rex field=_raw "\s*-\s*(?<EnterpriseEndpoint>/\S+)\s*-\s*\[(?:Request|Response)\]"
 | rex field=_raw "\[::(?<DGEEndpoint>[^]]+)\]"
 | rex field=_raw "\bURL(?:\s+is\s+|\s*:\s*)(?<URL>/[^\s:|]+)"
-| eval Endpoint=case(LayerName="eComm",eCommEndpoint,
-    LayerName="Enterprise",EnterpriseEndpoint,
+| eval Endpoint=case(LayerName="eComm",coalesce(eCommEndpoint,"N/A"),
+    LayerName="Enterprise",coalesce(EnterpriseEndpoint,"N/A"),
     LayerName="WS",mvappend(coalesce(URL,"NA"),coalesce(DGEEndpoint,"NA")),
     LayerName="Host",coalesce(DGEEndpoint,"NA"))
 | rex field=_raw max_match=0 "<SvcCode>(?<SvcCode>[^<]+)</SvcCode>"

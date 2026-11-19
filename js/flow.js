@@ -152,6 +152,11 @@
     const DGE_RE = lineRex('| rex field=_raw "\\[:');
     const SVC_RE = /<SvcCode>([^<]+)<\/SvcCode>/g;
 
+    // The endpoint rules of a layer: the first value found, else N/A (undefined for a layer without rules).
+    const endpointOf = (ev) => {
+      const rules = cfg.endpointRules.filter((ep) => ep.field.trim() && String(ep.layer ?? '').trim() === ev.LayerName);
+      return rules.length ? rules.map((ep) => ev[ep.field]).find((v) => v != null) ?? 'N/A' : undefined;
+    };
     const rows = [];
     for (const ev of logs.flatMap((l) => parseEvents(l.name, l.text, l.anySource))) {
       const rec = trace ? { file: basename(ev.source), lineNo: ev.lineNo, head: ev.lines[0], ev } : null;
@@ -181,11 +186,11 @@
       for (const sr of cfg.sessionRules) if (sr.rex.trim()) Object.assign(ev, extract(rx(sr.rex), r));
       ev.sessionId = cfg.sessionRules.map((sr) => ev[sr.field]).find((v) => v != null) ?? 'NA';
       Object.assign(ev, extract(DGE_RE, r), extract(URL_RE, r));
-      // Endpoint per layer (Endpoint=case()): the endpoint rule(s) of the event's layer; WS = URL and
+      // Endpoint per layer (Endpoint=case()): the endpoint rule(s) of the event's layer, else N/A; WS = URL and
       // service endpoint [::…] (each NA when missing); Host = service endpoint, else NA.
       ev.Endpoint = ev.LayerName === 'WS' ? [ev.URL || 'NA', ev.DGEEndpoint || 'NA']
         : ev.LayerName === 'Host' ? ev.DGEEndpoint || 'NA'
-          : cfg.endpointRules.filter((ep) => String(ep.layer ?? '').trim() === ev.LayerName).map((ep) => ev[ep.field]).find((v) => v != null);
+          : endpointOf(ev);
       ev.SvcCode = [...r.matchAll(SVC_RE)].map((m) => m[1]);
       for (const p of cfg.params) if (p.rex.trim()) Object.assign(ev, extract(rx(p.rex), r));
       if (!(ev.LayerName !== 'Host' || ev.SvcCode.length >= 1)) { if (rec) rec.reason = 'Excluded: Host event without <SvcCode> (where clause)'; continue; }
