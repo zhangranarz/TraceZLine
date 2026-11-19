@@ -118,6 +118,11 @@
       [['sidSessionId', String.raw`\"sessionId\"\s*:\s*\"(?<sidSessionId>[^\"]+)\"`], ['sidSessionIdentity', String.raw`\"sessionIdentity\"\s*:\s*\"(?<sidSessionIdentity>[^\"]+)\"`], ['sidEcomm', String.raw`(?i)\[SPLMessage\]\s*\[?(?<sidEcomm>[^\"]+)\"`], ['sidEnterprise', String.raw`(?i)\[SPLHostMessage\]\s*\[?(?<sidEnterprise>[0-9a-fA-F-]{36})`], ['sidWls', String.raw`(?i)\bWLS:\s*(?<sidWls>[0-9a-fA-F-]{36})`]],
     ];
     const sidKey = (rules) => JSON.stringify(rules.map((r) => [r && r.field, r && r.rex]));
+    // sidEcomm saved as (?i)\[Marker\]\s*\[?(?<sidEcomm>[^\"]+)\" (any marker): the bracket form now.
+    out.sessionRules.forEach((r) => {
+      const m = r && r.field === 'sidEcomm' && String(r.rex).match(/^\(\?i\)(\\\[.+?\\\])\\s\*\\\[\?\(\?<sidEcomm>\[\^\\"\]\+\)\\"$/);
+      if (m) r.rex = `(?i)${m[1]}\\[(?<sidEcomm>[^\\]]+)\\]`;
+    });
     if (OLD_SID_SETS.some((set) => JSON.stringify(set) === sidKey(out.sessionRules))) out.sessionRules = clone(DEFAULT_CONFIG.sessionRules);
     // Endpoint rules saved before they were the eComm and Enterprise rules, and before they were
     // named eCommEndpoint / EnterpriseEndpoint: field -> [its earlier default rex] and the field now.

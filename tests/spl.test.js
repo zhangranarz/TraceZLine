@@ -168,10 +168,10 @@ test('session rules: five forms, sessionId is the first one found, else NA', () 
   assert.strictEqual('{"sessionIdentity":"S-0042"}'.match(sessionIdentity).groups.sidSessionIdentity, 'S-0042');
   assert.strictEqual('{"sessionIdentity":""}'.match(sessionIdentity), null);
   assert.strictEqual(`{"sessionIdentity":"${uuid}"}`.match(sessionId), null, 'sessionId is not sessionIdentity');
-  // sidEcomm: everything after "[SPLMessage][" up to the next quote (the rule as chosen): the header
-  // ID and the rest of the header up to the payload; a header with no quote after it gives nothing.
-  assert.strictEqual(`INFO [SPLMessage][${uuid}][U] -/x - Request -\n{"a":1}`.match(ecomm).groups.sidEcomm, `${uuid}][U] -/x - Request -\n{`);
-  assert.strictEqual(`INFO [SPLMessage][${uuid}][][VN]`.match(ecomm), null);
+  // sidEcomm: the value in the brackets right after [SPLMessage] (any value, not only a UUID)
+  assert.strictEqual(`INFO [SPLMessage][${uuid}][U] -/x - Request -\n{"a":1}`.match(ecomm).groups.sidEcomm, uuid);
+  assert.strictEqual('INFO [SPLMessage][S-0042][U][VN]'.match(ecomm).groups.sidEcomm, 'S-0042');
+  assert.strictEqual('INFO [SPLMessage][][U] {"a":1}'.match(ecomm), null, 'empty brackets: no session');
   // sidEnterprise: the same rule as sidEcomm, after "[SPLHostMessage] [" up to the next quote
   assert.strictEqual(`INFO [SPLHostMessage] [${uuid}]|[u] - /x - [Request]: {"a":1}`.match(ent).groups.sidEnterprise, `${uuid}]|[u] - /x - [Request]: {`);
   assert.strictEqual(`INFO [SPLHostMessage] [${uuid}]|[<<USER_ID>>]`.match(ent), null);
@@ -272,7 +272,7 @@ test('renameMarker: a marker renamed in a source filter is renamed in the layer 
   assert.deepStrictEqual(changed, ['Layer eComm', 'Session rule sidEcomm']);
   assert.strictEqual(cfg.layers[0].match, String.raw`match(_raw,"\[MightyMesage\]")`);
   const sid = (field) => cfg.sessionRules.find((r) => r.field === field).rex;
-  assert.ok(sid('sidEcomm').startsWith(String.raw`(?i)\[MightyMesage\]\s*`), sid('sidEcomm'));
+  assert.ok(sid('sidEcomm').startsWith(String.raw`(?i)\[MightyMesage\]\[`), sid('sidEcomm'));
   assert.strictEqual(cfg.layers[1].match, String.raw`match(_raw,"\[SPLHostMessage\]")`, 'other markers untouched');
   assert.deepStrictEqual(spl.renameMarker(cfg, '"[SPLHostMessage]"', '"[MightyHostMessage]"'), ['Layer Enterprise', 'Session rule sidEnterprise']);
   assert.strictEqual(cfg.layers[1].match, String.raw`match(_raw,"\[MightyHostMessage\]")`);
