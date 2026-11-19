@@ -14,17 +14,12 @@
     // true: | where isnotnull(Direction) drops events no direction rule matched; they would
     // otherwise read as responses ([!]) further down.
     dropNoDirection: true,
+    // One source block per layer marker: eComm, Enterprise, WS, Host.
     sources: [
-      {
-        enabled: true,
-        source: '/var/log/pods/spl-banking-*log',
-        filter: '("[SPLMessage]" OR "[SPLHostMessage]")',
-      },
-      {
-        enabled: true,
-        source: '/var/log/pods/spl-ms-*log',
-        filter: '("*WSAppLog*" ("request:" OR "RESPONSE from" OR "Response:")) OR ("<EAI>" "<SvcCode>" ("Request Message" OR "Response Message"))',
-      },
+      { enabled: true, source: '/var/log/pods/spl-banking-*log', filter: '"[SPLMessage]"' },
+      { enabled: true, source: '/var/log/pods/spl-banking-*log', filter: '"[SPLHostMessage]"' },
+      { enabled: true, source: '/var/log/pods/spl-ms-*log', filter: '"*WSAppLog*" ("request:" OR "RESPONSE from" OR "Response:")' },
+      { enabled: true, source: '/var/log/pods/spl-ms-*log', filter: '"<EAI>" "<SvcCode>" ("Request Message" OR "Response Message")' },
     ],
     terms: ['2576dfc8-495a-837a-8a2f291fd003d', '7f269c48-f03a-4fef-bc3007538ec1a2'],
     layers: [

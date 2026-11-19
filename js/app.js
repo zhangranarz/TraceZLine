@@ -100,6 +100,15 @@
     out.sources.forEach((s) => {
       if (s && typeof s.filter === 'string') s.filter = s.filter.replace(/"WSAppLog"/g, '"*WSAppLog*"');
     });
+    // Settings saved with the old two default sources (one per log file): the default is now
+    // one source per layer marker. Edited sources are kept as they are.
+    const OLD_SOURCES = [
+      ['/var/log/pods/spl-banking-*log', '("[SPLMessage]" OR "[SPLHostMessage]")'],
+      ['/var/log/pods/spl-ms-*log', '("*WSAppLog*" ("request:" OR "RESPONSE from" OR "Response:")) OR ("<EAI>" "<SvcCode>" ("Request Message" OR "Response Message"))'],
+    ];
+    const same = out.sources.length === OLD_SOURCES.length
+      && out.sources.every((s, i) => s && s.enabled && s.source === OLD_SOURCES[i][0] && String(s.filter).trim() === OLD_SOURCES[i][1]);
+    if (same) out.sources = clone(DEFAULT_CONFIG.sources);
     return out;
   }
 
