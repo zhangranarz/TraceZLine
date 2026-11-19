@@ -24,8 +24,10 @@
     match(_raw,"<EAI>") AND match(_raw,"<SvcCode>"),"Host", match(_raw,"WSAppLog"),"WS")
 | eval Layer=case(LayerName="eComm",1,LayerName="Enterprise",2,LayerName="WS",2,LayerName="Host",3)
 | eval SubLayer=case(LayerName="eComm",0,LayerName="Enterprise",0,LayerName="WS",1,LayerName="Host",0)
-| rex field=_raw "(?i)\b(?<DirWord>Request|Response)\b"
-| eval Direction=case(LayerName="eComm" OR LayerName="Enterprise",case(lower(DirWord)="request","Request",lower(DirWord)="response","Response"),
+| eval Direction=case(LayerName="eComm" AND match(_raw,"(?i)- Request -"),"Request",
+    LayerName="eComm" AND match(_raw,"(?i)- Response -"),"Response",
+    LayerName="Enterprise" AND match(_raw,"(?i)\[Request\]"),"Request",
+    LayerName="Enterprise" AND match(_raw,"(?i)\[Response\]"),"Response",
     LayerName="Host" AND match(_raw,"(?i)Request Message"),"Request",
     LayerName="Host" AND match(_raw,"(?i)Response Message"),"Response",
     LayerName="WS" AND match(_raw,"(?i)request:"),"Request",

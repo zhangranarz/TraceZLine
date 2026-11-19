@@ -139,6 +139,17 @@
     });
     // The default Endpoint3 rule (endpoint: … in a payload) is gone: WS uses WSEndpoint (URL and [::…]).
     out.endpointRules = out.endpointRules.filter((r) => !(r && r.field === 'Endpoint3' && r.rex === String.raw`(?i)endpoint\"?\s*[:=]\s*\"?(?<Endpoint3>[^\",]+)`));
+    // Direction saved as the earlier default (DirWord + first rule for eComm / Enterprise, rules for
+    // Host and WS): the per-layer Request / Response rules now.
+    const OLD_DIRECTIONS = JSON.stringify([['Host', '(?i)Request Message', 'Request'], ['Host', '(?i)Response Message', 'Response'],
+      ['WS', '(?i)request:', 'Request'], ['WS', '(?i)(RESPONSE from|Response:)', 'Response']]);
+    if (out.dirWordRex === String.raw`(?i)\b(?<DirWord>Request|Response)\b`
+      && out.directionFirst === 'LayerName="eComm" OR LayerName="Enterprise",case(lower(DirWord)="request","Request",lower(DirWord)="response","Response")'
+      && JSON.stringify(out.directions.map((d) => [d.layer, d.pattern, d.direction])) === OLD_DIRECTIONS) {
+      out.dirWordRex = DEFAULT_CONFIG.dirWordRex;
+      out.directionFirst = DEFAULT_CONFIG.directionFirst;
+      out.directions = clone(DEFAULT_CONFIG.directions);
+    }
     // Host condition saved before it was <EAI> AND <SvcCode>.
     out.layers.forEach((l) => {
       if (l && l.name === 'Host' && l.match === String.raw`match(_raw,"<SvcCode>") AND match(_raw,"(?i)(request|response) message")`) {

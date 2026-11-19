@@ -67,11 +67,12 @@ test('default config has no warnings', () => {
 test('ungrouped sources and a Layer<=2 first rule are flagged', () => {
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
   cfg.groupSources = false;
+  cfg.dirWordRex = String.raw`(?i)\b(?<DirWord>Request|Response)\b`;
   cfg.directionFirst = 'Layer<=2,DirWord';
   const w = spl.validate(cfg);
   assert.strictEqual(w.length, 2);
   assert.ok(w.some((m) => /not grouped/.test(m)));
-  assert.ok(w.some((m) => /Layer<=2\) also matches WS/.test(m)));
+  assert.ok(w.some((m) => /Layer<=2\) also matches eComm, Enterprise, WS/.test(m)));
 });
 
 test('ungrouped sources share only the outer parentheses', () => {
@@ -83,6 +84,7 @@ test('ungrouped sources share only the outer parentheses', () => {
 test('DirWord and rex lines without a named group are flagged', () => {
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
   cfg.dirWordRex = String.raw`(?i)\b(?:DirWord=Request|Response)\b`;
+  cfg.directionFirst = 'LayerName="eComm",case(lower(DirWord)="request","Request",lower(DirWord)="response","Response")';
   const w = spl.validate(cfg);
   assert.ok(w.some((m) => /no \(\?<DirWord>/.test(m)));
   assert.ok(w.some((m) => /reject.*\(\?:DirWord=Request/.test(m)));
@@ -119,7 +121,7 @@ test('empty DirWord rex and first rule drop out of the query', () => {
   cfg.directionFirst = '';
   const out = spl.generate(cfg);
   assert.doesNotMatch(out, /DirWord/);
-  assert.match(out, /\| eval Direction=case\(LayerName="Host" AND/);
+  assert.match(out, /\| eval Direction=case\(LayerName="eComm" AND/);
 });
 
 test('groupSources wraps each source in its own parentheses inside the outer ones', () => {
