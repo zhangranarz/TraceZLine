@@ -207,17 +207,19 @@
       if (ev.LayerName === 'WS' && ev.DGEEndpoint) lastDge[sid] = ev.DGEEndpoint;
       ev.LastWsURL = lastWs[sid] ?? null;
       ev.LastDGEEndpoint = lastDge[sid] ?? null;
+      // HostEndpoint: the Host service endpoint [::…], NA when the event has none
+      ev.HostEndpoint = ev.LayerName === 'Host' ? ev.DGEEndpoint || 'NA' : null;
       // HostPairs: SvcCodes as request ~ response pairs, for Host events only
       const sv = ev.LayerName === 'Host' ? ev.SvcCode : []; const pairs = [];
       for (let k = 0; k < Math.ceil(sv.length / 2); k++) pairs.push(`${sv[k * 2]} ~ ${sv[k * 2 + 1] ?? sv[k * 2]}`);
       ev.API = {
         eComm: ev.Endpoint || 'N/A', Enterprise: ev.Endpoint || 'N/A',
         WS: ev.URL || ev.LastWsURL || ev.DGEEndpoint || ev.LastDGEEndpoint || ev.Endpoint || 'N/A',
-        Host: ev.DGEEndpoint || 'N/A',
+        Host: ev.HostEndpoint,
       }[ev.LayerName];
       ev.DirectionSymbol = ev.Direction === 'Request' ? '?' : '!';
       // Requests and responses pair by layer name, not number: Enterprise and WS are both 2.
-      ev.PairKey = `${ev.LayerName}|${(ev.LayerName === 'Host' ? ev.DGEEndpoint : ev.API) || 'N/A'}`;
+      ev.PairKey = `${ev.LayerName}|${(ev.LayerName === 'Host' ? ev.HostEndpoint : ev.API) || 'N/A'}`;
       const key = [sid, ev.LayerName, ev.PairKey].join('|');
       if (ev.Direction === 'Response' && lastReq[key] != null) ev.ElapsedMs = Math.round(ev.time - lastReq[key]);
       if (ev.Direction === 'Request') lastReq[key] = ev.time;

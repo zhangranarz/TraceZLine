@@ -180,7 +180,9 @@ test('Flow format: per-layer indent and [?]/[!] direction markers', () => {
   const out = spl.generate(spl.DEFAULT_CONFIG);
   assert.match(out, /\| eval Indent=case\(LayerName="eComm","",LayerName="Enterprise","> ",LayerName="Host",">>> ",LayerName="WS",">> "\)/);
   assert.match(out, /\| eval DirectionSymbol=if\(Direction="Request","\?","!"\)/);
-  assert.match(out, /LayerName="Host",coalesce\(DGEEndpoint,"N\/A"\)\)/);
+  assert.match(out, /\n\| eval HostEndpoint=if\(LayerName="Host",coalesce\(DGEEndpoint,"NA"\),null\(\)\)\n/);
+  assert.match(out, /LayerName="Host",HostEndpoint\)\n/);
+  assert.match(out, /\| eval PairKey=case\(LayerName="Host",LayerName\."\|"\.HostEndpoint,/);
 });
 
 test('URL, eCommEndpoint (eComm) and EnterpriseEndpoint (Enterprise) read their line formats', () => {

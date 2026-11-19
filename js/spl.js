@@ -77,14 +77,15 @@
 | eval CurrentDGEEndpoint=if(LayerName="WS",DGEEndpoint,null())
 | streamstats last(CurrentWsURL) as LastWsURL last(CurrentDGEEndpoint) as LastDGEEndpoint by sessionId
 | eval WSEndpoint=if(LayerName="WS",mvappend(coalesce(URL,"NA"),coalesce(DGEEndpoint,"NA")),null())
+| eval HostEndpoint=if(LayerName="Host",coalesce(DGEEndpoint,"NA"),null())
 | eval pairIndex=if(LayerName="Host",mvrange(0,ceil(mvcount(SvcCode)/2)),null())
 | eval HostPairs=if(LayerName="Host",mvmap(pairIndex, mvindex(SvcCode,pairIndex*2) . " ~ ".coalesce(mvindex(SvcCode,pairIndex*2+1),mvindex(SvcCode,pairIndex*2))),null())
 | eval API=case(LayerName="eComm",coalesce(Endpoint,"N/A"),
     LayerName="Enterprise",coalesce(Endpoint,"N/A"),
     LayerName="WS",coalesce(URL,LastWsURL,DGEEndpoint,LastDGEEndpoint,Endpoint,"N/A"),
-    LayerName="Host",coalesce(DGEEndpoint,"N/A"))
+    LayerName="Host",HostEndpoint)
 | eval DirectionSymbol=if(Direction="Request","?","!")
-| eval PairKey=case(LayerName="Host",LayerName."|".coalesce(DGEEndpoint,"N/A"),true(),LayerName."|".coalesce(API,"N/A"))
+| eval PairKey=case(LayerName="Host",LayerName."|".HostEndpoint,true(),LayerName."|".coalesce(API,"N/A"))
 | eval ReqTime=if(Direction="Request",_time,null())
 | streamstats last(ReqTime) as LastReqTime by sessionId LayerName PairKey
 | eval ElapsedMs=if(Direction="Response" AND isnotnull(LastReqTime),round((_time-LastReqTime)*1000,0),null())
