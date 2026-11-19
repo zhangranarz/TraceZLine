@@ -27,6 +27,11 @@
         <summary>Search terms <span class="hint" id="terms-count"></span></summary>
         <p class="note">One per line (or comma separated), e.g. session IDs. Each is quoted and joined with OR. Leave empty to drop the line.</p>
         <textarea id="terms" rows="4" spellcheck="false"></textarea>
+        <div class="row">
+          <label class="field size-m"><span>Start time <em>optional</em></span><input type="text" id="start-time" spellcheck="false" autocomplete="off" placeholder="2026-11-18 15:28:25.554"></label>
+          <label class="field size-m"><span>End time <em>optional</em></span><input type="text" id="end-time" spellcheck="false" autocomplete="off" placeholder="2026-11-18 15:30:00.000"></label>
+        </div>
+        <p class="note">Only events from Start time to End time (both included). Adds earliest/latest to the search and a | where on _time for the milliseconds. Leave empty for no limit.</p>
       </details>
 
       <details open>

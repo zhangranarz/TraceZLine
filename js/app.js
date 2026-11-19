@@ -217,6 +217,8 @@
     document.getElementById('drop-no-direction').checked = state.dropNoDirection;
     document.getElementById('dir-word-rex').value = state.dirWordRex;
     document.getElementById('dir-first').value = state.directionFirst;
+    document.getElementById('start-time').value = state.startTime;
+    document.getElementById('end-time').value = state.endTime;
     refreshDatalists();
     update();
   }
@@ -269,7 +271,7 @@
     update();
   });
 
-  [['dir-word-rex', 'dirWordRex'], ['dir-first', 'directionFirst']].forEach(([id, key]) => {
+  [['dir-word-rex', 'dirWordRex'], ['dir-first', 'directionFirst'], ['start-time', 'startTime'], ['end-time', 'endTime']].forEach(([id, key]) => {
     document.getElementById(id).addEventListener('input', (e) => {
       state[key] = e.target.value;
       update();
@@ -372,7 +374,9 @@
     const useTerms = document.getElementById('use-terms').checked;
     const terms = useTerms ? state.terms.filter((t) => t.trim()) : [];
     if (imported) {
-      flowRows = terms.length ? imported.rows.filter((r) => rowHasTerm(r, terms)) : imported.rows;
+      const range = window.TraceSpl.timeRange(state);
+      const inRange = (r) => !range || ((range.from == null || r.time >= range.from) && (range.to == null || r.time <= range.to));
+      flowRows = imported.rows.filter((r) => (!terms.length || rowHasTerm(r, terms)) && inRange(r));
       renderDebugTable(imported.trace);
     } else {
       const trace = [];

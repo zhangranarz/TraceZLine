@@ -22,6 +22,9 @@
       { enabled: true, source: '/var/log/pods/spl-ms-*log', filter: '"<EAI>" "<SvcCode>" ("Request Message" OR "Response Message")' },
     ],
     terms: ['2576dfc8-495a-837a-8a2f291fd003d', '7f269c48-f03a-4fef-bc3007538ec1a2'],
+    // Optional time window, "2026-11-18 15:28:25.554" (milliseconds optional); empty = no limit.
+    startTime: '',
+    endTime: '',
     layers: [
       { name: 'eComm', match: String.raw`match(_raw,"\[SPLMessage\]")`, layer: 1, indent: '', subLayer: 0 },
       { name: 'Enterprise', match: String.raw`match(_raw,"\[SPLHostMessage\]")`, layer: 2, indent: '> ', subLayer: 0 },
@@ -98,6 +101,22 @@ __INDENT__
     return '"' + term.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
   }
 
+  // "2026-11-18 15:28:25.554" (milliseconds optional) -> ms since 1970 as UTC wall clock, the
+  // same clock as the parsed log times; null when empty or not in that format.
+  const TIME_RE = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?$/;
+  function parseTime(s) {
+    const m = String(s ?? '').trim().match(TIME_RE);
+    if (!m) return null;
+    const t = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6], +(m[7] || '0').padEnd(3, '0'));
+    return new Date(t).getUTCDate() === +m[3] ? t : null; // rejects 2026-02-30
+  }
+  // { from, to } in ms (either may be null), or null when neither is set.
+  function timeRange(cfg) {
+    const from = parseTime(cfg.startTime);
+    const to = parseTime(cfg.endTime);
+    return from == null && to == null ? null : { from, to };
+  }
+
   // Splits a pasted block of search terms on newlines and commas.
   function parseTerms(text) {
     return text.split(/[\r\n,]+/).map((t) => t.trim()).filter(Boolean);
@@ -143,6 +162,24 @@ __INDENT__
     const terms = cfg.terms.map((t) => t.trim()).filter(Boolean);
     // part of the base search, so no |; two or more terms are grouped: ("a" OR "b")
     if (terms.length) out.push(terms.length > 1 ? '(' + terms.map(quoteTerm).join(' OR ') + ')' : quoteTerm(terms[0]));
+
+    // Time window: earliest/latest (whole seconds, Splunk's MM/DD/YYYY:HH:MM:SS) let Splunk skip
+    // the rest of the index; the where clause then keeps the exact milliseconds.
+    const range = timeRange(cfg);
+    if (range) {
+      const pad = (n, w = 2) => String(n).padStart(w, '0');
+      const d = (t) => new Date(t);
+      const splunk = (t) => `${pad(d(t).getUTCMonth() + 1)}/${pad(d(t).getUTCDate())}/${d(t).getUTCFullYear()}:${pad(d(t).getUTCHours())}:${pad(d(t).getUTCMinutes())}:${pad(d(t).getUTCSeconds())}`;
+      const exact = (t) => d(t).toISOString().replace('T', ' ').slice(0, 23);
+      const mods = [];
+      if (range.from != null) mods.push(`earliest="${splunk(Math.floor(range.from / 1000) * 1000)}"`);
+      if (range.to != null) mods.push(`latest="${splunk(Math.floor(range.to / 1000) * 1000 + 1000)}"`);
+      out.push(mods.join(' '));
+      const conds = [];
+      if (range.from != null) conds.push(`_time>=strptime("${exact(range.from)}","%Y-%m-%d %H:%M:%S.%3N")`);
+      if (range.to != null) conds.push(`_time<=strptime("${exact(range.to)}","%Y-%m-%d %H:%M:%S.%3N")`);
+      out.push('| where ' + conds.join(' AND '));
+    }
 
     const layers = cfg.layers.filter((l) => l.name.trim());
     // Two conditions per line; Layer=case() is listed by layer number (stable for equal numbers).
@@ -210,6 +247,11 @@ __INDENT__
         + 'Tick "Group each source" if events from the second source are missing.');
     }
     if (!cfg.terms.some((t) => t.trim())) warnings.push('No search terms: the query will scan every event from the sources.');
+    [['Start time', cfg.startTime], ['End time', cfg.endTime]].forEach(([label, v]) => {
+      if (String(v ?? '').trim() && parseTime(v) == null) warnings.push(`${label} "${v}" is not a time like 2026-11-18 15:28:25.554; it is ignored.`);
+    });
+    const range = timeRange(cfg);
+    if (range && range.from != null && range.to != null && range.from > range.to) warnings.push('Start time is after End time: nothing can match.');
     if (!layerNames.size) warnings.push('No layers defined: LayerName=case() is empty and Splunk will reject it.');
     cfg.layers.forEach((l) => {
       if (l.name.trim() && !l.match.trim()) warnings.push(`Layer "${l.name}" has no match condition.`);
@@ -285,5 +327,5 @@ __INDENT__
     return changed;
   }
 
-  return { DEFAULT_CONFIG, clone, generate, validate, parseTerms, quoteTerm, renameMarker };
+  return { DEFAULT_CONFIG, clone, generate, validate, parseTerms, quoteTerm, renameMarker, parseTime, timeRange };
 });

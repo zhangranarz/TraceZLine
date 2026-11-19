@@ -242,3 +242,20 @@ test('renameMarker: a marker renamed in a source filter is renamed in the layer 
   assert.deepStrictEqual(spl.renameMarker(cfg, '"A" "B"', '"C" "D"'), []);
   assert.deepStrictEqual(spl.renameMarker(cfg, '"A"', '"A" OR "B"'), []);
 });
+
+test('Start time / End time: earliest/latest in whole seconds and a where clause with the milliseconds', () => {
+  const cfg = spl.clone(spl.DEFAULT_CONFIG);
+  assert.doesNotMatch(spl.generate(cfg), /earliest=|_time>=/, 'empty: no time limit');
+  cfg.startTime = '2026-11-18 15:28:25.554';
+  cfg.endTime = '2026-11-18 15:30:00';
+  const out = spl.generate(cfg);
+  assert.ok(out.includes('\nearliest="11/18/2026:15:28:25" latest="11/18/2026:15:30:01"\n'));
+  assert.ok(out.includes('\n| where _time>=strptime("2026-11-18 15:28:25.554","%Y-%m-%d %H:%M:%S.%3N") AND _time<=strptime("2026-11-18 15:30:00.000","%Y-%m-%d %H:%M:%S.%3N")\n| eval LayerName='));
+  assert.deepStrictEqual(spl.validate(cfg), []);
+  cfg.endTime = '';
+  assert.ok(spl.generate(cfg).includes('\nearliest="11/18/2026:15:28:25"\n| where _time>=strptime("2026-11-18 15:28:25.554"'));
+  cfg.endTime = '2026-11-18 15:00:00.000';
+  assert.ok(spl.validate(cfg).some((w) => /after End time/.test(w)));
+  cfg.startTime = '2026-02-30 10:00:00';
+  assert.ok(spl.validate(cfg).some((w) => /Start time .* is not a time/.test(w)));
+});

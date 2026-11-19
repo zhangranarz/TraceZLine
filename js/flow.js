@@ -145,6 +145,7 @@
     const lineRex = (startsWith) => rx(query.split('\n').find((l) => l.startsWith(startsWith)).match(/"(.*)"$/)[1]);
     const sourceExpr = parseSearch(query.slice(0, query.indexOf('\n)\n') + 2));
     const termExpr = terms.length ? parseSearch(terms.map(spl.quoteTerm).join(' OR ')) : { and: [] };
+    const range = spl.timeRange(cfg);
     const layers = cfg.layers.filter((l) => l.name.trim());
     const dirWordRe = cfg.dirWordRex.trim() ? rx(cfg.dirWordRex) : null;
     const URL_RE = lineRex('| rex field=_raw "\\bURL');
@@ -157,6 +158,10 @@
       if (rec) trace.push(rec);
       if (!matches(sourceExpr, ev)) { if (rec) rec.reason = 'Excluded: source filter (source="…" and its filter terms)'; continue; }
       if (!matches(termExpr, ev)) { if (rec) rec.reason = 'Excluded: no Search term in the event'; continue; }
+      if (range && ((range.from != null && ev.time < range.from) || (range.to != null && ev.time > range.to))) {
+        if (rec) rec.reason = 'Excluded: outside Start time / End time';
+        continue;
+      }
       const r = ev.raw;
       const L = layers.find((l) => evalCond(l.match, ev));
       ev.LayerName = L ? L.name : null;

@@ -197,3 +197,16 @@ test('diagram options: notes and elapsed times can be left out', () => {
   const puml = flow.toPlantUml(bySession(S3), spl.DEFAULT_CONFIG, { notes: false, elapsed: false });
   assert.doesNotMatch(puml, /note over|ms\)/);
 });
+
+test('Start time / End time keep only the events in the window', () => {
+  const cfg = spl.clone(spl.DEFAULT_CONFIG);
+  const logs = files.map((f) => ({ name: path.basename(f), text: fs.readFileSync(f, 'utf8') }));
+  cfg.startTime = '2026-10-26 09:30:03.000';
+  cfg.endTime = '2026-10-26 09:30:03.110';
+  const trace = [];
+  const kept = flow.run(cfg, logs, [], trace);
+  assert.ok(kept.length > 0 && kept.length < rows.length);
+  assert.ok(kept.every((r) => r.EventTime >= '2026-10-26 09:30:03.000' && r.EventTime <= '2026-10-26 09:30:03.110'));
+  assert.ok(kept.some((r) => r.EventTime === '2026-10-26 09:30:03.110'), 'End time is included');
+  assert.ok(trace.some((t) => t.reason === 'Excluded: outside Start time / End time'));
+});

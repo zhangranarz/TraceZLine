@@ -24,7 +24,7 @@ sequence diagrams, and the processing rules it observes. Nothing is uploaded.
 
 | Tab | What it does |
 |---|---|
-| **Splunk** | Generates the SPL query from editable sources, session IDs, layers and rex rules; copy or download it |
+| **Splunk** | Generates the SPL query from editable sources, session IDs, an optional Start/End time, layers and rex rules; copy or download it |
 | **Load File** | Runs the query logic over your raw logs (**Local File**) or a Splunk `.xlsx`/`.csv` export (**Upload**) |
 | **Mock Test** | The same views over bundled fake logs |
 | **Compare** | Maps each line of a Splunk result to its raw log event by timestamp, with the JSON/XML payload as a Parameter / Value table and a data-quality report |
