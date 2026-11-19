@@ -106,6 +106,12 @@
       ['/var/log/pods/spl-banking-*log', '("[SPLMessage]" OR "[SPLHostMessage]")'],
       ['/var/log/pods/spl-ms-*log', '("*WSAppLog*" ("request:" OR "RESPONSE from" OR "Response:")) OR ("<EAI>" "<SvcCode>" ("Request Message" OR "Response Message"))'],
     ];
+    // sidEcomm saved before it also read "sessionId" / "sessionIdentity" in eComm events.
+    out.sessionRules.forEach((r) => {
+      if (r && r.field === 'sidEcomm' && r.rex === String.raw`(?i)\[SPLMessage\]\s*\[?(?<sidEcomm>[0-9a-fA-F-]{36})`) {
+        r.rex = DEFAULT_CONFIG.sessionRules.find((d) => d.field === 'sidEcomm').rex;
+      }
+    });
     // Host condition saved before it was <EAI> AND <SvcCode>.
     out.layers.forEach((l) => {
       if (l && l.name === 'Host' && l.match === String.raw`match(_raw,"<SvcCode>") AND match(_raw,"(?i)(request|response) message")`) {

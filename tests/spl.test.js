@@ -156,6 +156,10 @@ test('sessionId rules extract a dashed UUID from each layer format', () => {
   const [ecomm, ent, wls, any] = spl.DEFAULT_CONFIG.sessionRules.map((r) => toJs(r.rex));
   assert.strictEqual(`INFO [SPLMessage][${uuid}][][VN]`.match(ecomm).groups.sidEcomm, uuid);
   assert.strictEqual(`INFO [SPLMessage]${uuid}|[VN]`.match(ecomm).groups.sidEcomm, uuid);
+  // no id in the header: "sessionId" or "sessionIdentity" in the same eComm event
+  assert.strictEqual(`INFO [SPLMessage][][u] -/x - Request -\n{"meta":{"sessionId":"${uuid}"}}`.match(ecomm).groups.sidEcomm, uuid);
+  assert.strictEqual(`INFO [SPLMessage][][u] -/x -\n{"requesterContext":{"sessionIdentity": "${uuid}"}}`.match(ecomm).groups.sidEcomm, uuid);
+  assert.strictEqual(`INFO [SPLHostMessage][x] {"sessionId":"${uuid}"}`.match(ecomm), null, 'not in other layers');
   assert.strictEqual(`INFO [SPLHostMessage][${uuid}][<<USER_ID>>]`.match(ent).groups.sidEnterprise, uuid);
   assert.strictEqual(`| CIF:<<CIF_NUM>> | WLS:${uuid} | WS`.match(wls).groups.sidWls, uuid);
   assert.strictEqual(`id=${uuid};`.match(any).groups.sidAny, uuid);
@@ -230,7 +234,7 @@ test('renameMarker: a marker renamed in a source filter is renamed in the layer 
   const changed = spl.renameMarker(cfg, '"[SPLMessage]"', '"[MightyMesage]"');
   assert.deepStrictEqual(changed, ['Layer eComm', 'Session rule sidEcomm']);
   assert.strictEqual(cfg.layers[0].match, String.raw`match(_raw,"\[MightyMesage\]")`);
-  assert.ok(cfg.sessionRules[0].rex.startsWith(String.raw`(?i)\[MightyMesage\]\s*`), cfg.sessionRules[0].rex);
+  assert.ok(cfg.sessionRules[0].rex.startsWith(String.raw`(?i)\[MightyMesage\](?:\s*`), cfg.sessionRules[0].rex);
   assert.strictEqual(cfg.layers[1].match, String.raw`match(_raw,"\[SPLHostMessage\]")`, 'other markers untouched');
   assert.deepStrictEqual(spl.renameMarker(cfg, '"[SPLHostMessage]"', '"[MightyHostMessage]"'), ['Layer Enterprise', 'Session rule sidEnterprise']);
   assert.strictEqual(cfg.layers[1].match, String.raw`match(_raw,"\[MightyHostMessage\]")`);
