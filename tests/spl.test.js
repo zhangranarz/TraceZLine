@@ -161,6 +161,9 @@ test('session rules: five forms, sessionId is the first one found, else NA', () 
   assert.deepStrictEqual(spl.DEFAULT_CONFIG.sessionRules.map((r) => r.field), ['sidSessionId', 'sidSessionIdentity', 'sidEcomm', 'sidEnterprise', 'sidWls']);
   const [sessionId, sessionIdentity, ecomm, ent, wls] = spl.DEFAULT_CONFIG.sessionRules.map((r) => toJs(r.rex));
   assert.strictEqual(`{"meta":{"sessionId":"${uuid}"}}`.match(sessionId).groups.sidSessionId, uuid);
+  // any value up to the closing quote, not only a UUID; an empty value is not a session
+  assert.strictEqual('{"meta":{"sessionId": "ABC-123_x"}}'.match(sessionId).groups.sidSessionId, 'ABC-123_x');
+  assert.strictEqual('{"sessionId":""}'.match(sessionId), null);
   assert.strictEqual(`{"requesterContext":{"sessionIdentity": "${uuid}"}}`.match(sessionIdentity).groups.sidSessionIdentity, uuid);
   assert.strictEqual(`{"sessionIdentity":"${uuid}"}`.match(sessionId), null, 'sessionId is not sessionIdentity');
   assert.strictEqual(`INFO [SPLMessage][${uuid}][][VN]`.match(ecomm).groups.sidEcomm, uuid);
