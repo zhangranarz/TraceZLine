@@ -172,7 +172,9 @@ test('session rules: five forms, sessionId is the first one found, else NA', () 
   // ID and the rest of the header up to the payload; a header with no quote after it gives nothing.
   assert.strictEqual(`INFO [SPLMessage][${uuid}][U] -/x - Request -\n{"a":1}`.match(ecomm).groups.sidEcomm, `${uuid}][U] -/x - Request -\n{`);
   assert.strictEqual(`INFO [SPLMessage][${uuid}][][VN]`.match(ecomm), null);
-  assert.strictEqual(`INFO [SPLHostMessage] [${uuid}]|[<<USER_ID>>]`.match(ent).groups.sidEnterprise, uuid);
+  // sidEnterprise: the same rule as sidEcomm, after "[SPLHostMessage] [" up to the next quote
+  assert.strictEqual(`INFO [SPLHostMessage] [${uuid}]|[u] - /x - [Request]: {"a":1}`.match(ent).groups.sidEnterprise, `${uuid}]|[u] - /x - [Request]: {`);
+  assert.strictEqual(`INFO [SPLHostMessage] [${uuid}]|[<<USER_ID>>]`.match(ent), null);
   assert.strictEqual(`| CIF:<<CIF_NUM>> | WLS:${uuid} | WS`.match(wls).groups.sidWls, uuid);
   assert.match(spl.generate(spl.DEFAULT_CONFIG), /\n\| eval sessionId=coalesce\(sidSessionId, sidSessionIdentity, sidEcomm, sidEnterprise, sidWls, "NA"\)\n/);
 });
