@@ -172,9 +172,9 @@ test('session rules: five forms, sessionId is the first one found, else NA', () 
   assert.strictEqual(`INFO [SPLMessage][${uuid}][U] -/x - Request -\n{"a":1}`.match(ecomm).groups.sidEcomm, uuid);
   assert.strictEqual('INFO [SPLMessage][S-0042][U][VN]'.match(ecomm).groups.sidEcomm, 'S-0042');
   assert.strictEqual('INFO [SPLMessage][][U] {"a":1}'.match(ecomm), null, 'empty brackets: no session');
-  // sidEnterprise: the same rule as sidEcomm, after "[SPLHostMessage] [" up to the next quote
-  assert.strictEqual(`INFO [SPLHostMessage] [${uuid}]|[u] - /x - [Request]: {"a":1}`.match(ent).groups.sidEnterprise, `${uuid}]|[u] - /x - [Request]: {`);
-  assert.strictEqual(`INFO [SPLHostMessage] [${uuid}]|[<<USER_ID>>]`.match(ent), null);
+  // sidEnterprise: the value in the brackets right after [SPLHostMessage] (no space allowed between)
+  assert.strictEqual(`INFO [SPLHostMessage][${uuid}]|[u] - /x - [Request]: {"a":1}`.match(ent).groups.sidEnterprise, uuid);
+  assert.strictEqual(`INFO [SPLHostMessage] [${uuid}]|[<<USER_ID>>]`.match(ent), null, 'a space before [ is not read');
   assert.strictEqual(`| CIF:<<CIF_NUM>> | WLS:${uuid} | WS`.match(wls).groups.sidWls, uuid);
   assert.match(spl.generate(spl.DEFAULT_CONFIG), /\n\| eval sessionId=coalesce\(sidSessionId, sidSessionIdentity, sidEcomm, sidEnterprise, sidWls, "NA"\)\n/);
 });
@@ -276,7 +276,7 @@ test('renameMarker: a marker renamed in a source filter is renamed in the layer 
   assert.strictEqual(cfg.layers[1].match, String.raw`match(_raw,"\[SPLHostMessage\]")`, 'other markers untouched');
   assert.deepStrictEqual(spl.renameMarker(cfg, '"[SPLHostMessage]"', '"[MightyHostMessage]"'), ['Layer Enterprise', 'Session rule sidEnterprise']);
   assert.strictEqual(cfg.layers[1].match, String.raw`match(_raw,"\[MightyHostMessage\]")`);
-  assert.ok(sid('sidEnterprise').startsWith(String.raw`(?i)\[MightyHostMessage\]\s*`), sid('sidEnterprise'));
+  assert.ok(sid('sidEnterprise').startsWith(String.raw`(?i)\[MightyHostMessage\]\[`), sid('sidEnterprise'));
   // wildcards are not copied into the regex
   assert.deepStrictEqual(spl.renameMarker(cfg, '"*WSAppLog*" ("request:")', '"*OPIAppLog*" ("request:")'), ['Layer WS']);
   assert.strictEqual(cfg.layers.find((l) => l.name === 'WS').match, 'match(_raw,"OPIAppLog")');
