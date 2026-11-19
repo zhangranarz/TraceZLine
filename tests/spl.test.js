@@ -224,3 +224,18 @@ test('transactionRef / transactionCode read the JSON keys, not a longer key that
   assert.strictEqual('{"originalTransactionReferenceNumber":"111"}'.match(ref), null);
   assert.strictEqual('{"oldTransactionCode":"X"}'.match(code), null);
 });
+
+test('renameMarker: a marker renamed in a source filter is renamed in the layer logic', () => {
+  const cfg = spl.clone(spl.DEFAULT_CONFIG);
+  const changed = spl.renameMarker(cfg, '"[SPLMessage]"', '"[MightyMesage]"');
+  assert.deepStrictEqual(changed, ['Layer eComm', 'Session rule sidEcomm']);
+  assert.strictEqual(cfg.layers[0].match, String.raw`match(_raw,"\[MightyMesage\]")`);
+  assert.ok(cfg.sessionRules[0].rex.startsWith(String.raw`(?i)\[MightyMesage\]\s*`), cfg.sessionRules[0].rex);
+  assert.strictEqual(cfg.layers[1].match, String.raw`match(_raw,"\[SPLHostMessage\]")`, 'other markers untouched');
+  // wildcards are not copied into the regex
+  assert.deepStrictEqual(spl.renameMarker(cfg, '"*WSAppLog*" ("request:")', '"*OPIAppLog*" ("request:")'), ['Layer WS']);
+  assert.strictEqual(cfg.layers.find((l) => l.name === 'WS').match, 'match(_raw,"OPIAppLog")');
+  // nothing when several terms change, or none
+  assert.deepStrictEqual(spl.renameMarker(cfg, '"A" "B"', '"C" "D"'), []);
+  assert.deepStrictEqual(spl.renameMarker(cfg, '"A"', '"A" OR "B"'), []);
+});

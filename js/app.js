@@ -157,6 +157,20 @@
           if (name === 'layers' && f.key === 'name') refreshDatalists();
           update();
         });
+        // A marker renamed in a source filter is renamed in the layer logic too, once the
+        // edit is done (not per keystroke, so half-typed text is not copied around).
+        if (name === 'sources' && f.key === 'filter') {
+          let before = input.value;
+          input.addEventListener('focus', () => { before = input.value; });
+          input.addEventListener('change', () => {
+            const changed = window.TraceSpl.renameMarker(state, before, input.value);
+            before = input.value;
+            if (!changed.length) return;
+            ['layers', 'sessionRules', 'endpointRules', 'directions'].forEach(renderList);
+            update();
+            toast('Also updated: ' + changed.join(', '));
+          });
+        }
         row.append(el('label', { class: 'field size-' + (f.size || 'm') }, [el('span', {}, [f.label]), input]));
       });
 

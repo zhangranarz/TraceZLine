@@ -254,5 +254,36 @@ __INDENT__
     return warnings;
   }
 
-  return { DEFAULT_CONFIG, clone, generate, validate, parseTerms, quoteTerm };
+  // A source filter edited from oldFilter to newFilter: when exactly one quoted term changed
+  // ("[SPLMessage]" -> "[MightyMesage]"), the same marker is renamed where the layer logic
+  // uses it: layer conditions, session, endpoint and direction rules. * wildcards are left
+  // out ("*WSAppLog*" is WSAppLog in match(_raw,"WSAppLog")); regex forms are matched escaped
+  // (\[SPLMessage\]). Changes cfg; returns what changed, e.g. ['Layer eComm', 'Session rule sidEcomm'].
+  function renameMarker(cfg, oldFilter, newFilter) {
+    const terms = (f) => [...new Set([...String(f ?? '').matchAll(/"((?:\\.|[^"\\])*)"/g)].map((m) => m[1]))];
+    const before = terms(oldFilter);
+    const after = terms(newFilter);
+    const removed = before.filter((t) => !after.includes(t));
+    const added = after.filter((t) => !before.includes(t));
+    if (removed.length !== 1 || added.length !== 1) return [];
+    const core = (t) => t.replace(/^\*+|\*+$/g, '');
+    const from = core(removed[0]);
+    const to = core(added[0]);
+    if (!from || !to || from === to) return [];
+    const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const rename = (s) => s.split(esc(from)).join(esc(to)).split(from).join(to);
+    const changed = [];
+    const fix = (list, key, label) => list.forEach((item) => {
+      if (typeof item[key] !== 'string') return;
+      const next = rename(item[key]);
+      if (next !== item[key]) { item[key] = next; changed.push(label(item)); }
+    });
+    fix(cfg.layers, 'match', (l) => `Layer ${l.name}`);
+    fix(cfg.sessionRules, 'rex', (r) => `Session rule ${r.field}`);
+    fix(cfg.endpointRules, 'rex', (r) => `Endpoint rule ${r.field}`);
+    fix(cfg.directions, 'pattern', (d) => `Direction rule ${d.layer}`);
+    return changed;
+  }
+
+  return { DEFAULT_CONFIG, clone, generate, validate, parseTerms, quoteTerm, renameMarker };
 });
