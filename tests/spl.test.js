@@ -146,34 +146,22 @@ test('validate flags an unnamed rex group and unknown layers', () => {
   assert.ok(w.some((m) => m.includes('"OPI"')));
 });
 
-test('sessionId rules extract a dashed UUID from each layer format', () => {
+test('session rules: five forms, sessionId is the first one found, else NA', () => {
   const uuid = 'dddddddd-0000-4000-8000-000000000004';
   // SPL rex strings use \" for a literal quote; a leading (?i) becomes the JS i flag.
   const toJs = (rex) => {
     const src = rex.replace(/\\"/g, '"');
     return src.startsWith('(?i)') ? new RegExp(src.slice(4), 'i') : new RegExp(src);
   };
-  const [ecomm, ent, wls, any] = spl.DEFAULT_CONFIG.sessionRules.map((r) => toJs(r.rex));
+  assert.deepStrictEqual(spl.DEFAULT_CONFIG.sessionRules.map((r) => r.field), ['sidSessionId', 'sidSessionIdentity', 'sidEcomm', 'sidEnterprise', 'sidWls']);
+  const [sessionId, sessionIdentity, ecomm, ent, wls] = spl.DEFAULT_CONFIG.sessionRules.map((r) => toJs(r.rex));
+  assert.strictEqual(`{"meta":{"sessionId":"${uuid}"}}`.match(sessionId).groups.sidSessionId, uuid);
+  assert.strictEqual(`{"requesterContext":{"sessionIdentity": "${uuid}"}}`.match(sessionIdentity).groups.sidSessionIdentity, uuid);
+  assert.strictEqual(`{"sessionIdentity":"${uuid}"}`.match(sessionId), null, 'sessionId is not sessionIdentity');
   assert.strictEqual(`INFO [SPLMessage][${uuid}][][VN]`.match(ecomm).groups.sidEcomm, uuid);
-  assert.strictEqual(`INFO [SPLMessage]${uuid}|[VN]`.match(ecomm).groups.sidEcomm, uuid);
-  // no id in the header: "sessionId" or "sessionIdentity" in the same eComm event
-  assert.strictEqual(`INFO [SPLMessage][][u] -/x - Request -\n{"meta":{"sessionId":"${uuid}"}}`.match(ecomm).groups.sidEcomm, uuid);
-  assert.strictEqual(`INFO [SPLMessage][][u] -/x -\n{"requesterContext":{"sessionIdentity": "${uuid}"}}`.match(ecomm).groups.sidEcomm, uuid);
-  assert.strictEqual(`INFO [SPLHostMessage][x] {"sessionId":"${uuid}"}`.match(ecomm), null, 'not in other layers');
-  assert.strictEqual(`INFO [SPLHostMessage][${uuid}][<<USER_ID>>]`.match(ent).groups.sidEnterprise, uuid);
   assert.strictEqual(`INFO [SPLHostMessage] [${uuid}]|[<<USER_ID>>]`.match(ent).groups.sidEnterprise, uuid);
-  assert.strictEqual(`INFO [SPLHostMessage][][u] - /enq/x - [Request]:\n{"meta":{"sessionId":"${uuid}"}}`.match(ent).groups.sidEnterprise, uuid);
-  assert.strictEqual(`INFO [SPLHostMessage][][u] - /enq/x - [Response]: {"sessionIdentity": "${uuid}"}`.match(ent).groups.sidEnterprise, uuid);
-  assert.strictEqual(`INFO [SPLMessage][x] {"sessionId":"${uuid}"}`.match(ent), null, 'not in other layers');
   assert.strictEqual(`| CIF:<<CIF_NUM>> | WLS:${uuid} | WS`.match(wls).groups.sidWls, uuid);
-  // without WLS: "sessionId" or "sessionIdentity" in the WSAppLog event; WLS: wins when both are there
-  const other = 'eeeeeeee-0000-4000-8000-000000000005';
-  assert.strictEqual(`[ENQWSAppLog] x | URL is /a request:\n{"meta":{"sessionId":"${uuid}"}}`.match(wls).groups.sidWls, uuid);
-  assert.strictEqual(`[ENQWSAppLog] x | Response: {"requesterContext":{"sessionIdentity": "${uuid}"}}`.match(wls).groups.sidWls, uuid);
-  assert.strictEqual(`[ENQWSAppLog] x | WLS:${uuid} | URL:/a |\nResponse:{"sessionIdentity":"${other}"}`.match(wls).groups.sidWls, uuid);
-  assert.strictEqual(`[SPLMessage][] {"sessionId":"${uuid}"}`.match(wls), null, 'not in other layers');
-  assert.strictEqual(`id=${uuid};`.match(any).groups.sidAny, uuid);
-  assert.strictEqual('id=--------------------------------------;'.match(any), null);
+  assert.match(spl.generate(spl.DEFAULT_CONFIG), /\n\| eval sessionId=coalesce\(sidSessionId, sidSessionIdentity, sidEcomm, sidEnterprise, sidWls, "NA"\)\n/);
 });
 
 test('Flow format: per-layer indent and [?]/[!] direction markers', () => {
@@ -271,13 +259,14 @@ test('renameMarker: a marker renamed in a source filter is renamed in the layer 
   const changed = spl.renameMarker(cfg, '"[SPLMessage]"', '"[MightyMesage]"');
   assert.deepStrictEqual(changed, ['Layer eComm', 'Session rule sidEcomm', 'Endpoint rule eCommEndpoint']);
   assert.strictEqual(cfg.layers[0].match, String.raw`match(_raw,"\[MightyMesage\]")`);
-  assert.ok(cfg.sessionRules[0].rex.startsWith(String.raw`(?i)\[MightyMesage\](?:\s*`), cfg.sessionRules[0].rex);
+  const sid = (field) => cfg.sessionRules.find((r) => r.field === field).rex;
+  assert.ok(sid('sidEcomm').startsWith(String.raw`(?i)\[MightyMesage\]\s*`), sid('sidEcomm'));
   assert.strictEqual(cfg.layers[1].match, String.raw`match(_raw,"\[SPLHostMessage\]")`, 'other markers untouched');
   assert.deepStrictEqual(spl.renameMarker(cfg, '"[SPLHostMessage]"', '"[MightyHostMessage]"'), ['Layer Enterprise', 'Session rule sidEnterprise', 'Endpoint rule EnterpriseEndpoint']);
   assert.strictEqual(cfg.layers[1].match, String.raw`match(_raw,"\[MightyHostMessage\]")`);
-  assert.ok(cfg.sessionRules[1].rex.startsWith(String.raw`(?i)\[MightyHostMessage\](?:\s*`), cfg.sessionRules[1].rex);
+  assert.ok(sid('sidEnterprise').startsWith(String.raw`(?i)\[MightyHostMessage\]\s*`), sid('sidEnterprise'));
   // wildcards are not copied into the regex
-  assert.deepStrictEqual(spl.renameMarker(cfg, '"*WSAppLog*" ("request:")', '"*OPIAppLog*" ("request:")'), ['Layer WS', 'Session rule sidWls']);
+  assert.deepStrictEqual(spl.renameMarker(cfg, '"*WSAppLog*" ("request:")', '"*OPIAppLog*" ("request:")'), ['Layer WS']);
   assert.strictEqual(cfg.layers.find((l) => l.name === 'WS').match, 'match(_raw,"OPIAppLog")');
   // nothing when several terms change, or none
   assert.deepStrictEqual(spl.renameMarker(cfg, '"A" "B"', '"C" "D"'), []);

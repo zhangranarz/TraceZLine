@@ -106,17 +106,14 @@
       ['/var/log/pods/spl-banking-*log', '("[SPLMessage]" OR "[SPLHostMessage]")'],
       ['/var/log/pods/spl-ms-*log', '("*WSAppLog*" ("request:" OR "RESPONSE from" OR "Response:")) OR ("<EAI>" "<SvcCode>" ("Request Message" OR "Response Message"))'],
     ];
-    // sidEcomm / sidEnterprise / sidWls saved before they also read "sessionId" / "sessionIdentity".
-    const OLD_SID = {
-      sidEcomm: String.raw`(?i)\[SPLMessage\]\s*\[?(?<sidEcomm>[0-9a-fA-F-]{36})`,
-      sidEnterprise: String.raw`(?i)\[SPLHostMessage\]\s*\[?(?<sidEnterprise>[0-9a-fA-F-]{36})`,
-      sidWls: String.raw`(?i)\bWLS:\s*(?<sidWls>[0-9a-fA-F-]{36})`,
-    };
-    out.sessionRules.forEach((r) => {
-      if (r && OLD_SID[r.field] && r.rex === OLD_SID[r.field]) {
-        r.rex = DEFAULT_CONFIG.sessionRules.find((d) => d.field === r.field).rex;
-      }
-    });
+    // Session rules saved as one of the earlier default sets: the five rules now (sessionId,
+    // sessionIdentity, [SPLMessage], [SPLHostMessage], WLS:). Edited rule sets are kept.
+    const OLD_SID_SETS = [
+      [['sidEcomm', String.raw`(?i)\[SPLMessage\]\s*\[?(?<sidEcomm>[0-9a-fA-F-]{36})`], ['sidEnterprise', String.raw`(?i)\[SPLHostMessage\]\s*\[?(?<sidEnterprise>[0-9a-fA-F-]{36})`], ['sidWls', String.raw`(?i)\bWLS:\s*(?<sidWls>[0-9a-fA-F-]{36})`], ['sidAny', String.raw`(?<sidAny>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})`]],
+      [['sidEcomm', String.raw`(?i)\[SPLMessage\](?:\s*\[?|[\s\S]*?\"session(?:Id|Identity)\"\s*:\s*\")(?<sidEcomm>[0-9a-fA-F-]{36})`], ['sidEnterprise', String.raw`(?i)\[SPLHostMessage\](?:\s*\[?|[\s\S]*?\"session(?:Id|Identity)\"\s*:\s*\")(?<sidEnterprise>[0-9a-fA-F-]{36})`], ['sidWls', String.raw`(?i)(?:\bWLS:\s*|WSAppLog(?![\s\S]*\bWLS:)[\s\S]*?\"session(?:Id|Identity)\"\s*:\s*\")(?<sidWls>[0-9a-fA-F-]{36})`], ['sidAny', String.raw`(?<sidAny>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})`]],
+    ];
+    const sidKey = (rules) => JSON.stringify(rules.map((r) => [r && r.field, r && r.rex]));
+    if (OLD_SID_SETS.some((set) => JSON.stringify(set) === sidKey(out.sessionRules))) out.sessionRules = clone(DEFAULT_CONFIG.sessionRules);
     // Endpoint rules saved before they were the eComm and Enterprise rules, and before they were
     // named eCommEndpoint / EnterpriseEndpoint: field -> [its earlier default rex] and the field now.
     const OLD_EP = {
@@ -458,7 +455,7 @@
       renderDebugTable(trace);
     }
     const sessions = window.TraceFlow.summarize(flowRows);
-    const noSid = flowRows.filter((r) => r.sessionId == null).length;
+    const noSid = flowRows.filter((r) => r.sessionId == null || r.sessionId === 'NA').length;
     setCount(`${flowRows.length} rows`);
     if (imported) {
       status.textContent = `${imported.name}: imported Splunk result, ${flowRows.length} rows, ${sessions.length} sessions`
@@ -515,7 +512,7 @@
     }
     const all = window.TraceFlow.summarize(window.TraceFlow.run(state, logs, []));
     if (!all.length) return;
-    showTermsProblem(all.map((s) => s.sessionId), show);
+    showTermsProblem(all.map((s) => s.sessionId).filter((id) => id !== 'NA'), show);
   }
 
   // Search terms match none of the sessions found: list them, with one-click fixes.

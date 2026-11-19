@@ -49,15 +49,14 @@
       // Enterprise: before "- [Request]" / "- [Response]".
       { field: 'EnterpriseEndpoint', rex: String.raw`(?i)\[SPLHostMessage\][\s\S]*?\]\s*(?:-\s*)?(?<EnterpriseEndpoint>(?:/[^\s\[\]/]+)+|[^\s\[\]/-][^\s\[\]/]*(?:/[^\s\[\]/]+)+)\s*-\s*\[(?:Request|Response)\]` },
     ],
+    // sessionId = the first of these that is found, else "NA". The marker in sidEcomm and
+    // sidEnterprise follows the source filter (renaming a marker there renames it here).
     sessionRules: [
-      // eComm: [SPLMessage][id], else "sessionId":"id" or "sessionIdentity":"id" in the same
-      // eComm event (tied to the marker, so other layers' payloads do not set sidEcomm)
-      { field: 'sidEcomm', rex: String.raw`(?i)\[SPLMessage\](?:\s*\[?|[\s\S]*?\"session(?:Id|Identity)\"\s*:\s*\")(?<sidEcomm>[0-9a-fA-F-]{36})` },
-      // Enterprise: the same three forms, tied to the [SPLHostMessage] marker
-      { field: 'sidEnterprise', rex: String.raw`(?i)\[SPLHostMessage\](?:\s*\[?|[\s\S]*?\"session(?:Id|Identity)\"\s*:\s*\")(?<sidEnterprise>[0-9a-fA-F-]{36})` },
-      // WS: WLS:id; without WLS:, "sessionId":"id" or "sessionIdentity":"id" in the WSAppLog event
-      { field: 'sidWls', rex: String.raw`(?i)(?:\bWLS:\s*|WSAppLog(?![\s\S]*\bWLS:)[\s\S]*?\"session(?:Id|Identity)\"\s*:\s*\")(?<sidWls>[0-9a-fA-F-]{36})` },
-      { field: 'sidAny', rex: String.raw`(?<sidAny>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})` },
+      { field: 'sidSessionId', rex: String.raw`\"sessionId\"\s*:\s*\"(?<sidSessionId>[0-9a-fA-F-]{36})` },
+      { field: 'sidSessionIdentity', rex: String.raw`\"sessionIdentity\"\s*:\s*\"(?<sidSessionIdentity>[0-9a-fA-F-]{36})` },
+      { field: 'sidEcomm', rex: String.raw`(?i)\[SPLMessage\]\s*\[?(?<sidEcomm>[0-9a-fA-F-]{36})` },
+      { field: 'sidEnterprise', rex: String.raw`(?i)\[SPLHostMessage\]\s*\[?(?<sidEnterprise>[0-9a-fA-F-]{36})` },
+      { field: 'sidWls', rex: String.raw`(?i)\bWLS:\s*(?<sidWls>[0-9a-fA-F-]{36})` },
     ],
     params: [
       { field: 'transactionRef', label: 'TxnRefNo', rex: String.raw`(?i)\btransactionRef(?:erenceNumber)?\"?\s*[:=]\s*\"?(?<transactionRef>[^\",]+)` },
@@ -219,7 +218,7 @@ __INDENT__
 
     const sids = cfg.sessionRules.filter((r) => r.field.trim());
     sids.filter((r) => r.rex.trim()).forEach((r) => out.push(`| rex field=_raw "${r.rex.trim()}"`));
-    out.push('| eval sessionId=coalesce(' + sids.map((r) => r.field.trim()).join(', ') + ')');
+    out.push('| eval sessionId=coalesce(' + sids.map((r) => r.field.trim()).concat('"NA"').join(', ') + ')');
 
     // Indent is per layer name: layers can share a number (Enterprise and WS are both 2).
     const indentLine = '| eval Indent=case('

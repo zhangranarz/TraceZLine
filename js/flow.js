@@ -180,14 +180,14 @@
       for (const ep of cfg.endpointRules) if (ep.rex.trim()) Object.assign(ev, extract(rx(ep.rex), r));
       ev.Endpoint = cfg.endpointRules.map((ep) => ev[ep.field]).find((v) => v != null);
       for (const sr of cfg.sessionRules) if (sr.rex.trim()) Object.assign(ev, extract(rx(sr.rex), r));
-      ev.sessionId = cfg.sessionRules.map((sr) => ev[sr.field]).find((v) => v != null);
+      ev.sessionId = cfg.sessionRules.map((sr) => ev[sr.field]).find((v) => v != null) ?? 'NA';
       Object.assign(ev, extract(DGE_RE, r), extract(URL_RE, r));
       ev.SvcCode = [...r.matchAll(SVC_RE)].map((m) => m[1]);
       for (const p of cfg.params) if (p.rex.trim()) Object.assign(ev, extract(rx(p.rex), r));
       if (!(ev.LayerName !== 'Host' || ev.SvcCode.length >= 1)) { if (rec) rec.reason = 'Excluded: Host event without <SvcCode> (where clause)'; continue; }
       if (rec) {
         rec.kept = true;
-        rec.warn = [!ev.LayerName && 'no layer matched', !ev.Direction && 'no direction', ev.sessionId == null && 'no sessionId']
+        rec.warn = [!ev.LayerName && 'no layer matched', !ev.Direction && 'no direction', ev.sessionId === 'NA' && 'no sessionId (NA)']
           .filter(Boolean).join(', ');
       }
       // SPL string comparison is case-sensitive: "response" is not "Response".

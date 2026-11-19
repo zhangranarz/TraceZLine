@@ -226,3 +226,9 @@ test('WSEndpoint: URL and service endpoint, NA when missing; pairing still uses 
   assert.strictEqual(rows[1].API, '/dge-enq/a', 'API keeps the previous WS URL for pairing');
   assert.strictEqual(rows[1].ElapsedMs, 200);
 });
+
+test('an event with none of the session forms gets sessionId NA', () => {
+  const log = '2026-10-26 09:30:00.000 [x] INFO\n[SPLMessage][][U][VN][9.14][t][A][][] -/x/y - Request -\n{"meta":{}}\n';
+  const rows = flow.run(spl.DEFAULT_CONFIG, [{ name: 'a.log', text: log, anySource: true }], []);
+  assert.deepStrictEqual(rows.map((r) => [r.LayerName, r.sessionId]), [['eComm', 'NA']]);
+});
