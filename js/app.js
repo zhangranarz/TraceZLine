@@ -1544,7 +1544,7 @@
     splunkResult = null;
     splunkBtn('run').disabled = true;
     splunkBtn('csv').disabled = true;
-    splunkBtn('open').disabled = true;
+    document.querySelectorAll('.splunk-view').forEach((b) => { b.disabled = true; });
     splunkEls.csv.hidden = true;
     saveSplunk();
     try {
@@ -1567,7 +1567,16 @@
       splunkEls.csv.textContent = preview.slice(0, 200).join('\n') + (preview.length > 200 ? `\n… ${preview.length - 200} more lines (Download CSV)` : '');
       splunkEls.csv.hidden = false;
       splunkBtn('csv').disabled = false;
-      splunkBtn('open').disabled = table.length < 2;
+      // The results go straight into Load File: Flow, PlantUML, Sequence and Processing Rule.
+      if (table.length > 1) {
+        await loadSplunkResult();
+        const sessions = new Set((imported?.rows || []).map((r) => r.sessionId)).size;
+        lines.push(imported?.rows?.length
+          ? ['ok', `In Load File: ${imported.rows.length.toLocaleString()} flow rows, ${sessions} sessions. Open a view below.`]
+          : ['problem', 'The results have no flow rows (the table needs the Flow or ServiceInfo column); see Load File > Debug.']);
+        show();
+        document.querySelectorAll('.splunk-view').forEach((b) => { b.disabled = !imported?.rows?.length; });
+      }
     } catch (err) {
       lines.push(['problem', err.message]);
       show();
@@ -1581,12 +1590,17 @@
     if (splunkResult) download(`splunk-${splunkResult.sid}.csv`, splunkResult.csv, 'text/csv');
   });
 
-  splunkBtn('open').addEventListener('click', async () => {
-    if (!splunkResult) return;
-    showTab('file');
-    logDebug('info', `Splunk search ${splunkResult.sid}: results opened in Load File`);
+  // Load File and Mock Test keep their own data: the results go to Load File.
+  async function loadSplunkResult() {
+    if (mode !== 'file') switchMode('file');
+    logDebug('info', `Splunk search ${splunkResult.sid}: results loaded into Load File`);
     await importResult({ name: `splunk-${splunkResult.sid}.csv` }, new TextEncoder().encode(splunkResult.csv).buffer);
-  });
+  }
+
+  document.querySelectorAll('.splunk-view').forEach((b) => b.addEventListener('click', () => {
+    showTab('file');
+    showView(b.dataset.view);
+  }));
 
   const TAB_KEY = 'tracezline.tab';
 

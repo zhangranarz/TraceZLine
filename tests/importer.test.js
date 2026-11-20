@@ -99,3 +99,18 @@ test('new ServiceInfo format: "WS [Enterprise]:" is layer WS and its "Endpoint:"
   assert.deepStrictEqual([].concat(rows[0].ServiceInfo), [rows[0].Flow], 'Endpoint line dropped from the WS row');
   assert.deepStrictEqual(rows[1].ServiceInfo.slice(1), ['- [A_X ~ A_Y] [?]']);
 });
+
+test('a Splunk results CSV (multi-line Flow and Params in one cell) gives the same diagrams and rules as the raw logs', async () => {
+  // as /services/search/jobs/<sid>/results?output_mode=csv writes multivalue fields
+  const cell = (v) => `"${String(v).replace(/"/g, '""')}"`;
+  const csv = ['Step,EventTime,sessionId,Flow,Params,ElapsedMs']
+    .concat(fromLogs.map((r) => [r.Step, r.EventTime, r.sessionId, [].concat(r.Flow).join('\n'), r.Params.join('\n'), r.ElapsedMs ?? ''].map(cell).join(',')))
+    .join('\n');
+  const { rows, problems } = imp.toFlowRows(await imp.readTable('splunk-1.csv', new TextEncoder().encode(csv).buffer), spl.DEFAULT_CONFIG);
+  assert.deepStrictEqual(problems, []);
+  assert.strictEqual(rows.length, fromLogs.length);
+  assert.strictEqual(flow.toPlantUml(rows, spl.DEFAULT_CONFIG), flow.toPlantUml(fromLogs, spl.DEFAULT_CONFIG));
+  const rules = require('../js/rules.js');
+  assert.strictEqual(rules.toMarkdown(rules.analyze(flow.sequenceModel(rows, spl.DEFAULT_CONFIG))),
+    rules.toMarkdown(rules.analyze(flow.sequenceModel(fromLogs, spl.DEFAULT_CONFIG))));
+});

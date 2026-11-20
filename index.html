@@ -118,7 +118,13 @@
             <span class="spacer"></span>
             <button type="button" id="btn-splunk-run" class="primary">Login &amp; Run</button>
             <button type="button" id="btn-splunk-csv" disabled title="Save the results as a .csv file">Download CSV</button>
-            <button type="button" id="btn-splunk-open" disabled title="Show the results in Load File (Flow, diagrams, rules)">Open in Load File</button>
+          </div>
+          <div class="row splunk-actions splunk-views">
+            <span class="hint">Results in Load File:</span>
+            <button type="button" class="splunk-view" data-view="table" disabled>Flow</button>
+            <button type="button" class="splunk-view" data-view="diagram" disabled>PlantUML</button>
+            <button type="button" class="splunk-view" data-view="sequence" disabled>Sequence</button>
+            <button type="button" class="splunk-view" data-view="rules" disabled>Processing Rule</button>
           </div>
           <ol id="splunk-status" class="splunk-status"></ol>
           <pre id="splunk-csv" class="splunk-csv" tabindex="0" hidden></pre>
