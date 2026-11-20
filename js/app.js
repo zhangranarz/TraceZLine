@@ -1094,7 +1094,7 @@
 
   // ---------- compare ----------
 
-  // The Compare tab's own inputs; kept in memory only, like the other loaded files.
+  // The API Analysis tab's own inputs; kept in memory only, like the other loaded files.
   const cmp = { excel: null, logs: [] };
   let cmpResult = null;
   const base = (p) => String(p ?? '').split(/[\\/]/).pop();
@@ -1647,7 +1647,7 @@
   renderAll();
   clearFlow();
 
-  // Demo links: #compare opens Compare with the mock pair loaded, #mask Mask with the mock logs.
+  // Demo links: #compare opens API Analysis with the mock pair loaded, #mask Mask with the mock logs.
   // Old #mock links (the Mock Test tab is gone) open Flow Analysis. Otherwise reopen the last tab
   // (the old single Flow tab and the old Mock Test tab map to Flow Analysis).
   let savedTab = 'spl';
