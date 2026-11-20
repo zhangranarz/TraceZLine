@@ -28,8 +28,8 @@
         <p class="note">One per line (or comma separated), e.g. session IDs. Each is quoted and joined with OR. Leave empty to drop the line.</p>
         <textarea id="terms" rows="4" spellcheck="false"></textarea>
         <div class="row">
-          <label class="field size-m"><span>Start time <em>optional</em></span><input type="datetime-local" id="start-time" step="0.001" autocomplete="off"></label>
-          <label class="field size-m"><span>End time <em>optional</em></span><input type="datetime-local" id="end-time" step="0.001" autocomplete="off"></label>
+          <label class="field size-m"><span>Start time <em>optional</em></span><span class="time-box"><input type="text" id="start-time" placeholder="YYYY-MM-DD hh:mm:ss.mmm" spellcheck="false" autocomplete="off" title="Type a time (e.g. 2026-10-26 09:30, 2026/10/26 09:30:15.250 or 10/26/2026:09:30:00) or pick one with the calendar button"><button type="button" class="time-pick" data-for="start-time" title="Pick from a calendar" aria-label="Pick Start time from a calendar">📅</button><input type="datetime-local" class="time-picker" data-for="start-time" step="0.001" tabindex="-1" aria-hidden="true"></span></label>
+          <label class="field size-m"><span>End time <em>optional</em></span><span class="time-box"><input type="text" id="end-time" placeholder="YYYY-MM-DD hh:mm:ss.mmm" spellcheck="false" autocomplete="off" title="Type a time (e.g. 2026-10-26 09:30, 2026/10/26 09:30:15.250 or 10/26/2026:09:30:00) or pick one with the calendar button"><button type="button" class="time-pick" data-for="end-time" title="Pick from a calendar" aria-label="Pick End time from a calendar">📅</button><input type="datetime-local" class="time-picker" data-for="end-time" step="0.001" tabindex="-1" aria-hidden="true"></span></label>
         </div>
         <p class="note">Pick a date and time (calendar and clock), to the millisecond. Only events from Start time to End time (both included). Adds earliest/latest to the search and a | where on _time for the milliseconds. Leave empty for no limit.</p>
       </details>

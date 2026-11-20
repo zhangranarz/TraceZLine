@@ -313,8 +313,9 @@
     document.getElementById('drop-no-direction').checked = state.dropNoDirection;
     document.getElementById('dir-word-rex').value = state.dirWordRex;
     document.getElementById('dir-first').value = state.directionFirst;
-    document.getElementById('start-time').value = toPicker(state.startTime);
-    document.getElementById('end-time').value = toPicker(state.endTime);
+    document.getElementById('start-time').value = state.startTime || '';
+    document.getElementById('end-time').value = state.endTime || '';
+    document.querySelectorAll('.time-box input').forEach((b) => b.classList.remove('invalid'));
     limitTimePickers();
     refreshDatalists();
     update();
@@ -369,36 +370,64 @@
     update();
   });
 
-  // Start / End time use the browser's date-time picker (calendar and clock). Its value is
-  // "2026-11-18T15:28" or "2026-11-18T15:28:25.554"; the settings keep "2026-11-18 15:28:25.554".
-  function fromPicker(v) {
-    const m = String(v || '').match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/);
-    return m ? `${m[1]} ${m[2]}:${m[3] || '00'}.${(m[4] || '0').padEnd(3, '0')}` : '';
-  }
+  // Start / End time are typed into a text box (2026-10-26 09:30, 2026/10/26 09:30:15.250,
+  // 10/26/2026:09:30:00 …) or picked with the calendar button, which opens the browser's
+  // date-time picker. The settings keep "2026-11-18 15:28:25.554".
+  const timeBox = (key) => document.getElementById(key === 'startTime' ? 'start-time' : 'end-time');
+  const timePicker = (id) => document.querySelector(`.time-picker[data-for="${id}"]`);
   function toPicker(v) {
     return window.TraceSpl.parseTime(v) == null ? '' : String(v).trim().replace(' ', 'T');
   }
-  // Start time must be earlier than End time: each picker is limited by the other (the
-  // calendar greys out the rest), and a typed value that breaks the order is undone.
+  // Start time must be earlier than End time: each calendar is limited by the other (it greys
+  // out the rest), and a value that breaks the order is refused.
   function limitTimePickers() {
-    const start = document.getElementById('start-time');
-    const end = document.getElementById('end-time');
-    end.min = start.value || '';
-    start.max = end.value || '';
+    timePicker('end-time').min = toPicker(state.startTime);
+    timePicker('start-time').max = toPicker(state.endTime);
+  }
+  // A typed value counts once it reads as a time (or the box is empty); until then the box is
+  // marked and the query keeps the last good value. Leaving the box tidies the text.
+  function setTime(key, text, fromPicker) {
+    const box = timeBox(key);
+    const next = text.trim() === '' ? '' : window.TraceSpl.normaliseTime(text);
+    if (next == null) {
+      box.classList.add('invalid');
+      box.title = 'Not a time yet: use e.g. 2026-10-26 09:30:00.000';
+      return;
+    }
+    const from = window.TraceSpl.parseTime(key === 'startTime' ? next : state.startTime);
+    const to = window.TraceSpl.parseTime(key === 'endTime' ? next : state.endTime);
+    if (from != null && to != null && from >= to) {
+      box.classList.add('invalid');
+      box.title = 'Start time must be earlier than End time';
+      if (fromPicker) toast('Start time must be earlier than End time');
+      return;
+    }
+    box.classList.remove('invalid');
+    box.title = '';
+    if (fromPicker) box.value = next;
+    if (next === state[key]) return;
+    state[key] = next;
+    limitTimePickers();
+    update();
+    // the other box may have been refused only because of the order: check it again
+    const other = key === 'startTime' ? 'endTime' : 'startTime';
+    if (timeBox(other).classList.contains('invalid')) setTime(other, timeBox(other).value, false);
   }
   [['start-time', 'startTime'], ['end-time', 'endTime']].forEach(([id, key]) => {
-    document.getElementById(id).addEventListener('input', (e) => {
-      const next = fromPicker(e.target.value);
-      const from = window.TraceSpl.parseTime(key === 'startTime' ? next : state.startTime);
-      const to = window.TraceSpl.parseTime(key === 'endTime' ? next : state.endTime);
-      if (from != null && to != null && from >= to) {
-        e.target.value = toPicker(state[key]);
-        toast('Start time must be earlier than End time');
-        return;
-      }
-      state[key] = next;
-      limitTimePickers();
-      update();
+    const box = document.getElementById(id);
+    box.addEventListener('input', () => setTime(key, box.value, false));
+    box.addEventListener('change', () => {
+      if (!box.classList.contains('invalid')) box.value = state[key] || '';
+      else if (box.title.startsWith('Start time')) toast('Start time must be earlier than End time');
+    });
+    const picker = timePicker(id);
+    picker.addEventListener('input', () => {
+      const m = picker.value.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/);
+      if (m) setTime(key, `${m[1]} ${m[2]}:${m[3] || '00'}.${(m[4] || '0').padEnd(3, '0')}`, true);
+    });
+    document.querySelector(`.time-pick[data-for="${id}"]`).addEventListener('click', () => {
+      picker.value = toPicker(state[key]);
+      try { picker.showPicker(); } catch (e) { picker.focus(); picker.click(); }
     });
   });
 

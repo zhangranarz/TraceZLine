@@ -351,3 +351,15 @@ test('log query: the same sources, terms and time window, raw events sorted by t
   assert.ok(logs.endsWith('| sort 0 _time\n| table _time source _raw\n'));
   assert.ok(!logs.includes('LayerName'));
 });
+
+test('typed Start / End times are tidied to YYYY-MM-DD hh:mm:ss.mmm, nonsense is refused', () => {
+  const n = spl.normaliseTime;
+  assert.strictEqual(n('2026-10-26 09:30'), '2026-10-26 09:30:00.000');
+  assert.strictEqual(n(' 2026/10/26 9:30:15.25 '), '2026-10-26 09:30:15.250');
+  assert.strictEqual(n('2026-10-26T09:30:15.123'), '2026-10-26 09:30:15.123');
+  assert.strictEqual(n('2026.1.5'), '2026-01-05 00:00:00.000');
+  assert.strictEqual(n('10/26/2026:09:30:00'), '2026-10-26 09:30:00.000');
+  for (const bad of ['', 'yesterday', '2026-02-30 10:00', '2026-10-26 24:00', '2026-10-26 09:60', '2026-10-26 09:30:61']) {
+    assert.strictEqual(n(bad), null, bad);
+  }
+});

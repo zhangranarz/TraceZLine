@@ -133,6 +133,22 @@ __INDENT__
     const t = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6], +(m[7] || '0').padEnd(3, '0'));
     return new Date(t).getUTCDate() === +m[3] ? t : null; // rejects 2026-02-30
   }
+  // A typed time as "YYYY-MM-DD hh:mm:ss.mmm", or null when it is not a valid time. Accepts
+  // - or / or . between date parts, T or space before the time, missing seconds or
+  // milliseconds, a date alone (midnight), and Splunk's MM/DD/YYYY:hh:mm:ss.
+  function normaliseTime(text) {
+    const s = String(text ?? '').trim();
+    let m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[ T]+(\d{1,2}):(\d{2})(?::(\d{2})(?:[.,](\d{1,3}))?)?)?$/);
+    if (!m) {
+      const u = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[: ](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+      if (u) m = [u[0], u[3], u[1], u[2], u[4], u[5], u[6]];
+    }
+    if (!m) return null;
+    const p = (v, w = 2) => String(v || '0').padStart(w, '0');
+    const out = `${m[1]}-${p(m[2])}-${p(m[3])} ${p(m[4])}:${p(m[5])}:${p(m[6])}.${String(m[7] || '0').padEnd(3, '0')}`;
+    return parseTime(out) == null || +m[4] > 23 || +m[5] > 59 || +m[6] > 59 ? null : out;
+  }
+
   // { from, to } in ms (either may be null), or null when neither is set.
   function timeRange(cfg) {
     const from = parseTime(cfg.startTime);
@@ -403,5 +419,5 @@ __INDENT__
     return changed;
   }
 
-  return { DEFAULT_CONFIG, clone, generate, generateLogs, validate, parseTerms, quoteTerm, renameMarker, parseTime, timeRange, sessionOrders };
+  return { DEFAULT_CONFIG, clone, generate, generateLogs, validate, parseTerms, quoteTerm, renameMarker, parseTime, normaliseTime, timeRange, sessionOrders };
 });
