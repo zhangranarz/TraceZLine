@@ -176,7 +176,8 @@ __INDENT__
     return topOr && !wrapped ? `(${filter})` : filter;
   }
 
-  function generate(cfg) {
+  // The base search both queries share: sources, search terms and the time window.
+  function baseSearch(cfg) {
     const out = [];
 
     const sources = cfg.sources.filter((s) => s.enabled && s.source.trim());
@@ -211,6 +212,17 @@ __INDENT__
       if (range.to != null) conds.push(`_time<=strptime("${exact(range.to)}","%Y-%m-%d %H:%M:%S.%3N")`);
       out.push('| where ' + conds.join(' AND '));
     }
+    return out;
+  }
+
+  // Log query: the raw events of the sources and search terms, oldest first
+  // (sort 0 lifts Splunk's default 10,000-row limit on sort).
+  function generateLogs(cfg) {
+    return [...baseSearch(cfg), '| sort 0 _time', '| table _time source _raw'].join('\n') + '\n';
+  }
+
+  function generate(cfg) {
+    const out = baseSearch(cfg);
 
     const layers = cfg.layers.filter((l) => l.name.trim());
     // One condition per line; events no layer condition matches are dropped. Layer=case() is
@@ -391,5 +403,5 @@ __INDENT__
     return changed;
   }
 
-  return { DEFAULT_CONFIG, clone, generate, validate, parseTerms, quoteTerm, renameMarker, parseTime, timeRange, sessionOrders };
+  return { DEFAULT_CONFIG, clone, generate, generateLogs, validate, parseTerms, quoteTerm, renameMarker, parseTime, timeRange, sessionOrders };
 });

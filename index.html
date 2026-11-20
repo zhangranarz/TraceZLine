@@ -112,6 +112,7 @@
             <label class="field size-s"><span>Password</span><input type="password" id="splunk-pass" autocomplete="current-password"></label>
           </div>
           <div class="row splunk-actions">
+            <label class="field size-s" title="Flow query: the flow table goes into Flow Analysis. Log query: the raw events go into Flow Analysis as log files and the query logic runs on them in this browser."><span>Query</span><select id="splunk-query"><option value="flow">Flow query</option><option value="logs">Log query</option></select></label>
             <label class="field size-s" title="Used when Start time / End time (Search terms) are empty; a time range keeps Splunk from searching all time"><span>Time range</span><select id="splunk-range"><option value="-15m">Last 15 minutes</option><option value="-60m">Last 60 minutes</option><option value="-4h">Last 4 hours</option><option value="-24h" selected>Last 24 hours</option><option value="-7d">Last 7 days</option><option value="">All time (slow)</option></select></label>
             <label class="check"><input type="checkbox" id="splunk-insecure"> Accept a self-signed certificate</label>
             <span class="spacer"></span>
@@ -129,6 +130,14 @@
           <pre id="splunk-csv" class="splunk-csv" tabindex="0" hidden></pre>
         </details>
         <pre id="spl" tabindex="0"></pre>
+        <div class="preview-bar log-query-bar">
+          <strong>Log query</strong>
+          <span class="hint">raw events of the Source and Search terms, sorted by time</span>
+          <span class="spacer"></span>
+          <button type="button" id="btn-copy-logs">Copy</button>
+          <button type="button" id="btn-download-logs" title="Save the log query as a .spl file">Download</button>
+        </div>
+        <pre id="spl-logs" tabindex="0"></pre>
       </div>
 
       <div class="pane" id="pane-flow" role="tabpanel" aria-labelledby="tab-file" data-mode="file" hidden>

@@ -2,7 +2,7 @@
 // TraceZLine page: list editors for each config section, live SPL preview.
 (function () {
   const STORAGE_KEY = 'tracezline.config.v1';
-  const { DEFAULT_CONFIG, clone, generate, validate, parseTerms } = window.TraceSpl;
+  const { DEFAULT_CONFIG, clone, generate, generateLogs, validate, parseTerms } = window.TraceSpl;
 
   const COLUMN_SUGGESTIONS = ['Step', 'EventTime', 'sessionId', 'Flow', 'Params', 'ElapsedMs',
     'LayerName', 'Layer', 'Direction', 'API', 'Endpoint', 'URL', 'SvcCode', 'HostPairs',
@@ -324,6 +324,7 @@
     const text = generate(state);
     document.getElementById('spl').textContent = text;
     document.getElementById('line-count').textContent = (text.trimEnd().split('\n').length) + ' lines';
+    document.getElementById('spl-logs').textContent = generateLogs(state);
     const n = state.terms.filter((t) => t.trim()).length;
     document.getElementById('terms-count').textContent = n + (n === 1 ? ' term' : ' terms');
     const warnings = validate(state);
@@ -420,23 +421,28 @@
     });
   });
 
-  document.getElementById('btn-copy').addEventListener('click', async () => {
-    const text = generate(state);
+  async function copyQuery(text, pre) {
     try {
       await navigator.clipboard.writeText(text);
       toast('SPL copied');
     } catch (e) {
       const range = document.createRange();
-      range.selectNodeContents(document.getElementById('spl'));
+      range.selectNodeContents(document.getElementById(pre));
       const sel = getSelection();
       sel.removeAllRanges();
       sel.addRange(range);
       toast('Clipboard blocked: SPL selected, press Ctrl+C');
     }
-  });
+  }
+
+  document.getElementById('btn-copy').addEventListener('click', () => copyQuery(generate(state), 'spl'));
+  document.getElementById('btn-copy-logs').addEventListener('click', () => copyQuery(generateLogs(state), 'spl-logs'));
 
   document.getElementById('btn-download').addEventListener('click', () => {
     download('tracezline-query.spl', generate(state), 'text/plain');
+  });
+  document.getElementById('btn-download-logs').addEventListener('click', () => {
+    download('tracezline-logs.spl', generateLogs(state), 'text/plain');
   });
 
   document.getElementById('btn-export').addEventListener('click', () => {
@@ -1511,7 +1517,7 @@
 
   // URL, username and the certificate choice are kept in this browser; the password is not.
   const SPLUNK_KEY = 'tracezline.splunk';
-  const splunkEls = Object.fromEntries(['mode', 'url', 'user', 'pass', 'range', 'insecure', 'note', 'status', 'csv'].map((k) => [k, document.getElementById('splunk-' + k)]));
+  const splunkEls = Object.fromEntries(['mode', 'query', 'url', 'user', 'pass', 'range', 'insecure', 'note', 'status', 'csv'].map((k) => [k, document.getElementById('splunk-' + k)]));
   // REST API on the management port, or Splunk Web (the browser UI) when only that is reachable
   const splunkPlaceholder = () => { splunkEls.url.placeholder = splunkEls.mode.value === 'web' ? 'https://splunk-host:8000' : 'https://splunk-host:8089'; };
   const splunkBtn = (k) => document.getElementById('btn-splunk-' + k);
@@ -1519,15 +1525,16 @@
   try {
     const saved = JSON.parse(localStorage.getItem(SPLUNK_KEY) || '{}');
     splunkEls.mode.value = saved.mode === 'web' ? 'web' : 'rest';
+    splunkEls.query.value = saved.query === 'logs' ? 'logs' : 'flow';
     if (typeof saved.range === 'string' && [...splunkEls.range.options].some((o) => o.value === saved.range)) splunkEls.range.value = saved.range;
     splunkEls.url.value = saved.url || '';
     splunkEls.user.value = saved.user || '';
     splunkEls.insecure.checked = !!saved.insecure;
   } catch (e) { /* ignore */ }
   const saveSplunk = () => {
-    try { localStorage.setItem(SPLUNK_KEY, JSON.stringify({ mode: splunkEls.mode.value, range: splunkEls.range.value, url: splunkEls.url.value.trim(), user: splunkEls.user.value.trim(), insecure: splunkEls.insecure.checked })); } catch (e) { /* ignore */ }
+    try { localStorage.setItem(SPLUNK_KEY, JSON.stringify({ mode: splunkEls.mode.value, query: splunkEls.query.value, range: splunkEls.range.value, url: splunkEls.url.value.trim(), user: splunkEls.user.value.trim(), insecure: splunkEls.insecure.checked })); } catch (e) { /* ignore */ }
   };
-  ['mode', 'url', 'user', 'range', 'insecure'].forEach((k) => splunkEls[k].addEventListener('change', saveSplunk));
+  ['mode', 'query', 'url', 'user', 'range', 'insecure'].forEach((k) => splunkEls[k].addEventListener('change', saveSplunk));
   splunkEls.mode.addEventListener('change', splunkPlaceholder);
   splunkPlaceholder();
 
@@ -1547,7 +1554,8 @@
   splunkBtn('run').addEventListener('click', async () => {
     const steps = { login: 'Logging in…', job: 'Creating the search job…', wait: 'Search running…', results: 'Fetching the results as CSV…' };
     const range = window.TraceSpl.timeRange(state);
-    const lines = [['ok', range ? `Time range: Start time / End time (${state.startTime || 'open'} … ${state.endTime || 'open'})`
+    const logQuery = splunkEls.query.value === 'logs';
+    const lines = [['ok', `Query: ${logQuery ? 'Log query (raw events)' : 'Flow query'}`], ['ok', range ? `Time range: Start time / End time (${state.startTime || 'open'} … ${state.endTime || 'open'})`
       : `Time range: ${splunkEls.range.selectedOptions[0].textContent}`]];
     let key = '';
     let sid = '';
@@ -1565,7 +1573,7 @@
     try {
       const res = await window.TraceSplunk.run({
         base: splunkEls.url.value, mode: splunkEls.mode.value, username: splunkEls.user.value.trim(), password: splunkEls.pass.value,
-        query: generate(state), insecure: splunkEls.insecure.checked,
+        query: logQuery ? generateLogs(state) : generate(state), insecure: splunkEls.insecure.checked,
         // Start / End time are in the query (earliest=/latest=); otherwise the chosen range
         earliest: window.TraceSpl.timeRange(state) ? '' : splunkEls.range.value,
         onStatus: (s) => {
@@ -1583,7 +1591,17 @@
       splunkEls.csv.hidden = false;
       splunkBtn('csv').disabled = false;
       // The results go straight into Flow Analysis: Flow, PlantUML, Sequence and Processing Rule.
-      if (table.length > 1) {
+      if (table.length > 1 && logQuery) {
+        const files = splunkLogFiles(table);
+        if (mode !== 'file') switchMode('file');
+        logDebug('info', `Splunk search ${res.sid}: raw events loaded into Flow Analysis as ${files.length} log file(s)`);
+        setLogs(files);
+        lines.push(flowRows.length
+          ? ['ok', `In Flow Analysis: ${files.length} log file(s), ${flowRows.length.toLocaleString()} flow rows, ${new Set(flowRows.map((r) => r.sessionId)).size} sessions. Open a view below.`]
+          : ['problem', 'The raw events gave no flow rows; see Flow Analysis > Debug.']);
+        show();
+        document.querySelectorAll('.splunk-view').forEach((b) => { b.disabled = !flowRows.length; });
+      } else if (table.length > 1) {
         await loadSplunkResult();
         const sessions = new Set((imported?.rows || []).map((r) => r.sessionId)).size;
         lines.push(imported?.rows?.length
@@ -1604,6 +1622,26 @@
   splunkBtn('csv').addEventListener('click', () => {
     if (splunkResult) download(`splunk-${splunkResult.sid}.csv`, splunkResult.csv, 'text/csv');
   });
+
+  // Log query results (_time, source, _raw) as one log file per source, events in time order,
+  // so the source= patterns match the file names as with local files.
+  function splunkLogFiles(table) {
+    const [head, ...rows] = table;
+    const col = (name) => head.indexOf(name);
+    const iTime = col('_time');
+    const iSource = col('source');
+    const iRaw = col('_raw');
+    if (iRaw < 0) throw new Error('The results have no _raw column.');
+    const bySource = new Map();
+    rows.map((r, i) => ({ r, i, t: iTime < 0 ? 0 : Date.parse(r[iTime]) || 0 }))
+      .sort((a, b) => a.t - b.t || a.i - b.i)
+      .forEach(({ r }) => {
+        const name = (iSource < 0 ? '' : r[iSource]) || 'splunk.log';
+        if (!bySource.has(name)) bySource.set(name, []);
+        bySource.get(name).push(String(r[iRaw] ?? '').replace(/\r?\n$/, ''));
+      });
+    return [...bySource].map(([name, raws]) => ({ name, text: raws.join('\n') + '\n' }));
+  }
 
   // Flow Analysis and Mock Test keep their own data: the results go to Flow Analysis.
   async function loadSplunkResult() {

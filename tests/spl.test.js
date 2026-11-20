@@ -339,3 +339,15 @@ test('Start time / End time: earliest/latest in whole seconds and a where clause
   cfg.startTime = '2026-02-30 10:00:00';
   assert.ok(spl.validate(cfg).some((w) => /Start time .* is not a time/.test(w)));
 });
+
+test('log query: the same sources, terms and time window, raw events sorted by time', () => {
+  const cfg = spl.clone(spl.DEFAULT_CONFIG);
+  cfg.startTime = '2026-10-26 09:00:00.000';
+  const flow = spl.generate(cfg);
+  const logs = spl.generateLogs(cfg);
+  const base = logs.slice(0, logs.indexOf('| sort 0 _time'));
+  assert.ok(flow.startsWith(base));
+  assert.ok(base.includes('earliest="10/26/2026:09:00:00"'));
+  assert.ok(logs.endsWith('| sort 0 _time\n| table _time source _raw\n'));
+  assert.ok(!logs.includes('LayerName'));
+});
