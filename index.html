@@ -105,8 +105,9 @@
         <ul id="warnings" class="warnings"></ul>
         <details class="splunk-run" id="splunk-run">
           <summary>Run in Splunk <span class="hint">login → search job (sid) → results as CSV</span></summary>
-          <p class="note" id="splunk-note">Runs the query below in Splunk through this local server (<code>python tools/serve.py</code>), which forwards the calls to Splunk's REST API (management port, usually 8089). The password is only sent to log in and is not saved.</p>
+          <p class="note" id="splunk-note">Runs the query below in Splunk through this local server (<code>python tools/serve.py</code>), which forwards the calls to Splunk: the REST API (management port, usually 8089) or Splunk Web (the browser UI, e.g. port 8000). The password is only sent to log in and is not saved.</p>
           <div class="row">
+            <label class="field size-s"><span>Mode</span><select id="splunk-mode"><option value="rest">REST API (8089)</option><option value="web">Splunk Web (8000)</option></select></label>
             <label class="field size-m"><span>Splunk URL <em>scheme, host and port</em></span><input type="text" id="splunk-url" placeholder="https://splunk-host:8089" spellcheck="false" autocomplete="off"></label>
             <label class="field size-s"><span>Username</span><input type="text" id="splunk-user" spellcheck="false" autocomplete="username"></label>
             <label class="field size-s"><span>Password</span><input type="password" id="splunk-pass" autocomplete="current-password"></label>

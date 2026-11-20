@@ -68,3 +68,57 @@ test('helpers: search string, error text, masked key', () => {
   assert.strictEqual(sp.errorText(502, 'Could not reach https://h:8089: timed out'), '502: Could not reach https://h:8089: timed out');
   assert.strictEqual(sp.maskKey('abcdefgh1234'), '…1234');
 });
+
+// A fake Splunk Web behind the forwarding server: cookies come back in X-Splunk-Set-Cookie and a
+// redirect as 200 with X-Splunk-Status, as tools/serve.py answers.
+function fakeSplunkWeb({ loginOk = true } = {}) {
+  const calls = [];
+  let polls = 0;
+  const reply = (status, body, { cookies = [], redirect } = {}) => ({
+    ok: status < 400, status: redirect ? 200 : status,
+    headers: { get: (h) => (h === 'X-Splunk-Set-Cookie' ? JSON.stringify(cookies) : h === 'X-Splunk-Status' ? (redirect ? String(redirect) : null) : null) },
+    text: async () => (typeof body === 'string' ? body : JSON.stringify(body)),
+  });
+  const fetchFn = async (path, opts) => {
+    calls.push({ path, method: opts.method || 'GET', headers: opts.headers || {}, body: opts.body || '' });
+    const h = opts.headers || {};
+    if (path === '/en-US/account/login' && (opts.method || 'GET') === 'GET') return reply(200, '<html>login</html>', { cookies: ['cval=4242'] });
+    if (path === '/en-US/account/login') {
+      if (!loginOk) return reply(200, { status: 1, message: 'Invalid username or password.' });
+      return reply(303, '', { redirect: 303, cookies: ['splunkd_8000=SESS', 'splunkweb_csrf_token_8000=TOKEN-ABCD'] });
+    }
+    const authed = h['X-Splunk-Form-Key'] === 'TOKEN-ABCD' && /splunkd_8000=SESS/.test(h['X-Splunk-Cookie'] || '');
+    if (!authed) return reply(401, { messages: [{ text: 'call not properly authenticated' }] });
+    if (path === '/en-US/splunkd/__raw/services/search/jobs') return reply(201, { sid: 'web.7' });
+    if (path.startsWith('/en-US/splunkd/__raw/services/search/jobs/web.7?')) {
+      const done = ++polls >= 2;
+      return reply(200, { entry: [{ content: { dispatchState: done ? 'DONE' : 'RUNNING', isDone: done, doneProgress: done ? 1 : 0.3, resultCount: 1 } }] });
+    }
+    if (path.startsWith('/en-US/splunkd/__raw/services/search/jobs/web.7/results?')) return reply(200, 'Step,Flow\n1,eComm: /a[?]\n');
+    return reply(404, 'not found');
+  };
+  return { fetchFn, calls };
+}
+
+test('Splunk Web mode: web login (cookies, CSRF token), then the REST calls through splunkd/__raw', async () => {
+  const { fetchFn, calls } = fakeSplunkWeb();
+  const res = await sp.run({ base: 'https://splunk-host:8000', mode: 'web', username: 'me', password: 'pw-1', query: 'index=a', fetchFn, sleep: async () => {} });
+  assert.deepStrictEqual([res.sid, res.csv, res.sessionKey], ['web.7', 'Step,Flow\n1,eComm: /a[?]\n', 'TOKEN-ABCD']);
+  const [getLogin, postLogin, job] = calls;
+  assert.strictEqual(getLogin.method, 'GET');
+  // the login form carries the cval cookie's value; the password goes only there
+  const form = new URLSearchParams(postLogin.body);
+  assert.deepStrictEqual([form.get('username'), form.get('password'), form.get('cval')], ['me', 'pw-1', '4242']);
+  assert.strictEqual(postLogin.headers['X-Splunk-Cookie'], 'cval=4242');
+  assert.strictEqual(job.headers['X-Splunk-Form-Key'], 'TOKEN-ABCD');
+  assert.strictEqual(job.headers['X-Splunk-Cookie'], 'cval=4242; splunkd_8000=SESS; splunkweb_csrf_token_8000=TOKEN-ABCD');
+  assert.strictEqual(new URLSearchParams(job.body).get('search'), 'search index=a');
+  assert.ok(calls.slice(2).every((c) => !c.body.includes('pw-1')));
+  // a root path is allowed in web mode, not in REST mode
+  await assert.rejects(sp.run({ base: 'https://h:8000/splunk', mode: 'rest', username: 'me', password: 'x', query: 'q' }), /scheme, host and port only/);
+});
+
+test('Splunk Web mode: a failed login says why', async () => {
+  await assert.rejects(sp.run({ base: 'https://h:8000', mode: 'web', username: 'me', password: 'bad', query: 'q', fetchFn: fakeSplunkWeb({ loginOk: false }).fetchFn, sleep: async () => {} }),
+    /Login: Splunk Web did not open a session \(Invalid username or password\.\)/);
+});

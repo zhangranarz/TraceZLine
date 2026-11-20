@@ -1496,19 +1496,24 @@
 
   // URL, username and the certificate choice are kept in this browser; the password is not.
   const SPLUNK_KEY = 'tracezline.splunk';
-  const splunkEls = Object.fromEntries(['url', 'user', 'pass', 'insecure', 'note', 'status', 'csv'].map((k) => [k, document.getElementById('splunk-' + k)]));
+  const splunkEls = Object.fromEntries(['mode', 'url', 'user', 'pass', 'insecure', 'note', 'status', 'csv'].map((k) => [k, document.getElementById('splunk-' + k)]));
+  // REST API on the management port, or Splunk Web (the browser UI) when only that is reachable
+  const splunkPlaceholder = () => { splunkEls.url.placeholder = splunkEls.mode.value === 'web' ? 'https://splunk-host:8000' : 'https://splunk-host:8089'; };
   const splunkBtn = (k) => document.getElementById('btn-splunk-' + k);
   let splunkResult = null; // { sid, csv }
   try {
     const saved = JSON.parse(localStorage.getItem(SPLUNK_KEY) || '{}');
+    splunkEls.mode.value = saved.mode === 'web' ? 'web' : 'rest';
     splunkEls.url.value = saved.url || '';
     splunkEls.user.value = saved.user || '';
     splunkEls.insecure.checked = !!saved.insecure;
   } catch (e) { /* ignore */ }
   const saveSplunk = () => {
-    try { localStorage.setItem(SPLUNK_KEY, JSON.stringify({ url: splunkEls.url.value.trim(), user: splunkEls.user.value.trim(), insecure: splunkEls.insecure.checked })); } catch (e) { /* ignore */ }
+    try { localStorage.setItem(SPLUNK_KEY, JSON.stringify({ mode: splunkEls.mode.value, url: splunkEls.url.value.trim(), user: splunkEls.user.value.trim(), insecure: splunkEls.insecure.checked })); } catch (e) { /* ignore */ }
   };
-  ['url', 'user', 'insecure'].forEach((k) => splunkEls[k].addEventListener('change', saveSplunk));
+  ['mode', 'url', 'user', 'insecure'].forEach((k) => splunkEls[k].addEventListener('change', saveSplunk));
+  splunkEls.mode.addEventListener('change', splunkPlaceholder);
+  splunkPlaceholder();
 
   // GitHub Pages has no forwarding server: say how to get one.
   window.TraceSplunk.available().then((ok) => {
@@ -1529,7 +1534,7 @@
     let key = '';
     let sid = '';
     const show = (current) => splunkStatus([
-      ...(key ? [['ok', `Logged in (session key ${window.TraceSplunk.maskKey(key)})`]] : []),
+      ...(key ? [['ok', `Logged in (${splunkEls.mode.value === 'web' ? 'Splunk Web session, token' : 'session key'} ${window.TraceSplunk.maskKey(key)})`]] : []),
       ...(sid ? [['ok', `Search job (access id): ${sid}`]] : []),
       ...lines, ...(current ? [['busy', current]] : []),
     ]);
@@ -1541,7 +1546,7 @@
     saveSplunk();
     try {
       const res = await window.TraceSplunk.run({
-        base: splunkEls.url.value, username: splunkEls.user.value.trim(), password: splunkEls.pass.value,
+        base: splunkEls.url.value, mode: splunkEls.mode.value, username: splunkEls.user.value.trim(), password: splunkEls.pass.value,
         query: generate(state), insecure: splunkEls.insecure.checked,
         onStatus: (s) => {
           if (s.sessionKey) key = s.sessionKey;

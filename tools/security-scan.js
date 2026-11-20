@@ -147,7 +147,8 @@ for (const f of shipped) {
     if (ALLOWED_URLS.some((u) => m[0].startsWith(u) || u.startsWith(m[0]))) continue;
     blocking.push(`external URL in shipped page: ${f}:${lineOf(t, m.index)} ${m[0]}`);
   }
-  for (const [label, re] of [['XMLHttpRequest', /\bXMLHttpRequest\b/g], ['sendBeacon', /\bsendBeacon\b/g],
+  // a request object, not the word (Splunk Web needs X-Requested-With: XMLHttpRequest as a header value)
+  for (const [label, re] of [['XMLHttpRequest', /\bnew XMLHttpRequest\b/g], ['sendBeacon', /\bsendBeacon\b/g],
     ['WebSocket', /\bnew WebSocket\b/g], ['EventSource', /\bnew EventSource\b/g]]) {
     for (const m of t.matchAll(re)) blocking.push(`${label} in shipped page: ${f}:${lineOf(t, m.index)}`);
   }

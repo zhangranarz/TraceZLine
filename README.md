@@ -79,8 +79,9 @@ npm run security-scan                        # pre-push scan (also run in CI)
   from other sites; the only outbound request is the optional PlantUML **Render**,
   which asks before sending the diagram text to plantuml.com.
 - **Run in Splunk** goes only to the Splunk URL you enter, through the local server
-  (`python tools/serve.py`), because Splunk's REST API (port 8089) answers no web page
-  directly. The password is sent once, to log in, and is not saved; the URL and username
+  (`python tools/serve.py`), because neither Splunk's REST API (port 8089) nor Splunk Web
+  (e.g. port 8000, **Splunk Web** mode) answers a web page directly. Splunk Web's session
+  cookies stay in the local server's answers, not in your browser. The password is sent once, to log in, and is not saved; the URL and username
   are kept in your browser. It is not available on GitHub Pages.
 - Use the **Mask** tab before sharing a log. Its consistent mode keeps sessions linkable
   through a key-based HMAC; the key stays in your browser.
