@@ -1668,8 +1668,13 @@
       lines.push([left ? 'problem' : 'ok', `Mask: ${masked.toLocaleString()} values masked by ${mask.rules.filter((r) => r.on).length} rules`
         + (left ? `; ${left} values still look sensitive (see Data Masking)` : '')]);
       show('API Analysis…');
-      // 4. API Analysis: the flow CSV against the masked log
-      cmp.excel = { name: `splunk-${res.sid}.csv`, ...window.TraceImport.toFlowRows(table, state) };
+      // 4. API Analysis: the flow CSV against the masked log. The CSV's session IDs are masked the
+      // same way (same key, same fakes), or no line would agree with its log event.
+      const flowTable = window.TraceImport.toFlowRows(table, state);
+      const sids = await window.TraceMask.maskSessionIds(flowTable.rows, mask.results, { key: mask.key });
+      lines.push(['ok', `Data Masking: ${sids.masked.toLocaleString()} CSV session ID(s) masked to match the log`
+        + (sids.kept ? `; ${sids.kept.toLocaleString()} kept, as in the log (their rule is off)` : '')]);
+      cmp.excel = { name: `splunk-${res.sid}.csv`, ...flowTable, rows: sids.rows };
       cmpResult = null;
       setCmpLogs(mask.results.map((r) => ({ name: window.TraceMask.maskedName(r.name), text: r.text })));
       lines.push(cmpResult

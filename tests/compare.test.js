@@ -125,3 +125,35 @@ test('XML from real logs: placeholders, attributes, a mismatched end tag and tru
   assert.strictEqual(get('EAI|SvcRq|Cut'), 'abc'); // </Info> closed back up to Info
   assert.strictEqual(extractXml('no markup here'), null);
 });
+
+test('masked log: the CSV session IDs masked the same way still map, offset included', async () => {
+  const mask = require('../js/mask.js');
+  const names = ['spl-banking-mock.log', 'spl-ms-mock.log'];
+  const results = [];
+  for (const n of names) results.push(await mask.maskText(fs.readFileSync(mock(n), 'utf8'), mask.DEFAULT_RULES, { key: 'k1' }));
+  const t = [];
+  flow.run(spl.DEFAULT_CONFIG, results.map((r, i) => ({ name: names[i], text: r.text, anySource: true })), [], t);
+  const maskedEvents = t.map((x) => Object.assign(x.ev, { head: x.head }));
+  const later = shift(excel, 8 * 3600000);
+  // the real IDs against the masked log: nothing lines up once the clocks differ
+  assert.strictEqual(compare(later, maskedEvents).mapped, 0);
+  const sids = await mask.maskSessionIds(later, results, { key: 'k1' });
+  assert.strictEqual(sids.masked, excel.length);
+  assert.ok(sids.rows.every((x, i) => x.sessionId !== excel[i].sessionId && !x.raw.includes(excel[i].sessionId)));
+  const r = compare(sids.rows, maskedEvents);
+  assert.strictEqual(r.offsetText, '+8h 0m 0.000s');
+  assert.strictEqual(r.mapped, excel.length);
+  assert.strictEqual(r.agreeing, excel.length);
+});
+
+test('maskSessionIds: NA stays, a session the log kept unmasked stays, one not in the log is masked', async () => {
+  const mask = require('../js/mask.js');
+  const results = [{ text: 'x kept-session-1 y', replaced: new Map([['real-session-1', 'fake-session-1']]) }];
+  const rows = ['real-session-1', 'kept-session-1', 'other-session-1', 'NA', null].map((sessionId) => ({ sessionId, raw: `1 | ${sessionId}` }));
+  const r = await mask.maskSessionIds(rows, results, { key: 'k' });
+  assert.deepStrictEqual(r.rows.slice(0, 2).map((x) => x.sessionId), ['fake-session-1', 'kept-session-1']);
+  assert.notStrictEqual(r.rows[2].sessionId, 'other-session-1');
+  assert.match(r.rows[2].sessionId, /^[a-z]{5}-[a-z]{7}-\d$/);
+  assert.deepStrictEqual(r.rows.slice(3).map((x) => x.sessionId), ['NA', null]);
+  assert.deepStrictEqual([r.masked, r.kept], [2, 1]);
+});

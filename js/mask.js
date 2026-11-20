@@ -152,7 +152,8 @@
     return [...a, ...b];
   }
 
-  // Masks one text. Returns { text, marked, counts: [n per rule], fakes: Set of consistent outputs }.
+  // Masks one text. Returns { text, marked, counts: [n per rule], fakes: Set of consistent outputs,
+  // replaced: Map of each consistently masked value -> its fake }.
   // `marked` is the same text with each masked value wrapped in \u0001...\u0002 (for previews).
   async function maskText(text, rules, { key = 'tracezline' } = {}) {
     const fakes = new Map(); // value -> consistent replacement
@@ -180,7 +181,28 @@
         return pre + '\u0001' + masked + '\u0002';
       });
     }
-    return { text: out.replace(/[\u0001\u0002]/g, ''), marked: out, counts, fakes: new Set(fakes.values()) };
+    return { text: out.replace(/[\u0001\u0002]/g, ''), marked: out, counts, fakes: new Set(fakes.values()), replaced: fakes };
+  }
+
+  // The session IDs of Splunk flow rows (TraceImport.toFlowRows), masked the way maskText masked
+  // the log (`results`, same key): a value the log masked gets the same fake, so the rows and the
+  // masked log still line up. A value that is in the masked log as it is (its rule is off) is
+  // kept; one that is not in the log at all gets its consistent fake. NA / N/A stay.
+  // Returns { rows (copies), masked, kept }.
+  async function maskSessionIds(rows, results, { key = 'tracezline' } = {}) {
+    const done = new Map();
+    for (const r of results) for (const [v, fake] of r.replaced || []) done.set(v, fake);
+    let masked = 0; let kept = 0;
+    const out = [];
+    for (const row of rows) {
+      const v = row.sessionId;
+      if (!v || /^N\/?A$/i.test(v)) { out.push({ ...row }); continue; }
+      if (!done.has(v)) done.set(v, results.some((r) => r.text.includes(v)) ? v : shaped(v, await hmac(key, v)));
+      const fake = done.get(v);
+      if (fake === v) kept++; else masked++;
+      out.push({ ...row, sessionId: fake, raw: typeof row.raw === 'string' ? row.raw.split(v).join(fake) : row.raw });
+    }
+    return { rows: out, masked, kept };
   }
 
   // What still looks sensitive after masking: [{ kind, line, value }]. Values produced by
@@ -213,5 +235,5 @@
   // "app.log" -> "app.masked.log"
   const maskedName = (name) => (/\.[^./\\]+$/.test(name) ? name.replace(/(\.[^./\\]+)$/, '.masked$1') : name + '.masked');
 
-  return { DEFAULT_RULES, ruleRegex, autoMask, maskText, leftovers, maskedName, last4 };
+  return { DEFAULT_RULES, ruleRegex, autoMask, maskText, maskSessionIds, leftovers, maskedName, last4 };
 });
