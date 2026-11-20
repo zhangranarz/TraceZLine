@@ -234,7 +234,7 @@ __INDENT__
   // Log query: the raw events of the sources and search terms, oldest first
   // (sort 0 lifts Splunk's default 10,000-row limit on sort).
   function generateLogs(cfg) {
-    return [...baseSearch(cfg), '| sort 0 _time', '| table _time source _raw'].join('\n') + '\n';
+    return [...baseSearch(cfg), '| sort 0 _time', '| eval EventTime=strftime(_time,"%Y-%m-%d %H:%M:%S.%3N")', '| table EventTime _raw'].join('\n') + '\n';
   }
 
   function generate(cfg) {

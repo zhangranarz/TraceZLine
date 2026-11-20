@@ -350,7 +350,7 @@ test('log query: the same sources, terms and time window, raw events sorted by t
   const base = logs.slice(0, logs.indexOf('| sort 0 _time'));
   assert.ok(flow.startsWith(base));
   assert.ok(base.includes('earliest="10/26/2026:09:00:00"'));
-  assert.ok(logs.endsWith('| sort 0 _time\n| table _time source _raw\n'));
+  assert.ok(logs.endsWith('| sort 0 _time\n| eval EventTime=strftime(_time,"%Y-%m-%d %H:%M:%S.%3N")\n| table EventTime _raw\n'));
   assert.ok(!logs.includes('LayerName'));
 });
 

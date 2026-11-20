@@ -1651,10 +1651,10 @@
           : ['problem', 'The results have no flow rows (the table needs the Flow or ServiceInfo column); see Flow Analysis > Debug.']);
         document.querySelectorAll('.splunk-view').forEach((b) => { b.disabled = !imported?.rows?.length; });
       }
-      // 2. Log query -> raw events as one log file per source
+      // 2. Log query -> raw events (EventTime, _raw) as one log file
       current = 'Log query';
       const logRes = await window.TraceSplunk.run({ ...opts, query: generateLogs(state) });
-      const files = splunkLogFiles(window.TraceImport.parseCsv(logRes.csv));
+      const files = splunkLogFiles(window.TraceImport.parseCsv(logRes.csv), `splunk-${logRes.sid}.log`);
       splunkResult.logs = files;
       const events = files.reduce((t, f) => t + window.TraceFlow.describeLog(f.text).events, 0);
       lines.push(['ok', `Log query: ${events.toLocaleString()} log events in ${files.length} log file(s): ${files.map((f) => f.name).join(', ') || 'none'}`]);
@@ -1699,25 +1699,26 @@
     (splunkResult?.logs || []).forEach((f) => download(f.name, f.text, 'text/plain'));
   });
 
-  // Log query results (_time, source, _raw) as one log file per source (named by the file part of
-  // the source), events in time order.
-  function splunkLogFiles(table) {
+  // Log query results (EventTime, _raw) as one log file, events in time order. Results that also
+  // have a source column (an edited log query) give one file per source, named by its file part.
+  function splunkLogFiles(table, name = 'splunk.log') {
     if (!table.length) return [];
     const [head, ...rows] = table;
-    const col = (name) => head.indexOf(name);
-    const iTime = col('_time');
+    const col = (n) => head.indexOf(n);
+    const iTime = col('EventTime') >= 0 ? col('EventTime') : col('_time');
     const iSource = col('source');
     const iRaw = col('_raw');
     if (iRaw < 0) throw new Error('The results have no _raw column.');
+    const time = (v) => window.TraceImport.parseTime(v) ?? (Date.parse(v) || 0);
     const bySource = new Map();
-    rows.map((r, i) => ({ r, i, t: iTime < 0 ? 0 : Date.parse(r[iTime]) || 0 }))
+    rows.map((r, i) => ({ r, i, t: iTime < 0 ? 0 : time(r[iTime]) }))
       .sort((a, b) => a.t - b.t || a.i - b.i)
       .forEach(({ r }) => {
-        const name = base(iSource < 0 ? '' : r[iSource]) || 'splunk.log';
-        if (!bySource.has(name)) bySource.set(name, []);
-        bySource.get(name).push(String(r[iRaw] ?? '').replace(/\r?\n$/, ''));
+        const file = base(iSource < 0 ? '' : r[iSource]) || name;
+        if (!bySource.has(file)) bySource.set(file, []);
+        bySource.get(file).push(String(r[iRaw] ?? '').replace(/\r?\n$/, ''));
       });
-    return [...bySource].map(([name, raws]) => ({ name, text: raws.join('\n') + '\n' }));
+    return [...bySource].map(([file, raws]) => ({ name: file, text: raws.join('\n') + '\n' }));
   }
 
   // Flow Analysis and Mock Test keep their own data: the results go to Flow Analysis.
