@@ -185,7 +185,10 @@
       if (cfg.dropNoDirection && ev.Direction == null) { if (rec) rec.reason = 'Excluded: no Direction (where isnotnull(Direction))'; continue; }
       for (const ep of cfg.endpointRules) if (ep.rex.trim()) Object.assign(ev, extract(rx(ep.rex), r));
       for (const sr of cfg.sessionRules) if (sr.rex.trim()) Object.assign(ev, extract(rx(sr.rex), r));
-      ev.sessionId = cfg.sessionRules.map((sr) => ev[sr.field]).find((v) => v != null) ?? 'NA';
+      // sessionId=case(): the session rules of the event's layer in their order, else NA
+      const order = spl.sessionOrders(cfg);
+      const fields = order.length ? (order.find((o) => o.layer === ev.LayerName)?.fields ?? []) : cfg.sessionRules.map((sr) => sr.field);
+      ev.sessionId = fields.map((f) => ev[f]).find((v) => v != null) ?? 'NA';
       Object.assign(ev, extract(DGE_RE, r), extract(URL_RE, r));
       // Endpoint per layer (Endpoint=case()): the endpoint rule(s) of the event's layer, else N/A; WS = URL and
       // service endpoint [::…] (each NA when missing); Host = service endpoint, else NA.

@@ -65,6 +65,9 @@
         <p class="note">Field order is coalesce() order. A rule with an empty rex is only added to coalesce().</p>
         <div id="list-sessionRules"></div>
         <button type="button" class="add" data-add="sessionRules">+ Add rule</button>
+        <p class="note"><b>Session order per layer</b>: sessionId=case() takes, for each layer, the first of these rules that is found, else NA. Leave it empty to use all rules in list order for every layer.</p>
+        <div id="list-sessionOrder"></div>
+        <button type="button" class="add" data-add="sessionOrder">+ Add layer</button>
       </details>
 
       <details open>

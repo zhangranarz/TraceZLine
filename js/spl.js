@@ -55,7 +55,17 @@
       // Enterprise: " -/path", " - /path" or " /path" before [Request] / [Response]
       { field: 'EnterpriseEndpoint', layer: 'Enterprise', rex: String.raw`(?:\s+-|\s+)(?<EnterpriseEndpoint>/\S+)\s*-\s*\[(?:Request|Response)\]` },
     ],
-    // sessionId = the first of these that is found, else "NA". The marker in sidEcomm and
+    // sessionId per layer: the session rules of sessionOrder, in that order, else "NA" (no
+    // sessionOrder: all rules in list order). One row per layer; fields comma separated.
+    sessionOrder: [
+      { layer: 'eComm', fields: 'sidEcomm, sidSessionId, sidSessionIdentity, sidWls' },
+      // Enterprise: the JSON IDs first, as the header's first bracket can also be the country code
+      // ([SPLHostMessage][VN]) or the elapsed time ([SPLHostMessage][11ms]).
+      { layer: 'Enterprise', fields: 'sidSessionId, sidSessionIdentity, sidEnterprise, sidWls' },
+      { layer: 'Host', fields: 'sidWls, sidSessionId, sidSessionIdentity' },
+      { layer: 'WS', fields: 'sidSessionId, sidSessionIdentity, sidWls' },
+    ],
+    // The marker in sidEcomm and
     // sidEnterprise follows the source filter (renaming a marker there renames it here).
     sessionRules: [
       { field: 'sidSessionId', rex: String.raw`\"sessionId\"\s*:\s*\"(?<sidSessionId>[^\"]+)\"` },
@@ -125,6 +135,13 @@ __INDENT__
     const from = parseTime(cfg.startTime);
     const to = parseTime(cfg.endTime);
     return from == null && to == null ? null : { from, to };
+  }
+
+  // sessionOrder rows with a layer and at least one field: [{ layer, fields: [field] }].
+  function sessionOrders(cfg) {
+    return (cfg.sessionOrder || [])
+      .map((o) => ({ layer: String(o.layer ?? '').trim(), fields: String(o.fields ?? '').split(/[\s,]+/).filter(Boolean) }))
+      .filter((o) => o.layer && o.fields.length);
   }
 
   // Splits a pasted block of search terms on newlines and commas.
@@ -236,7 +253,10 @@ __INDENT__
 
     const sids = cfg.sessionRules.filter((r) => r.field.trim());
     sids.filter((r) => r.rex.trim()).forEach((r) => out.push(`| rex field=_raw "${r.rex.trim()}"`));
-    out.push('| eval sessionId=coalesce(' + sids.map((r) => r.field.trim()).concat('"NA"').join(', ') + ')');
+    const orders = sessionOrders(cfg);
+    out.push(orders.length
+      ? '| eval sessionId=case(' + orders.map((o) => `LayerName="${o.layer}", coalesce(${o.fields.concat('"NA"').join(', ')})`).join(',\n    ') + ',\n    true(),"NA")'
+      : '| eval sessionId=coalesce(' + sids.map((r) => r.field.trim()).concat('"NA"').join(', ') + ')');
 
     // Indent is per layer name: layers can share a number (Enterprise and WS are both 2).
     const indentLine = '| eval Indent=case('
@@ -307,6 +327,11 @@ __INDENT__
       }
     }
     if (!cfg.sessionRules.some((r) => r.field.trim())) warnings.push('No Session Rule: sessionId is always NA.');
+    const sidFields = new Set(cfg.sessionRules.map((r) => r.field.trim()).filter(Boolean));
+    sessionOrders(cfg).forEach((o) => {
+      if (!layerNames.has(o.layer)) warnings.push(`Session order refers to unknown layer "${o.layer}".`);
+      o.fields.filter((f) => !sidFields.has(f)).forEach((f) => warnings.push(`Session order for ${o.layer} uses "${f}", which is not a Session Rule field.`));
+    });
     if (!cfg.endpointRules.some((r) => r.field.trim())) warnings.push('No Endpoint Rule: the eComm and Enterprise API will be N/A.');
     cfg.endpointRules.forEach((r) => {
       if (!r.field.trim()) return;
@@ -360,5 +385,5 @@ __INDENT__
     return changed;
   }
 
-  return { DEFAULT_CONFIG, clone, generate, validate, parseTerms, quoteTerm, renameMarker, parseTime, timeRange };
+  return { DEFAULT_CONFIG, clone, generate, validate, parseTerms, quoteTerm, renameMarker, parseTime, timeRange, sessionOrders };
 });

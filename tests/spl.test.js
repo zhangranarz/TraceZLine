@@ -180,7 +180,19 @@ test('session rules: five forms, sessionId is the first one found, else NA', () 
   // any value up to a space or |, not only a UUID; an empty WLS: is not a session
   assert.strictEqual('| WLS: S-0042 | SSO:'.match(wls).groups.sidWls, 'S-0042');
   assert.strictEqual('| WLS: | SSO:'.match(wls), null);
-  assert.match(spl.generate(spl.DEFAULT_CONFIG), /\n\| eval sessionId=coalesce\(sidSessionId, sidSessionIdentity, sidEcomm, sidEnterprise, sidWls, "NA"\)\n/);
+  // sessionId per layer (Session order), each layer falling back to NA
+  assert.ok(spl.generate(spl.DEFAULT_CONFIG).includes('\n| eval sessionId=case(LayerName="eComm", coalesce(sidEcomm, sidSessionId, sidSessionIdentity, sidWls, "NA"),\n'
+    + '    LayerName="Enterprise", coalesce(sidSessionId, sidSessionIdentity, sidEnterprise, sidWls, "NA"),\n'
+    + '    LayerName="Host", coalesce(sidWls, sidSessionId, sidSessionIdentity, "NA"),\n'
+    + '    LayerName="WS", coalesce(sidSessionId, sidSessionIdentity, sidWls, "NA"),\n'
+    + '    true(),"NA")\n'));
+  // no Session order: one coalesce() of all rules in list order
+  const flat = spl.clone(spl.DEFAULT_CONFIG);
+  flat.sessionOrder = [];
+  assert.match(spl.generate(flat), /\n\| eval sessionId=coalesce\(sidSessionId, sidSessionIdentity, sidEcomm, sidEnterprise, sidWls, "NA"\)\n/);
+  // an unknown field in the order is flagged
+  flat.sessionOrder = [{ layer: 'eComm', fields: 'sidEcomm, sidNope' }];
+  assert.ok(spl.validate(flat).some((w) => /"sidNope", which is not a Session Rule field/.test(w)));
 });
 
 test('Flow format: per-layer indent and [?]/[!] direction markers', () => {

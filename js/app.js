@@ -52,6 +52,13 @@
       ],
       blank: () => ({ field: '', rex: '' }),
     },
+    sessionOrder: {
+      fields: [
+        { key: 'layer', label: 'Layer', size: 's', list: 'dl-layers' },
+        { key: 'fields', label: 'Session rules, in order', placeholder: 'sidEcomm, sidSessionId', size: 'l' },
+      ],
+      blank: () => ({ layer: '', fields: '' }),
+    },
     params: {
       fields: [
         { key: 'field', label: 'Field', placeholder: 'accountType', size: 's' },
