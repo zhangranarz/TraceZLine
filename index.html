@@ -54,8 +54,8 @@
       </details>
 
       <details open>
-        <summary>Endpoint rules <span class="hint">rex + Endpoint=coalesce()</span></summary>
-        <p class="note">Field order is coalesce() order. A rule with an empty rex is only added to coalesce().</p>
+        <summary>Endpoint Rule <span class="hint">rex + Endpoint=case()</span></summary>
+        <p class="note">Each rule fills Endpoint for its Layer (several rules for one layer: the first found, else N/A). WS (URL and [::…]) and Host ([::…]) are built in. A rule with an empty rex only adds its field.</p>
         <div id="list-endpointRules"></div>
         <button type="button" class="add" data-add="endpointRules">+ Add rule</button>
       </details>

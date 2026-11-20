@@ -307,7 +307,7 @@ __INDENT__
       }
     }
     if (!cfg.sessionRules.some((r) => r.field.trim())) warnings.push('No Session Rule: sessionId is always NA.');
-    if (!cfg.endpointRules.some((r) => r.field.trim())) warnings.push('No Endpoint rules: the eComm and Enterprise API will be N/A.');
+    if (!cfg.endpointRules.some((r) => r.field.trim())) warnings.push('No Endpoint Rule: the eComm and Enterprise API will be N/A.');
     cfg.endpointRules.forEach((r) => {
       if (!r.field.trim()) return;
       const layer = String(r.layer ?? '').trim();
