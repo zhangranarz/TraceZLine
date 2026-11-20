@@ -306,7 +306,7 @@ __INDENT__
           + `so the ${shadowed.join(', ')} direction rules below it are never used.`);
       }
     }
-    if (!cfg.sessionRules.some((r) => r.field.trim())) warnings.push('No sessionId rules: coalesce() is empty.');
+    if (!cfg.sessionRules.some((r) => r.field.trim())) warnings.push('No Session Rule: sessionId is always NA.');
     if (!cfg.endpointRules.some((r) => r.field.trim())) warnings.push('No Endpoint rules: the eComm and Enterprise API will be N/A.');
     cfg.endpointRules.forEach((r) => {
       if (!r.field.trim()) return;
