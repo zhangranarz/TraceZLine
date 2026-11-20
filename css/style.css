@@ -437,3 +437,7 @@ details[open] > summary.icon-after::after { content: " \25BE"; }
 .splunk-status .busy { color: var(--muted); }
 .splunk-status .problem { color: var(--danger); }
 .splunk-csv { max-height: 240px; overflow: auto; font: 12px var(--mono); background: var(--panel); padding: 6px; margin: 0; }
+
+/* Step range in the PlantUML and Sequence views */
+.step-range { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; }
+.step-range input { width: 64px; padding: 2px 4px; }

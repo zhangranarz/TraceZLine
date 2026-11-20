@@ -700,8 +700,21 @@
     });
   });
 
+  // Step range (PlantUML and Sequence views): the same two boxes in both views; not saved.
+  const stepBoxes = (cls) => document.querySelectorAll('.' + cls);
+  ['step-from', 'step-to'].forEach((cls) => stepBoxes(cls).forEach((box) => box.addEventListener('input', () => {
+    stepBoxes(cls).forEach((b) => { if (b !== box) b.value = box.value; });
+    renderDiagram(diagramRows);
+  })));
+
   function renderDiagram(rows) {
     diagramRows = rows;
+    // the diagrams show the chosen steps; Processing Rule below keeps all of them
+    let from = Number(stepBoxes('step-from')[0].value) || null;
+    let to = Number(stepBoxes('step-to')[0].value) || null;
+    if (from != null && to != null && from > to) [from, to] = [to, from];
+    const all = rows;
+    rows = window.TraceFlow.stepRange(rows, from, to);
     pumlText = window.TraceFlow.toPlantUml(rows, state, diagramOpts);
     document.getElementById('puml').textContent = pumlText || '(no sessions)';
     // Images belong to the previous text; drop them so they never show a stale flow.
@@ -719,7 +732,7 @@
     host.innerHTML = svgs.map((s) => `<figure class="seq-fig">${s.svg}</figure>`).join('');
     if (!svgs.length) host.textContent = '(no sessions)';
     document.getElementById('btn-svg').disabled = !svgs.length;
-    renderRules(models);
+    renderRules(rows === all ? models : window.TraceFlow.sequenceModel(all, state));
   }
 
   // ---------- processing rules ----------

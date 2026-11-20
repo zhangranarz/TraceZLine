@@ -375,6 +375,15 @@
     return diagrams;
   }
 
+  // Rows of each session from step `from` to step `to` (Step column, both included; a missing
+  // bound is open). Rows without a Step are kept only when no range is set.
+  function stepRange(rows, from, to) {
+    const lo = Number(from) || null;
+    const hi = Number(to) || null;
+    if (lo == null && hi == null) return rows;
+    return rows.filter((r) => r.Step != null && (lo == null || r.Step >= lo) && (hi == null || r.Step <= hi));
+  }
+
   // All sessions as one continuous diagram, in time order: the participants of every
   // session, and a divider ({ t: 'divider', text }) where each session starts.
   function combineDiagrams(diagrams) {
@@ -461,5 +470,5 @@
     return out.join('\n') + '\n';
   }
 
-  return { parseEvents, describeLog, matchesAnySource, run, summarize, sequenceModel, combineDiagrams, viewDiagram, toPlantUml, plantUmlEncode64, format, parseSearch };
+  return { parseEvents, describeLog, matchesAnySource, run, summarize, sequenceModel, combineDiagrams, viewDiagram, stepRange, toPlantUml, plantUmlEncode64, format, parseSearch };
 });

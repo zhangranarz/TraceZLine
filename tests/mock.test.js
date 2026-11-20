@@ -247,3 +247,18 @@ test('Host PairKey includes the SvcCode pairs: a response with other pairs does 
   const other = run(host('100', 'Request', ['A_X', 'A_Y', 'B_X']) + host('300', 'Response', ['A_X', 'A_Y']));
   assert.deepStrictEqual(other.map((r) => r.ElapsedMs ?? null), [null, null]);
 });
+
+test('step range: the diagrams show only steps x to y of each session', () => {
+  const s1 = bySession(S1);
+  const part = flow.stepRange(s1, 4, 9);
+  assert.deepStrictEqual(part.map((r) => r.Step), [4, 5, 6, 7, 8, 9]);
+  assert.strictEqual(flow.stepRange(s1, null, null), s1, 'no range: all rows');
+  assert.deepStrictEqual(flow.stepRange(s1, 15, null).map((r) => r.Step), [15, 16], 'open end');
+  // steps 4-9 of session 1: Enterprise profile/get with its WS call, and the next Enterprise request
+  const puml = flow.toPlantUml(part, spl.DEFAULT_CONFIG);
+  assert.match(puml, /\/idm\/user\/profile\/get/);
+  assert.doesNotMatch(puml, /preLogin/, 'step 1-2 left out');
+  // every session is cut on its own steps
+  const both = flow.stepRange(rows, 1, 2);
+  assert.deepStrictEqual([...new Set(both.map((r) => r.sessionId))].length, 3);
+});
