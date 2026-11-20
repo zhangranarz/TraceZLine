@@ -107,13 +107,18 @@ test('DirectionSymbol is set before ServiceInfo uses it', () => {
 
 test('endpoint rules: one Endpoint per layer; several rules for a layer are coalesced', () => {
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
-  cfg.endpointRules = [cfg.endpointRules[1], { field: 'EpX', layer: 'Enterprise', rex: '(?<EpX>\\S+)' }, { field: 'EpY', layer: '', rex: '(?<EpY>\\S+)' }];
+  cfg.endpointRules = [cfg.endpointRules[2], { field: 'EpX', layer: 'Enterprise', rex: '(?<EpX>\\S+)' }, { field: 'EpY', layer: '', rex: '(?<EpY>\\S+)' }];
   const out = spl.generate(cfg);
-  assert.ok(out.includes('\n| eval Endpoint=case(LayerName="Enterprise",coalesce(EnterpriseEndpoint,EpX,"N/A"),\n'
+  // two rules for Enterprise: EnterpriseEndpoint=coalesce(...) after the rex lines, then used by Endpoint=case()
+  assert.ok(out.includes('\n| eval EnterpriseEndpoint=coalesce(EnterpriseEndpoint2,EpX)\n'));
+  assert.ok(out.includes('\n| eval Endpoint=case(LayerName="Enterprise",coalesce(EnterpriseEndpoint,"N/A"),\n'
     + '    LayerName="WS",mvappend(coalesce(URL,"NA"),coalesce(DGEEndpoint,"NA")),\n'
     + '    LayerName="Host",coalesce(DGEEndpoint,"NA"))\n'));
   assert.doesNotMatch(out, /eCommEndpoint/);
   assert.ok(spl.validate(cfg).some((w) => /"EpY" has no layer/.test(w)));
+  // one rule for a layer: used directly
+  cfg.endpointRules = [cfg.endpointRules[0]];
+  assert.ok(spl.generate(cfg).includes('| eval Endpoint=case(LayerName="Enterprise",coalesce(EnterpriseEndpoint2,"N/A"),'));
 });
 
 test('empty DirWord rex and first rule drop out of the query', () => {
@@ -216,7 +221,8 @@ test('URL, eCommEndpoint (eComm) and EnterpriseEndpoint (Enterprise) read their 
   assert.strictEqual('WebLogUFWAspect: | URL:/dge-enq/enq/customer/portfolio | StartTime'.match(url).groups.URL, '/dge-enq/enq/customer/portfolio');
 
   const ecomm = toJs(spl.DEFAULT_CONFIG.endpointRules[0].rex);
-  const ent = toJs(spl.DEFAULT_CONFIG.endpointRules[1].rex);
+  const entComma = toJs(spl.DEFAULT_CONFIG.endpointRules[1].rex);
+  const ent = toJs(spl.DEFAULT_CONFIG.endpointRules[2].rex);
   const head = '[SPLMessage][dddddddd-0000-4000-8000-000000000004][U][VN][9.14][t][Android-SPL][][]';
   // eComm: -/path before "- Request-" / "- Response-"
   for (const dir of ['Request', 'Response']) {
@@ -230,10 +236,13 @@ test('URL, eCommEndpoint (eComm) and EnterpriseEndpoint (Enterprise) read their 
   assert.strictEqual(`${head} -/spl-banking/a/b - something else`.match(ecomm), null, 'not before other text');
   assert.strictEqual('[SPLHostMessage][x][] -/idm/user/profile/get - [Response]:'.match(ecomm), null, 'eComm only');
 
-  // Enterprise: the same, after [SPLHostMessage]
-  assert.strictEqual('[SPLHostMessage][x][Android-SPL][49ms] -/idm/user/profile/get - [Response]:'.match(ent).groups.EnterpriseEndpoint, '/idm/user/profile/get');
-  assert.strictEqual('[SPLHostMessage] [x]|[u]\n[Android-SPL] - /insights/initInsights - [Request]:'.match(ent).groups.EnterpriseEndpoint, '/insights/initInsights');
-  assert.strictEqual('[SPLHostMessage][x][A] /enq/a - [Request]:'.match(ent).groups.EnterpriseEndpoint, '/enq/a', 'a space alone before the path');
+  // Enterprise 1: the path after a comma, before [Request] / [Response]
+  assert.strictEqual('[SPLHostMessage][x][A], /enq/a - [Request]:'.match(entComma).groups.EnterpriseEndpoint1, '/enq/a');
+  assert.strictEqual('[SPLHostMessage][x][A] -/enq/a - [Request]:'.match(entComma), null);
+  // Enterprise 2: the path after " -", before [Request] / [Response]
+  assert.strictEqual('[SPLHostMessage][x][Android-SPL][49ms] -/idm/user/profile/get - [Response]:'.match(ent).groups.EnterpriseEndpoint2, '/idm/user/profile/get');
+  assert.strictEqual('[SPLHostMessage] [x]|[u]\n[Android-SPL] - /insights/initInsights - [Request]:'.match(ent).groups.EnterpriseEndpoint2, '/insights/initInsights');
+  assert.strictEqual('[SPLHostMessage][x][A] /enq/a - [Request]:'.match(ent), null, 'a space alone before the path: not read');
   assert.strictEqual('[SPLHostMessage][x][A]-/enq/a - [Request]:'.match(ent), null, 'no space before the - : not read');
   assert.strictEqual(`${head} -/spl-banking/a/b - Request -`.match(ent), null, 'not before a plain Request');
   assert.strictEqual('[SPLHostMessage][x][] -/idm/user/profile/get - Request -'.match(ent), null, 'only before [Request] / [Response]');

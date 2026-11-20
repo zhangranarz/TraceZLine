@@ -147,7 +147,7 @@
           String.raw`\]\s*(?:-\s*)?(?<Endpoint1>(?:/[^\s\[\]/]+)+|[^\s\[\]/-][^\s\[\]/]*(?:/[^\s\[\]/]+)+)\s*-`,
           String.raw`(?i)\[SPLMessage\][\s\S]*?\]\s*(?:-\s*)?(?<Endpoint1>(?:/[^\s\[\]/]+)+|[^\s\[\]/-][^\s\[\]/]*(?:/[^\s\[\]/]+)+)\s*-\s*(?:\[?(?:Request|Response)\b|\{|\r?\n|$)`],
       },
-      EnterpriseEndpoint: { now: 'EnterpriseEndpoint', rex: [String.raw`\s*-\s*(?<EnterpriseEndpoint>/\S+)\s*-\s*\[(?:Request|Response)\]`, String.raw`(?i)\[SPLHostMessage\][\s\S]*?\]\s*(?:-\s*)?(?<EnterpriseEndpoint>(?:/[^\s\[\]/]+)+|[^\s\[\]/-][^\s\[\]/]*(?:/[^\s\[\]/]+)+)\s*-\s*\[(?:Request|Response)\]`] },
+      EnterpriseEndpoint: { now: 'EnterpriseEndpoint', rex: [String.raw`(?:\s+-|\s+)(?<EnterpriseEndpoint>/\S+)\s*-\s*\[(?:Request|Response)\]`, String.raw`\s*-\s*(?<EnterpriseEndpoint>/\S+)\s*-\s*\[(?:Request|Response)\]`, String.raw`(?i)\[SPLHostMessage\][\s\S]*?\]\s*(?:-\s*)?(?<EnterpriseEndpoint>(?:/[^\s\[\]/]+)+|[^\s\[\]/-][^\s\[\]/]*(?:/[^\s\[\]/]+)+)\s*-\s*\[(?:Request|Response)\]`] },
       eCommEndpoint: {
         now: 'eCommEndpoint',
         rex: [String.raw`(?i)\[SPLMessage\][\s\S]*?\]\s*(?:-\s*)?(?<eCommEndpoint>(?:/[^\s\[\]/]+)+|[^\s\[\]/-][^\s\[\]/]*(?:/[^\s\[\]/]+)+)\s*-\s*(?:\[?(?:Request|Response)\b|\{|\r?\n|$)`],
@@ -156,10 +156,15 @@
     };
     out.endpointRules.forEach((r) => {
       const old = r && OLD_EP[r.field];
-      if (old && old.rex.includes(r.rex)) Object.assign(r, DEFAULT_CONFIG.endpointRules.find((d) => d.field === old.now));
+      if (old && old.rex.includes(r.rex)) Object.assign(r, DEFAULT_CONFIG.endpointRules.find((d) => d.field === old.now) || { field: old.now, rex: '' });
       // Endpoint rules saved before they had a layer: the default rule of the same name gives it.
       if (r && r.layer === undefined) r.layer = DEFAULT_CONFIG.endpointRules.find((d) => d.field === r.field)?.layer ?? '';
     });
+    // EnterpriseEndpoint saved as one default rule (earlier forms are mapped to it above, with an
+    // empty rex): the two rules now (after a comma / after " -").
+    const prevEnt = [String.raw`(?:\s+-|\s+)(?<EnterpriseEndpoint>/\S+)\s*-\s*\[(?:Request|Response)\]`, ''];
+    const ei = out.endpointRules.findIndex((r) => r && r.field === 'EnterpriseEndpoint' && prevEnt.includes(r.rex));
+    if (ei >= 0) out.endpointRules.splice(ei, 1, ...clone(DEFAULT_CONFIG.endpointRules.filter((d) => d.layer === 'Enterprise')));
     // The default Endpoint3 rule (endpoint: … in a payload) is gone: WS uses WSEndpoint (URL and [::…]).
     out.endpointRules = out.endpointRules.filter((r) => !(r && r.field === 'Endpoint3' && r.rex === String.raw`(?i)endpoint\"?\s*[:=]\s*\"?(?<Endpoint3>[^\",]+)`));
     // Direction saved as the earlier default (DirWord + first rule for eComm / Enterprise, rules for

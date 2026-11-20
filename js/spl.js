@@ -52,8 +52,10 @@
       // eComm: -/path - Request-, -/path - Response-, or -/path - then the payload
       // (eComm responses log no direction word).
       { field: 'eCommEndpoint', layer: 'eComm', rex: String.raw`\s*-\s*(?<eCommEndpoint>/\S+)\s*-\s*(?:Request|Response|\{|\r?\n|$)` },
-      // Enterprise: " -/path", " - /path" or " /path" before [Request] / [Response]
-      { field: 'EnterpriseEndpoint', layer: 'Enterprise', rex: String.raw`(?:\s+-|\s+)(?<EnterpriseEndpoint>/\S+)\s*-\s*\[(?:Request|Response)\]` },
+      // Enterprise: the path after a comma, or after " -", before [Request] / [Response];
+      // two rules for one layer are combined: EnterpriseEndpoint=coalesce(...)
+      { field: 'EnterpriseEndpoint1', layer: 'Enterprise', rex: String.raw`,\s*(?<EnterpriseEndpoint1>/\S+)\s*-\s*\[(?:Request|Response)\]` },
+      { field: 'EnterpriseEndpoint2', layer: 'Enterprise', rex: String.raw`\s-\s*(?<EnterpriseEndpoint2>/\S+)\s*-\s*\[(?:Request|Response)\]` },
     ],
     // sessionId per layer: the session rules of sessionOrder, in that order, else "NA" (no
     // sessionOrder: all rules in list order). One row per layer; fields comma separated.
@@ -247,7 +249,12 @@ __INDENT__
       if (!byLayer.has(k)) byLayer.set(k, []);
       byLayer.get(k).push(r.field.trim());
     });
-    const endpointCases = [...byLayer].map(([layer, f]) => `LayerName="${layer}",coalesce(${f.join(',')},"N/A")`)
+    const fieldNames = new Set(eps.map((r) => r.field.trim()));
+    const combined = (layer) => `${layer.replace(/\W/g, '')}Endpoint`;
+    [...byLayer].filter(([layer, f]) => f.length > 1 && !fieldNames.has(combined(layer)))
+      .forEach(([layer, f]) => endpointRex.push(`| eval ${combined(layer)}=coalesce(${f.join(',')})`));
+    const endpointOfLayer = (layer, f) => (f.length > 1 && !fieldNames.has(combined(layer)) ? combined(layer) : f.join(','));
+    const endpointCases = [...byLayer].map(([layer, f]) => `LayerName="${layer}",coalesce(${endpointOfLayer(layer, f)},"N/A")`)
       .concat(['LayerName="WS",mvappend(coalesce(URL,"NA"),coalesce(DGEEndpoint,"NA"))', 'LayerName="Host",coalesce(DGEEndpoint,"NA")']);
     const endpointLine = '| eval Endpoint=case(' + endpointCases.join(',\n    ') + ')';
 

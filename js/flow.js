@@ -155,7 +155,9 @@
     // The endpoint rules of a layer: the first value found, else N/A (undefined for a layer without rules).
     const endpointOf = (ev) => {
       const rules = cfg.endpointRules.filter((ep) => ep.field.trim() && String(ep.layer ?? '').trim() === ev.LayerName);
-      return rules.length ? rules.map((ep) => ev[ep.field]).find((v) => v != null) ?? 'N/A' : undefined;
+      const found = rules.map((ep) => ev[ep.field]).find((v) => v != null);
+      if (rules.length > 1) ev[`${ev.LayerName.replace(/\W/g, '')}Endpoint`] = found ?? null;
+      return rules.length ? found ?? 'N/A' : undefined;
     };
     const rows = [];
     for (const ev of logs.flatMap((l) => parseEvents(l.name, l.text, l.anySource))) {

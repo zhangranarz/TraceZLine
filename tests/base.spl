@@ -57,7 +57,9 @@
     LayerName="WS", coalesce(sidSessionId, sidSessionIdentity, sidWls, "NA"),
     true(),"NA")
 | rex field=_raw "\s*-\s*(?<eCommEndpoint>/\S+)\s*-\s*(?:Request|Response|\{|\r?\n|$)"
-| rex field=_raw "(?:\s+-|\s+)(?<EnterpriseEndpoint>/\S+)\s*-\s*\[(?:Request|Response)\]"
+| rex field=_raw ",\s*(?<EnterpriseEndpoint1>/\S+)\s*-\s*\[(?:Request|Response)\]"
+| rex field=_raw "\s-\s*(?<EnterpriseEndpoint2>/\S+)\s*-\s*\[(?:Request|Response)\]"
+| eval EnterpriseEndpoint=coalesce(EnterpriseEndpoint1,EnterpriseEndpoint2)
 | rex field=_raw "\[::(?<DGEEndpoint>[^]]+)\]"
 | rex field=_raw "\bURL(?:\s+is\s+|\s*:\s*)(?<URL>/[^\s:|]+)"
 | eval Endpoint=case(LayerName="eComm",coalesce(eCommEndpoint,"N/A"),
