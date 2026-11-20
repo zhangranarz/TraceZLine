@@ -109,3 +109,10 @@ test('rule types: exact text, JSON key, XML tag, with the automatic <<MASK_NAME>
   assert.strictEqual(autoMask(t('json', '"clientIpAddress"', 'replace')), '<<MASK_CLIENTIPADDRESS>>');
   assert.strictEqual(autoMask(t('prepost', 'UId:', 'replace')), '***');
 });
+
+test('[MightyMessage] session headers are masked like [SPLMessage] ones', async () => {
+  const text = '[MightyMessage][0f1e2d3c-4b5a-4968-8776-a5b4c3d2e1f0][u1] -/login - Request -\n';
+  const r = await maskText(text, DEFAULT_RULES, { key: 'k' });
+  assert.ok(!r.text.includes('0f1e2d3c-4b5a-4968-8776-a5b4c3d2e1f0'), r.text);
+  assert.ok(r.text.startsWith('[MightyMessage]['), r.text);
+});

@@ -278,3 +278,16 @@ test('steps per session: different step ranges for different sessions in one dia
   const [all] = flow.combineDiagrams(flow.sequenceModel(part, spl.DEFAULT_CONFIG));
   assert.strictEqual(all.items.filter((it) => it.t === 'divider').length, 2);
 });
+
+test('[MightyMessage] is an eComm marker like [SPLMessage]: key filter, layer and session', () => {
+  const at = (ms, line) => `2026-10-26 09:30:00.${ms} [x] INFO\n${line}\n`;
+  const log = at('100', '[MightyMessage][M-0007][U][VN][9.14][t][A][][] -/spl-banking/m - Request -')
+    + at('200', '[MightyMessage][M-0007][U][VN][9.14][t][A][][5ms] -/spl-banking/m - Response -')
+    + at('300', '[SPLMessage][S-0001][U][VN][9.14][t][A][][] -/spl-banking/s - Request -');
+  const rows = flow.run(spl.DEFAULT_CONFIG, [{ name: 'spl-banking-x.log', text: log, anySource: true }], []);
+  assert.deepStrictEqual(rows.map((r) => `${r.LayerName} ${r.sessionId} ${r.API} ${r.Direction}`), [
+    'eComm M-0007 /spl-banking/m Request',
+    'eComm M-0007 /spl-banking/m Response',
+    'eComm S-0001 /spl-banking/s Request',
+  ]);
+});

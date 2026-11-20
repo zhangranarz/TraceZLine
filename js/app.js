@@ -192,7 +192,7 @@
     });
     // eComm / Enterprise source filters saved as an earlier default get the current one.
     out.sources.forEach((s) => {
-      if (!s || typeof s.filter !== 'string') return;
+      if (!s || typeof s.filter !== 'string' || s.dirFilter !== undefined) return;
       if (s.filter === '"[SPLMessage]"' || s.filter === '"[SPLMessage]" ("Request" OR "Response")') s.filter = '"[SPLMessage]" ("- Request -" OR "- Response -")';
       if (s.filter === '"[SPLHostMessage]"' || s.filter === '"[SPLHostMessage]" ("Request" OR "Response")') s.filter = '"[SPLHostMessage]" ("[Request]" OR "[Response]")';
     });
@@ -211,6 +211,17 @@
       out.sources = out.sources.map((s, i) => ({ ...clone(DEFAULT_CONFIG.sources[i]), enabled: s.enabled }));
     }
     out.sources.forEach((s) => { if (s && s.dirFilter === undefined) s.dirFilter = ''; });
+    // eComm saved as [SPLMessage] alone (key filter, layer condition, sidEcomm): also [MightyMessage].
+    const eComm = DEFAULT_CONFIG.sources.find((d) => d.dirFilter === '("- Request -" OR "- Response -")');
+    out.sources.forEach((s) => {
+      if (s && s.filter === '"[SPLMessage]"' && s.dirFilter === eComm.dirFilter) s.filter = eComm.filter;
+    });
+    out.layers.forEach((l) => {
+      if (l && l.name === 'eComm' && l.match === String.raw`match(_raw,"\[SPLMessage\]")`) l.match = DEFAULT_CONFIG.layers.find((d) => d.name === 'eComm').match;
+    });
+    out.sessionRules.forEach((r) => {
+      if (r && r.field === 'sidEcomm' && r.rex === String.raw`(?i)\[SPLMessage\]\[(?<sidEcomm>[^\]]+)\]`) r.rex = DEFAULT_CONFIG.sessionRules.find((d) => d.field === 'sidEcomm').rex;
+    });
     return out;
   }
 
@@ -1347,7 +1358,15 @@
   const mask = (() => {
     try {
       const saved = JSON.parse(localStorage.getItem(MASK_KEY) || 'null');
-      if (saved && Array.isArray(saved.rules) && typeof saved.key === 'string') return { ...saved, files: [], results: [] };
+      if (saved && Array.isArray(saved.rules) && typeof saved.key === 'string') {
+        // rules saved before [MightyMessage] was an eComm marker: its session rule goes after [SPLMessage]'s
+        if (!saved.rules.some((r) => r && r.pre === '[MightyMessage][')) {
+          const i = saved.rules.findIndex((r) => r && r.pre === '[SPLMessage][');
+          const add = clone(window.TraceMask.DEFAULT_RULES.find((r) => r.pre === '[MightyMessage]['));
+          if (i >= 0) saved.rules.splice(i + 1, 0, add);
+        }
+        return { ...saved, files: [], results: [] };
+      }
     } catch (e) { /* storage blocked or corrupt: defaults */ }
     let key = randomKey();
     try { key = JSON.parse(localStorage.getItem('tracezline.mask.v1') || 'null')?.key || key; } catch (e) { /* ignore */ }

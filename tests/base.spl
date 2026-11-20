@@ -1,7 +1,7 @@
 (
 	(
 		source="/var/log/pods/spl-banking-*log"
-		"[SPLMessage]"
+		("[SPLMessage]" OR "[MightyMessage]")
 		("- Request -" OR "- Response -")
 	)
 	OR
@@ -24,7 +24,7 @@
 	)
 )
 ("2576dfc8-495a-837a-8a2f291fd003d" OR "7f269c48-f03a-4fef-bc3007538ec1a2")
-| eval LayerName=case(match(_raw,"\[SPLMessage\]"),"eComm",
+| eval LayerName=case(match(_raw,"\[SPLMessage\]|\[MightyMessage\]"),"eComm",
     match(_raw,"\[SPLHostMessage\]"),"Enterprise",
     match(_raw,"<EAI>") AND match(_raw,"<SvcCode>"),"Host",
     match(_raw,"(?i)WSAppLog|UFWApsect|UFWAspect"),"WS")
@@ -48,7 +48,7 @@
 | eval SortKey=if(Direction="Request",LayerOrder,-LayerOrder)
 | rex field=_raw "\"sessionId\"\s*:\s*\"(?<sidSessionId>[^\"]+)\""
 | rex field=_raw "\"sessionIdentity\"\s*:\s*\"(?<sidSessionIdentity>[^\"]+)\""
-| rex field=_raw "(?i)\[SPLMessage\]\[(?<sidEcomm>[^\]]+)\]"
+| rex field=_raw "(?i)(?:\[SPLMessage\]|\[MightyMessage\])\[(?<sidEcomm>[^\]]+)\]"
 | rex field=_raw "(?i)\[SPLHostMessage\]\[(?<sidEnterprise>[^\]]+)\]"
 | rex field=_raw "(?i)\bWLS:\s*(?<sidWls>[^\s|]+)"
 | eval sessionId=case(LayerName="eComm", coalesce(sidEcomm, sidSessionId, sidSessionIdentity, sidWls, "NA"),

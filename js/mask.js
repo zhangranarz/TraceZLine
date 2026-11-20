@@ -58,6 +58,7 @@
     j('Journal identity', 'journalIdentity', 'consistent'),
     j('API token', 'apiToken', 'replace'),
     p('Session (eComm header)', '[SPLMessage][', ']', 'consistent'),
+    p('Session (eComm header, MightyMessage)', '[MightyMessage][', ']', 'consistent'),
     p('Session (Enterprise header)', '[SPLHostMessage][', ']', 'consistent'),
     p('Session (WS header)', 'WLS:', ' |', 'consistent'),
     p('User (WS header)', 'UId:', ' |', 'replace', '<<MASK_USERID>>'),
