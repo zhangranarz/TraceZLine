@@ -122,3 +122,15 @@ test('Splunk Web mode: a failed login says why', async () => {
   await assert.rejects(sp.run({ base: 'https://h:8000', mode: 'web', username: 'me', password: 'bad', query: 'q', fetchFn: fakeSplunkWeb({ loginOk: false }).fetchFn, sleep: async () => {} }),
     /Login: Splunk Web did not open a session \(Invalid username or password\.\)/);
 });
+
+test('time range: earliest_time / latest_time=now go with the search job, none for all time', async () => {
+  const jobForm = async (earliest) => {
+    const { fetchFn, calls } = fakeSplunk();
+    await sp.run({ base: 'https://h:8089', username: 'me', password: 'pw-1', query: 'index=a', earliest, fetchFn, sleep: async () => {} });
+    return new URLSearchParams(calls.find((c) => c.path === '/services/search/jobs').body);
+  };
+  const last24 = await jobForm('-24h');
+  assert.deepStrictEqual([last24.get('earliest_time'), last24.get('latest_time')], ['-24h', 'now']);
+  const all = await jobForm('');
+  assert.deepStrictEqual([all.get('earliest_time'), all.get('latest_time')], [null, null]);
+});

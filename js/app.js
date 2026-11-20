@@ -1496,7 +1496,7 @@
 
   // URL, username and the certificate choice are kept in this browser; the password is not.
   const SPLUNK_KEY = 'tracezline.splunk';
-  const splunkEls = Object.fromEntries(['mode', 'url', 'user', 'pass', 'insecure', 'note', 'status', 'csv'].map((k) => [k, document.getElementById('splunk-' + k)]));
+  const splunkEls = Object.fromEntries(['mode', 'url', 'user', 'pass', 'range', 'insecure', 'note', 'status', 'csv'].map((k) => [k, document.getElementById('splunk-' + k)]));
   // REST API on the management port, or Splunk Web (the browser UI) when only that is reachable
   const splunkPlaceholder = () => { splunkEls.url.placeholder = splunkEls.mode.value === 'web' ? 'https://splunk-host:8000' : 'https://splunk-host:8089'; };
   const splunkBtn = (k) => document.getElementById('btn-splunk-' + k);
@@ -1504,14 +1504,15 @@
   try {
     const saved = JSON.parse(localStorage.getItem(SPLUNK_KEY) || '{}');
     splunkEls.mode.value = saved.mode === 'web' ? 'web' : 'rest';
+    if (typeof saved.range === 'string' && [...splunkEls.range.options].some((o) => o.value === saved.range)) splunkEls.range.value = saved.range;
     splunkEls.url.value = saved.url || '';
     splunkEls.user.value = saved.user || '';
     splunkEls.insecure.checked = !!saved.insecure;
   } catch (e) { /* ignore */ }
   const saveSplunk = () => {
-    try { localStorage.setItem(SPLUNK_KEY, JSON.stringify({ mode: splunkEls.mode.value, url: splunkEls.url.value.trim(), user: splunkEls.user.value.trim(), insecure: splunkEls.insecure.checked })); } catch (e) { /* ignore */ }
+    try { localStorage.setItem(SPLUNK_KEY, JSON.stringify({ mode: splunkEls.mode.value, range: splunkEls.range.value, url: splunkEls.url.value.trim(), user: splunkEls.user.value.trim(), insecure: splunkEls.insecure.checked })); } catch (e) { /* ignore */ }
   };
-  ['mode', 'url', 'user', 'insecure'].forEach((k) => splunkEls[k].addEventListener('change', saveSplunk));
+  ['mode', 'url', 'user', 'range', 'insecure'].forEach((k) => splunkEls[k].addEventListener('change', saveSplunk));
   splunkEls.mode.addEventListener('change', splunkPlaceholder);
   splunkPlaceholder();
 
@@ -1530,7 +1531,9 @@
 
   splunkBtn('run').addEventListener('click', async () => {
     const steps = { login: 'Logging in…', job: 'Creating the search job…', wait: 'Search running…', results: 'Fetching the results as CSV…' };
-    const lines = [];
+    const range = window.TraceSpl.timeRange(state);
+    const lines = [['ok', range ? `Time range: Start time / End time (${state.startTime || 'open'} … ${state.endTime || 'open'})`
+      : `Time range: ${splunkEls.range.selectedOptions[0].textContent}`]];
     let key = '';
     let sid = '';
     const show = (current) => splunkStatus([
@@ -1548,6 +1551,8 @@
       const res = await window.TraceSplunk.run({
         base: splunkEls.url.value, mode: splunkEls.mode.value, username: splunkEls.user.value.trim(), password: splunkEls.pass.value,
         query: generate(state), insecure: splunkEls.insecure.checked,
+        // Start / End time are in the query (earliest=/latest=); otherwise the chosen range
+        earliest: window.TraceSpl.timeRange(state) ? '' : splunkEls.range.value,
         onStatus: (s) => {
           if (s.sessionKey) key = s.sessionKey;
           if (s.sid) sid = s.sid;

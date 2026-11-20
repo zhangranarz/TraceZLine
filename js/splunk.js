@@ -51,7 +51,9 @@
   // mode: 'rest' (default) or 'web'. onStatus({ step: 'login'|'job'|'wait'|'results'|'done', ... }).
   // Returns { sessionKey, sid, csv }: in web mode sessionKey is the CSRF token (shown masked).
   // The password is sent once, to log in, and not kept.
-  async function run({ base, mode = 'rest', username, password, query, insecure = false, onStatus = () => {},
+  // earliest: the job's time range, Splunk time syntax (-24h, -7d; '' = all time), up to now.
+  // An earliest=/latest= in the query itself wins over it.
+  async function run({ base, mode = 'rest', username, password, query, insecure = false, earliest = '', onStatus = () => {},
     fetchFn = defaultFetch, sleep = defaultSleep, pollMs = 1000, timeoutMs = 10 * 60 * 1000 }) {
     const target = checkBase(base, mode);
     if (!username || !password) throw new Error('Username and password are needed to log in.');
@@ -104,7 +106,9 @@
     }
 
     onStatus({ step: 'job', sessionKey });
-    const sid = json(await api('/services/search/jobs', { method: 'POST', form: { search: searchString(query), output_mode: 'json' } }), 'Search job').sid;
+    const jobForm = { search: searchString(query), output_mode: 'json' };
+    if (earliest) Object.assign(jobForm, { earliest_time: earliest, latest_time: 'now' });
+    const sid = json(await api('/services/search/jobs', { method: 'POST', form: jobForm }), 'Search job').sid;
     if (!sid) throw new Error('Search job: no sid in the answer.');
 
     const started = Date.now();
