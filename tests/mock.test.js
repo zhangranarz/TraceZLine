@@ -291,3 +291,14 @@ test('[MightyMessage] is an eComm marker like [SPLMessage]: key filter, layer an
     'eComm S-0001 /spl-banking/s Request',
   ]);
 });
+
+test('[MightyHostMessage] is an Enterprise marker like [SPLHostMessage]: key filter, layer and session', () => {
+  const at = (ms, line) => `2026-10-26 09:30:00.${ms} [x] INFO\n${line}\n`;
+  const log = at('100', '[MightyHostMessage][H-0003][U][VN][9.14][t][A][] -/enq/m - [Request]:')
+    + at('200', '[MightyHostMessage][H-0003][U][VN][9.14][t][A][4ms] -/enq/m - [Response]:');
+  const rows = flow.run(spl.DEFAULT_CONFIG, [{ name: 'spl-banking-x.log', text: log, anySource: true }], []);
+  assert.deepStrictEqual(rows.map((r) => `${r.LayerName} ${r.sessionId} ${r.API} ${r.Direction}`), [
+    'Enterprise H-0003 /enq/m Request',
+    'Enterprise H-0003 /enq/m Response',
+  ]);
+});

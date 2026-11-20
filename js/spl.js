@@ -19,7 +19,7 @@
     // response). Each is a line of its own in the source block.
     sources: [
       { enabled: true, source: '/var/log/pods/spl-banking-*log', filter: '("[SPLMessage]" OR "[MightyMessage]")', dirFilter: '("- Request -" OR "- Response -")' },
-      { enabled: true, source: '/var/log/pods/spl-banking-*log', filter: '"[SPLHostMessage]"', dirFilter: '("[Request]" OR "[Response]")' },
+      { enabled: true, source: '/var/log/pods/spl-banking-*log', filter: '("[SPLHostMessage]" OR "[MightyHostMessage]")', dirFilter: '("[Request]" OR "[Response]")' },
       { enabled: true, source: '/var/log/pods/spl-ms-*log', filter: '("*WSAppLog*" OR "*UFWApsect*" OR "*UFWAspect*")', dirFilter: '("request:" OR "RESPONSE from" OR "Response:")' },
       { enabled: true, source: '/var/log/pods/spl-ms-*log', filter: '"<EAI>" "<SvcCode>"', dirFilter: '("Request Message" OR "Response Message")' },
     ],
@@ -29,7 +29,7 @@
     endTime: '',
     layers: [
       { name: 'eComm', match: String.raw`match(_raw,"\[SPLMessage\]|\[MightyMessage\]")`, layer: 1, indent: '', subLayer: 0 },
-      { name: 'Enterprise', match: String.raw`match(_raw,"\[SPLHostMessage\]")`, layer: 2, indent: '> ', subLayer: 0 },
+      { name: 'Enterprise', match: String.raw`match(_raw,"\[SPLHostMessage\]|\[MightyHostMessage\]")`, layer: 2, indent: '> ', subLayer: 0 },
       { name: 'Host', match: String.raw`match(_raw,"<EAI>") AND match(_raw,"<SvcCode>")`, layer: 3, indent: '>>> ', subLayer: 0 },
       { name: 'WS', match: String.raw`match(_raw,"(?i)WSAppLog|UFWApsect|UFWAspect")`, layer: 2, indent: '>> ', subLayer: 1 },
     ],
@@ -73,7 +73,7 @@
       { field: 'sidSessionId', rex: String.raw`\"sessionId\"\s*:\s*\"(?<sidSessionId>[^\"]+)\"` },
       { field: 'sidSessionIdentity', rex: String.raw`\"sessionIdentity\"\s*:\s*\"(?<sidSessionIdentity>[^\"]+)\"` },
       { field: 'sidEcomm', rex: String.raw`(?i)(?:\[SPLMessage\]|\[MightyMessage\])\[(?<sidEcomm>[^\]]+)\]` },
-      { field: 'sidEnterprise', rex: String.raw`(?i)\[SPLHostMessage\]\[(?<sidEnterprise>[^\]]+)\]` },
+      { field: 'sidEnterprise', rex: String.raw`(?i)(?:\[SPLHostMessage\]|\[MightyHostMessage\])\[(?<sidEnterprise>[^\]]+)\]` },
       { field: 'sidWls', rex: String.raw`(?i)\bWLS:\s*(?<sidWls>[^\s|]+)` },
     ],
     params: [

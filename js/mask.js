@@ -60,6 +60,7 @@
     p('Session (eComm header)', '[SPLMessage][', ']', 'consistent'),
     p('Session (eComm header, MightyMessage)', '[MightyMessage][', ']', 'consistent'),
     p('Session (Enterprise header)', '[SPLHostMessage][', ']', 'consistent'),
+    p('Session (Enterprise header, MightyHostMessage)', '[MightyHostMessage][', ']', 'consistent'),
     p('Session (WS header)', 'WLS:', ' |', 'consistent'),
     p('User (WS header)', 'UId:', ' |', 'replace', '<<MASK_USERID>>'),
     p('CIF (WS header)', 'CIF:', ' |', 'replace', '<<MASK_CIFNUMBER>>'),

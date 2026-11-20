@@ -116,3 +116,9 @@ test('[MightyMessage] session headers are masked like [SPLMessage] ones', async 
   assert.ok(!r.text.includes('0f1e2d3c-4b5a-4968-8776-a5b4c3d2e1f0'), r.text);
   assert.ok(r.text.startsWith('[MightyMessage]['), r.text);
 });
+
+test('[MightyHostMessage] session headers are masked like [SPLHostMessage] ones', async () => {
+  const r = await maskText('[MightyHostMessage][0f1e2d3c-4b5a-4968-8776-a5b4c3d2e1f0][u1] -/enq/a - [Request]:\n', DEFAULT_RULES, { key: 'k' });
+  assert.ok(!r.text.includes('0f1e2d3c-4b5a-4968-8776-a5b4c3d2e1f0'), r.text);
+  assert.ok(r.text.startsWith('[MightyHostMessage]['), r.text);
+});

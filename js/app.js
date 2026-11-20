@@ -211,16 +211,17 @@
       out.sources = out.sources.map((s, i) => ({ ...clone(DEFAULT_CONFIG.sources[i]), enabled: s.enabled }));
     }
     out.sources.forEach((s) => { if (s && s.dirFilter === undefined) s.dirFilter = ''; });
-    // eComm saved as [SPLMessage] alone (key filter, layer condition, sidEcomm): also [MightyMessage].
-    const eComm = DEFAULT_CONFIG.sources.find((d) => d.dirFilter === '("- Request -" OR "- Response -")');
-    out.sources.forEach((s) => {
-      if (s && s.filter === '"[SPLMessage]"' && s.dirFilter === eComm.dirFilter) s.filter = eComm.filter;
-    });
-    out.layers.forEach((l) => {
-      if (l && l.name === 'eComm' && l.match === String.raw`match(_raw,"\[SPLMessage\]")`) l.match = DEFAULT_CONFIG.layers.find((d) => d.name === 'eComm').match;
-    });
-    out.sessionRules.forEach((r) => {
-      if (r && r.field === 'sidEcomm' && r.rex === String.raw`(?i)\[SPLMessage\]\[(?<sidEcomm>[^\]]+)\]`) r.rex = DEFAULT_CONFIG.sessionRules.find((d) => d.field === 'sidEcomm').rex;
+    // eComm / Enterprise saved with one marker (key filter, layer condition, session rule): also
+    // [MightyMessage] / [MightyHostMessage]. Edited values are kept.
+    [['eComm', '"[SPLMessage]"', '("- Request -" OR "- Response -")', String.raw`match(_raw,"\[SPLMessage\]")`,
+      'sidEcomm', String.raw`(?i)\[SPLMessage\]\[(?<sidEcomm>[^\]]+)\]`],
+    ['Enterprise', '"[SPLHostMessage]"', '("[Request]" OR "[Response]")', String.raw`match(_raw,"\[SPLHostMessage\]")`,
+      'sidEnterprise', String.raw`(?i)\[SPLHostMessage\]\[(?<sidEnterprise>[^\]]+)\]`],
+    ].forEach(([layer, filter, dirFilter, match, field, rex]) => {
+      const now = DEFAULT_CONFIG.sources.find((d) => d.dirFilter === dirFilter);
+      out.sources.forEach((s) => { if (s && s.filter === filter && s.dirFilter === dirFilter) s.filter = now.filter; });
+      out.layers.forEach((l) => { if (l && l.name === layer && l.match === match) l.match = DEFAULT_CONFIG.layers.find((d) => d.name === layer).match; });
+      out.sessionRules.forEach((r) => { if (r && r.field === field && r.rex === rex) r.rex = DEFAULT_CONFIG.sessionRules.find((d) => d.field === field).rex; });
     });
     return out;
   }
@@ -1359,12 +1360,12 @@
     try {
       const saved = JSON.parse(localStorage.getItem(MASK_KEY) || 'null');
       if (saved && Array.isArray(saved.rules) && typeof saved.key === 'string') {
-        // rules saved before [MightyMessage] was an eComm marker: its session rule goes after [SPLMessage]'s
-        if (!saved.rules.some((r) => r && r.pre === '[MightyMessage][')) {
-          const i = saved.rules.findIndex((r) => r && r.pre === '[SPLMessage][');
-          const add = clone(window.TraceMask.DEFAULT_RULES.find((r) => r.pre === '[MightyMessage]['));
-          if (i >= 0) saved.rules.splice(i + 1, 0, add);
-        }
+        // rules saved before the Mighty markers: each session rule goes after its SPL marker's rule
+        [['[SPLMessage][', '[MightyMessage]['], ['[SPLHostMessage][', '[MightyHostMessage][']].forEach(([after, pre]) => {
+          if (saved.rules.some((r) => r && r.pre === pre)) return;
+          const i = saved.rules.findIndex((r) => r && r.pre === after);
+          if (i >= 0) saved.rules.splice(i + 1, 0, clone(window.TraceMask.DEFAULT_RULES.find((r) => r.pre === pre)));
+        });
         return { ...saved, files: [], results: [] };
       }
     } catch (e) { /* storage blocked or corrupt: defaults */ }

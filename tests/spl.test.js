@@ -24,7 +24,7 @@ test('default config reproduces the base query', () => {
 test('Layer=case() follows layer number order, LayerName=case() keeps list order', () => {
   const out = spl.generate(spl.DEFAULT_CONFIG);
   // one condition per line, then events with no layer are dropped
-  assert.ok(out.includes('| eval LayerName=case(match(_raw,"\\[SPLMessage\\]|\\[MightyMessage\\]"),"eComm",\n    match(_raw,"\\[SPLHostMessage\\]"),"Enterprise",\n'));
+  assert.ok(out.includes('| eval LayerName=case(match(_raw,"\\[SPLMessage\\]|\\[MightyMessage\\]"),"eComm",\n    match(_raw,"\\[SPLHostMessage\\]|\\[MightyHostMessage\\]"),"Enterprise",\n'));
   assert.ok(out.includes('"Host",\n    match(_raw,"(?i)WSAppLog|UFWApsect|UFWAspect"),"WS")\n| where isnotnull(LayerName)\n'));
   assert.ok(out.includes('| eval Layer=case(LayerName="eComm",1,\n    LayerName="Enterprise",2,\n    LayerName="WS",2,\n    LayerName="Host",3)\n'));
 });
@@ -79,7 +79,7 @@ test('ungrouped sources and a Layer<=2 first rule are flagged', () => {
 test('ungrouped sources share only the outer parentheses', () => {
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
   cfg.groupSources = false;
-  assert.ok(spl.generate(cfg).startsWith('(\n\tsource="/var/log/pods/spl-banking-*log"\n\t("[SPLMessage]" OR "[MightyMessage]")\n\t("- Request -" OR "- Response -")\n\tOR\n\tsource="/var/log/pods/spl-banking-*log"\n\t"[SPLHostMessage]"\n\t("[Request]" OR "[Response]")\n\tOR\n'));
+  assert.ok(spl.generate(cfg).startsWith('(\n\tsource="/var/log/pods/spl-banking-*log"\n\t("[SPLMessage]" OR "[MightyMessage]")\n\t("- Request -" OR "- Response -")\n\tOR\n\tsource="/var/log/pods/spl-banking-*log"\n\t("[SPLHostMessage]" OR "[MightyHostMessage]")\n\t("[Request]" OR "[Response]")\n\tOR\n'));
 });
 
 test('DirWord and rex lines without a named group are flagged', () => {
@@ -134,7 +134,7 @@ test('groupSources wraps each source in its own parentheses inside the outer one
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
   cfg.groupSources = true;
   const out = spl.generate(cfg);
-  assert.ok(out.startsWith('(\n\t(\n\t\tsource="/var/log/pods/spl-banking-*log"\n\t\t("[SPLMessage]" OR "[MightyMessage]")\n\t\t("- Request -" OR "- Response -")\n\t)\n\tOR\n\t(\n\t\tsource="/var/log/pods/spl-banking-*log"\n\t\t"[SPLHostMessage]"\n\t\t("[Request]" OR "[Response]")\n\t)\n\tOR\n'));
+  assert.ok(out.startsWith('(\n\t(\n\t\tsource="/var/log/pods/spl-banking-*log"\n\t\t("[SPLMessage]" OR "[MightyMessage]")\n\t\t("- Request -" OR "- Response -")\n\t)\n\tOR\n\t(\n\t\tsource="/var/log/pods/spl-banking-*log"\n\t\t("[SPLHostMessage]" OR "[MightyHostMessage]")\n\t\t("[Request]" OR "[Response]")\n\t)\n\tOR\n'));
   assert.match(out, /Response Message"\)\n\t\)\n\)\n\("2576dfc8/);
 });
 
@@ -182,6 +182,7 @@ test('session rules: five forms, sessionId is the first one found, else NA', () 
   // sidEnterprise: the value in the brackets right after [SPLHostMessage] (no space allowed between)
   assert.strictEqual(`INFO [SPLHostMessage][${uuid}]|[u] - /x - [Request]: {"a":1}`.match(ent).groups.sidEnterprise, uuid);
   assert.strictEqual(`INFO [SPLHostMessage] [${uuid}]|[<<USER_ID>>]`.match(ent), null, 'a space before [ is not read');
+  assert.strictEqual('INFO [MightyHostMessage][H-0003]|[u]'.match(ent).groups.sidEnterprise, 'H-0003');
   assert.strictEqual(`| CIF:<<CIF_NUM>> | WLS:${uuid} | WS`.match(wls).groups.sidWls, uuid);
   // any value up to a space or |, not only a UUID; an empty WLS: is not a session
   assert.strictEqual('| WLS: S-0042 | SSO:'.match(wls).groups.sidWls, 'S-0042');
@@ -310,10 +311,10 @@ test('renameMarker: a marker renamed in a source filter is renamed in the layer 
   assert.strictEqual(cfg.layers[0].match, String.raw`match(_raw,"\[SPLRenamed\]|\[MightyMessage\]")`);
   const sid = (field) => cfg.sessionRules.find((r) => r.field === field).rex;
   assert.ok(sid('sidEcomm').startsWith(String.raw`(?i)(?:\[SPLRenamed\]|\[MightyMessage\])\[`), sid('sidEcomm'));
-  assert.strictEqual(cfg.layers[1].match, String.raw`match(_raw,"\[SPLHostMessage\]")`, 'other markers untouched');
-  assert.deepStrictEqual(spl.renameMarker(cfg, '"[SPLHostMessage]"', '"[MightyHostMessage]"'), ['Layer Enterprise', 'Session rule sidEnterprise']);
-  assert.strictEqual(cfg.layers[1].match, String.raw`match(_raw,"\[MightyHostMessage\]")`);
-  assert.ok(sid('sidEnterprise').startsWith(String.raw`(?i)\[MightyHostMessage\]\[`), sid('sidEnterprise'));
+  assert.strictEqual(cfg.layers[1].match, String.raw`match(_raw,"\[SPLHostMessage\]|\[MightyHostMessage\]")`, 'other markers untouched');
+  assert.deepStrictEqual(spl.renameMarker(cfg, '("[SPLHostMessage]" OR "[MightyHostMessage]")', '("[SPLHostRenamed]" OR "[MightyHostMessage]")'), ['Layer Enterprise', 'Session rule sidEnterprise']);
+  assert.strictEqual(cfg.layers[1].match, String.raw`match(_raw,"\[SPLHostRenamed\]|\[MightyHostMessage\]")`);
+  assert.ok(sid('sidEnterprise').startsWith(String.raw`(?i)(?:\[SPLHostRenamed\]|\[MightyHostMessage\])\[`), sid('sidEnterprise'));
   // wildcards are not copied into the regex
   assert.deepStrictEqual(spl.renameMarker(cfg, '"*WSAppLog*" ("request:")', '"*OPIAppLog*" ("request:")'), ['Layer WS']);
   assert.strictEqual(cfg.layers.find((l) => l.name === 'WS').match, 'match(_raw,"(?i)OPIAppLog|UFWApsect|UFWAspect")');
