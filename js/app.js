@@ -1617,7 +1617,7 @@
       const masked = mask.results.reduce((t, r) => t + r.counts.reduce((a, b) => a + b, 0), 0);
       const left = mask.results.reduce((t, r) => t + r.left.length, 0);
       lines.push([left ? 'problem' : 'ok', `Mask: ${masked.toLocaleString()} values masked by ${mask.rules.filter((r) => r.on).length} rules`
-        + (left ? `; ${left} values still look sensitive (see Mask)` : '')]);
+        + (left ? `; ${left} values still look sensitive (see Data Masking)` : '')]);
       show('API Analysis…');
       // 4. API Analysis: the flow CSV against the masked log
       cmp.excel = { name: `splunk-${res.sid}.csv`, ...window.TraceImport.toFlowRows(table, state) };

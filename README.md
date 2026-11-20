@@ -26,7 +26,7 @@ sequence diagrams, and the processing rules it observes. Nothing is uploaded.
 | **Data Source** | Generates the SPL query from editable sources, session IDs, an optional Start/End time, layers and rex rules; copy or download it, or **Run in Splunk**. A second **Log query** returns the raw events of the same sources and search terms, sorted by time. Run in Splunk logs in and runs both: the flow query's CSV opens in Flow Analysis, the log query's raw log is masked with the Mask rules, then API Analysis maps the CSV lines to the masked log |
 | **Flow Analysis** | Runs the query logic over your raw logs (**Local File**) or a Splunk `.xlsx`/`.csv` export (**Upload**) |
 | **API Analysis** | Maps each line of a Splunk result to its raw log event by timestamp, with the JSON/XML payload as a Parameter / Value table and a data-quality report |
-| **Mask** | Masks sensitive values in log/text files by JSON key, XML tag, exact text or Pre/Post text (replace with `<<MASK_NAME>>` or your own text, digits to `*`, keep last 4, or consistent pseudonyms), flags what still looks sensitive, and downloads the masked files |
+| **Data Masking** | Masks sensitive values in log/text files by JSON key, XML tag, exact text or Pre/Post text (replace with `<<MASK_NAME>>` or your own text, digits to `*`, keep last 4, or consistent pseudonyms), flags what still looks sensitive, and downloads the masked files |
 
 Views in Flow Analysis: **Flow** (session summary and flow table), **PlantUML**,
 **Sequence** (SVG diagram: one for all sessions or one per session, with optional notes and elapsed times), **Processing Rule** (each API with a description of the call:
@@ -81,7 +81,7 @@ npm run security-scan                        # pre-push scan (also run in CI)
   (e.g. port 8000, **Splunk Web** mode) answers a web page directly. Splunk Web's session
   cookies stay in the local server's answers, not in your browser. The password is sent once, to log in, and is not saved; the URL and username
   are kept in your browser. It is not available on GitHub Pages.
-- Use the **Mask** tab before sharing a log. Its consistent mode keeps sessions linkable
+- Use the **Data Masking** tab before sharing a log. Its consistent mode keeps sessions linkable
   through a key-based HMAC; the key stays in your browser.
 - Never commit real or undesensitised logs. `ToolBase/`, `*.log` and `*.xlsx` are
   git-ignored (only the fake files in `mock/` are tracked).
