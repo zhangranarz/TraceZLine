@@ -378,10 +378,23 @@
   // Rows of each session from step `from` to step `to` (Step column, both included; a missing
   // bound is open). Rows without a Step are kept only when no range is set.
   function stepRange(rows, from, to) {
-    const lo = Number(from) || null;
-    const hi = Number(to) || null;
-    if (lo == null && hi == null) return rows;
-    return rows.filter((r) => r.Step != null && (lo == null || r.Step >= lo) && (hi == null || r.Step <= hi));
+    return stepRanges(rows, [{ sessionId: '', from, to }]);
+  }
+
+  // Several ranges [{ sessionId ('' = every session), from, to }]: a row is kept when any range
+  // takes it. Ranges with nothing set are ignored; none set keeps every row. A range for one
+  // session without steps takes all its steps. From > to is read the other way round.
+  function stepRanges(rows, ranges) {
+    const set = (ranges || []).map((g) => {
+      let lo = Number(g.from) || null;
+      let hi = Number(g.to) || null;
+      if (lo != null && hi != null && lo > hi) [lo, hi] = [hi, lo];
+      return { sid: String(g.sessionId ?? ''), lo, hi };
+    }).filter((g) => g.sid || g.lo != null || g.hi != null);
+    if (!set.length) return rows;
+    const takes = (g, r) => (!g.sid || r.sessionId === g.sid)
+      && (g.lo == null && g.hi == null ? true : r.Step != null && (g.lo == null || r.Step >= g.lo) && (g.hi == null || r.Step <= g.hi));
+    return rows.filter((r) => set.some((g) => takes(g, r)));
   }
 
   // All sessions as one continuous diagram, in time order: the participants of every
@@ -470,5 +483,5 @@
     return out.join('\n') + '\n';
   }
 
-  return { parseEvents, describeLog, matchesAnySource, run, summarize, sequenceModel, combineDiagrams, viewDiagram, stepRange, toPlantUml, plantUmlEncode64, format, parseSearch };
+  return { parseEvents, describeLog, matchesAnySource, run, summarize, sequenceModel, combineDiagrams, viewDiagram, stepRange, stepRanges, toPlantUml, plantUmlEncode64, format, parseSearch };
 });

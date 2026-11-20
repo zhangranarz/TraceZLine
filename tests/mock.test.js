@@ -262,3 +262,19 @@ test('step range: the diagrams show only steps x to y of each session', () => {
   const both = flow.stepRange(rows, 1, 2);
   assert.deepStrictEqual([...new Set(both.map((r) => r.sessionId))].length, 3);
 });
+
+test('steps per session: different step ranges for different sessions in one diagram', () => {
+  const ranges = [{ sessionId: S1, from: 3, to: 5 }, { sessionId: S2, from: 1, to: 2 }];
+  const part = flow.stepRanges(rows, ranges);
+  assert.deepStrictEqual(part.map((r) => [r.sessionId === S1 ? 'S1' : r.sessionId === S2 ? 'S2' : 'S3', r.Step]),
+    [['S1', 3], ['S1', 4], ['S1', 5], ['S2', 1], ['S2', 2]]);
+  // a session row without steps takes all of that session; "All sessions" with steps cuts every session
+  assert.strictEqual(flow.stepRanges(rows, [{ sessionId: S3, from: '', to: '' }]).length, bySession(S3).length);
+  assert.strictEqual(flow.stepRanges(rows, [{ sessionId: '', from: 1, to: 1 }]).length, 3);
+  // nothing set: every row; from > to is read the other way round
+  assert.strictEqual(flow.stepRanges(rows, [{ sessionId: '', from: '', to: '' }]), rows);
+  assert.deepStrictEqual(flow.stepRanges(bySession(S1), [{ sessionId: S1, from: 5, to: 3 }]).map((r) => r.Step), [3, 4, 5]);
+  // the combined diagram has one divider per chosen session
+  const [all] = flow.combineDiagrams(flow.sequenceModel(part, spl.DEFAULT_CONFIG));
+  assert.strictEqual(all.items.filter((it) => it.t === 'divider').length, 2);
+});

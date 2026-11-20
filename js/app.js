@@ -547,6 +547,7 @@
     select.value = sessions.some((s) => s.sessionId === keep) ? keep : '';
     renderSummary(sessions);
     renderFlow(selectedRows());
+    renderStepRanges();
     renderDiagram(selectedRows());
     renderLogFiles();
   }
@@ -700,21 +701,46 @@
     });
   });
 
-  // Step range (PlantUML and Sequence views): the same two boxes in both views; not saved.
-  const stepBoxes = (cls) => document.querySelectorAll('.' + cls);
-  ['step-from', 'step-to'].forEach((cls) => stepBoxes(cls).forEach((box) => box.addEventListener('input', () => {
-    stepBoxes(cls).forEach((b) => { if (b !== box) b.value = box.value; });
+  // Steps per session (PlantUML and Sequence views): rows of { sessionId, from, to }; not saved.
+  // The first row starts as All sessions, so it works like one step range for every session.
+  let stepRangeRows = [{ sessionId: '', from: '', to: '' }];
+  function renderStepRanges() {
+    const sessions = window.TraceFlow.summarize(flowRows);
+    const list = document.getElementById('step-range-list');
+    list.replaceChildren(...stepRangeRows.map((g, i) => {
+      const pick = el('select', { 'aria-label': 'Session' }, [
+        el('option', { value: '' }, ['All sessions']),
+        ...sessions.map((s) => el('option', { value: s.sessionId }, [`${s.sessionId} (${s.steps} steps)`])),
+      ]);
+      if (!sessions.some((s) => s.sessionId === g.sessionId)) g.sessionId = ''; // that session is no longer loaded
+      pick.value = g.sessionId;
+      pick.addEventListener('change', () => { g.sessionId = pick.value; renderDiagram(diagramRows); });
+      const num = (key, label, hint) => {
+        const input = el('input', { type: 'number', min: '1', step: '1', placeholder: hint, 'aria-label': label });
+        input.value = g[key];
+        input.addEventListener('input', () => { g[key] = input.value; renderDiagram(diagramRows); });
+        return input;
+      };
+      return el('div', { class: 'step-range' }, [
+        pick, 'Steps', num('from', 'From step', 'first'), 'to', num('to', 'To step', 'last'),
+        iconBtn('✕', 'Remove', stepRangeRows.length === 1, () => { stepRangeRows.splice(i, 1); renderStepRanges(); renderDiagram(diagramRows); }),
+      ]);
+    }));
+  }
+  document.getElementById('step-range-add').addEventListener('click', () => {
+    // a new row picks the first session not used yet
+    const used = new Set(stepRangeRows.map((g) => g.sessionId));
+    const next = window.TraceFlow.summarize(flowRows).find((s) => !used.has(s.sessionId));
+    stepRangeRows.push({ sessionId: next ? next.sessionId : '', from: '', to: '' });
+    renderStepRanges();
     renderDiagram(diagramRows);
-  })));
+  });
 
   function renderDiagram(rows) {
     diagramRows = rows;
     // the diagrams show the chosen steps; Processing Rule below keeps all of them
-    let from = Number(stepBoxes('step-from')[0].value) || null;
-    let to = Number(stepBoxes('step-to')[0].value) || null;
-    if (from != null && to != null && from > to) [from, to] = [to, from];
     const all = rows;
-    rows = window.TraceFlow.stepRange(rows, from, to);
+    rows = window.TraceFlow.stepRanges(rows, stepRangeRows);
     pumlText = window.TraceFlow.toPlantUml(rows, state, diagramOpts);
     document.getElementById('puml').textContent = pumlText || '(no sessions)';
     // Images belong to the previous text; drop them so they never show a stale flow.
@@ -789,6 +815,7 @@
     document.querySelectorAll('.seg-btn').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === name)));
     ['table', 'diagram', 'sequence', 'rules', 'debug', 'logs'].forEach((v) => { document.getElementById('view-' + v).hidden = v !== name; });
     document.querySelectorAll('.view-actions').forEach((s) => { s.hidden = s.dataset.for !== name; });
+    document.getElementById('step-ranges').hidden = name !== 'diagram' && name !== 'sequence';
   }
 
   // ---------- log files preview ----------
@@ -1021,6 +1048,7 @@
     document.getElementById('flow-summary').replaceChildren();
     document.getElementById('session-filter').replaceChildren(el('option', { value: '' }, ['All sessions']));
     renderFlow([]);
+    renderStepRanges();
     renderDiagram([]);
     renderDebugTable([]);
     renderLogFiles();
