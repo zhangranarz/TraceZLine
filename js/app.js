@@ -470,7 +470,7 @@
   let flowRows = [];
   const SLOW_MS = 1000;
 
-  // The Load File and Mock Test tabs share the flow pane; each keeps its own data.
+  // The Flow Analysis and Mock Test tabs share the flow pane; each keeps its own data.
   // `logs` and `imported` always hold the current tab's data; the other tab's waits in ctx.
   let mode = 'file';
   const ctx = { file: { logs: [], imported: null }, mock: { logs: [], imported: null } };
@@ -963,7 +963,7 @@
     await importResult(file, await file.arrayBuffer());
   });
 
-  // An Excel / CSV Splunk result ({ name }, bytes) becomes the Load File rows.
+  // An Excel / CSV Splunk result ({ name }, bytes) becomes the Flow Analysis rows.
   async function importResult(file, buffer) {
     try {
       const table = await window.TraceImport.readTable(file.name, buffer);
@@ -1054,7 +1054,7 @@
     renderLogFiles();
   }
 
-  // Swap the flow pane to another tab's data (only Load File uses it now).
+  // Swap the flow pane to another tab's data (only Flow Analysis uses it now).
   function switchMode(next) {
     ctx[mode] = { logs, imported };
     mode = next;
@@ -1582,13 +1582,13 @@
       splunkEls.csv.textContent = preview.slice(0, 200).join('\n') + (preview.length > 200 ? `\n… ${preview.length - 200} more lines (Download CSV)` : '');
       splunkEls.csv.hidden = false;
       splunkBtn('csv').disabled = false;
-      // The results go straight into Load File: Flow, PlantUML, Sequence and Processing Rule.
+      // The results go straight into Flow Analysis: Flow, PlantUML, Sequence and Processing Rule.
       if (table.length > 1) {
         await loadSplunkResult();
         const sessions = new Set((imported?.rows || []).map((r) => r.sessionId)).size;
         lines.push(imported?.rows?.length
-          ? ['ok', `In Load File: ${imported.rows.length.toLocaleString()} flow rows, ${sessions} sessions. Open a view below.`]
-          : ['problem', 'The results have no flow rows (the table needs the Flow or ServiceInfo column); see Load File > Debug.']);
+          ? ['ok', `In Flow Analysis: ${imported.rows.length.toLocaleString()} flow rows, ${sessions} sessions. Open a view below.`]
+          : ['problem', 'The results have no flow rows (the table needs the Flow or ServiceInfo column); see Flow Analysis > Debug.']);
         show();
         document.querySelectorAll('.splunk-view').forEach((b) => { b.disabled = !imported?.rows?.length; });
       }
@@ -1605,10 +1605,10 @@
     if (splunkResult) download(`splunk-${splunkResult.sid}.csv`, splunkResult.csv, 'text/csv');
   });
 
-  // Load File and Mock Test keep their own data: the results go to Load File.
+  // Flow Analysis and Mock Test keep their own data: the results go to Flow Analysis.
   async function loadSplunkResult() {
     if (mode !== 'file') switchMode('file');
-    logDebug('info', `Splunk search ${splunkResult.sid}: results loaded into Load File`);
+    logDebug('info', `Splunk search ${splunkResult.sid}: results loaded into Flow Analysis`);
     await importResult({ name: `splunk-${splunkResult.sid}.csv` }, new TextEncoder().encode(splunkResult.csv).buffer);
   }
 
@@ -1648,8 +1648,8 @@
   clearFlow();
 
   // Demo links: #compare opens Compare with the mock pair loaded, #mask Mask with the mock logs.
-  // Old #mock links (the Mock Test tab is gone) open Load File. Otherwise reopen the last tab
-  // (the old single Flow tab and the old Mock Test tab map to Load File).
+  // Old #mock links (the Mock Test tab is gone) open Flow Analysis. Otherwise reopen the last tab
+  // (the old single Flow tab and the old Mock Test tab map to Flow Analysis).
   let savedTab = 'spl';
   try { savedTab = localStorage.getItem(TAB_KEY) || 'spl'; } catch (e) { /* ignore */ }
   if (location.hash.startsWith('#mock')) {

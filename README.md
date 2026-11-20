@@ -23,12 +23,12 @@ sequence diagrams, and the processing rules it observes. Nothing is uploaded.
 
 | Tab | What it does |
 |---|---|
-| **Splunk** | Generates the SPL query from editable sources, session IDs, an optional Start/End time, layers and rex rules; copy or download it, or **Run in Splunk** (log in, search job ID, results as CSV, open them in Load File) |
-| **Load File** | Runs the query logic over your raw logs (**Local File**) or a Splunk `.xlsx`/`.csv` export (**Upload**) |
+| **Splunk** | Generates the SPL query from editable sources, session IDs, an optional Start/End time, layers and rex rules; copy or download it, or **Run in Splunk** (log in, search job ID, results as CSV, open them in Flow Analysis) |
+| **Flow Analysis** | Runs the query logic over your raw logs (**Local File**) or a Splunk `.xlsx`/`.csv` export (**Upload**) |
 | **Compare** | Maps each line of a Splunk result to its raw log event by timestamp, with the JSON/XML payload as a Parameter / Value table and a data-quality report |
 | **Mask** | Masks sensitive values in log/text files by JSON key, XML tag, exact text or Pre/Post text (replace with `<<MASK_NAME>>` or your own text, digits to `*`, keep last 4, or consistent pseudonyms), flags what still looks sensitive, and downloads the masked files |
 
-Views in Load File: **Flow** (session summary and flow table), **PlantUML**,
+Views in Flow Analysis: **Flow** (session summary and flow table), **PlantUML**,
 **Sequence** (SVG diagram: one for all sessions or one per session, with optional notes and elapsed times), **Processing Rule** (each API with a description of the call:
 callers, downstream calls, SvcCodes, gaps, latency) and **Debug**.
 
