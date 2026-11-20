@@ -24,7 +24,7 @@ sequence diagrams, and the processing rules it observes. Nothing is uploaded.
 
 | Tab | What it does |
 |---|---|
-| **Splunk** | Generates the SPL query from editable sources, session IDs, an optional Start/End time, layers and rex rules; copy or download it |
+| **Splunk** | Generates the SPL query from editable sources, session IDs, an optional Start/End time, layers and rex rules; copy or download it, or **Run in Splunk** (log in, search job ID, results as CSV, open them in Load File) |
 | **Load File** | Runs the query logic over your raw logs (**Local File**) or a Splunk `.xlsx`/`.csv` export (**Upload**) |
 | **Mock Test** | The same views over bundled fake logs |
 | **Compare** | Maps each line of a Splunk result to its raw log event by timestamp, with the JSON/XML payload as a Parameter / Value table and a data-quality report |
@@ -78,6 +78,10 @@ npm run security-scan                        # pre-push scan (also run in CI)
 - Files you load are read in your browser and never uploaded. The page loads nothing
   from other sites; the only outbound request is the optional PlantUML **Render**,
   which asks before sending the diagram text to plantuml.com.
+- **Run in Splunk** goes only to the Splunk URL you enter, through the local server
+  (`python tools/serve.py`), because Splunk's REST API (port 8089) answers no web page
+  directly. The password is sent once, to log in, and is not saved; the URL and username
+  are kept in your browser. It is not available on GitHub Pages.
 - Use the **Mask** tab before sharing a log. Its consistent mode keeps sessions linkable
   through a key-based HMAC; the key stays in your browser.
 - Never commit real or undesensitised logs. `ToolBase/`, `*.log` and `*.xlsx` are
@@ -96,10 +100,11 @@ npm run security-scan                        # pre-push scan (also run in CI)
 | `js/importer.js` | Excel (`.xlsx`) and CSV reader for Splunk flow exports |
 | `js/rules.js` | Processing-rule analysis and Markdown export |
 | `js/compare.js` | Timestamp mapping of a Splunk result to the raw logs, data-quality checks |
+| `js/splunk.js` | Run in Splunk: login, search job, results as CSV (through `tools/serve.py`) |
 | `js/mask.js` | Masking rules (JSON key, XML tag, exact text, Pre/Post) and the leftover scan |
 | `js/app.js` | Page wiring |
 | `mock/` | Fake logs, flow exports and expected output ([details](mock/README.md)) |
 | `tests/` | `node --test` suites |
-| `tools/` | `serve.py`, `simulate.js`, `security-scan.js` |
+| `tools/` | `serve.py` (also forwards Run in Splunk), `simulate.js`, `security-scan.js` |
 | `.github/workflows/` | CI and GitHub Pages deployment |
 | `.claude/commands/publish.md` | `/publish` command for Claude Code |

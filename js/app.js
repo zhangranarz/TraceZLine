@@ -920,8 +920,13 @@
     e.target.value = '';
     if (!file) return;
     logDebug('info', `Upload: ${file.name} (${file.size.toLocaleString()} bytes)`);
+    await importResult(file, await file.arrayBuffer());
+  });
+
+  // An Excel / CSV Splunk result ({ name }, bytes) becomes the Load File rows.
+  async function importResult(file, buffer) {
     try {
-      const table = await window.TraceImport.readTable(file.name, await file.arrayBuffer());
+      const table = await window.TraceImport.readTable(file.name, buffer);
       const { rows, problems } = window.TraceImport.toFlowRows(table, state);
       const byLine = new Map(problems.map((p) => [p.line, p]));
       const trace = rows.map((r) => ({ file: file.name, lineNo: r.line, head: r.Flow, ev: r, kept: true, warn: byLine.get(r.line)?.reason || '' }));
@@ -939,7 +944,7 @@
     } catch (err) {
       logDebug('error', `${file.name}: could not be read as a flow table (${err.message}).`);
     }
-  });
+  }
 
   // Files that cannot hold log events (Excel, binary, no timestamped lines) are reported and skipped.
   function setLogs(files) {
@@ -1486,6 +1491,92 @@
   renderMaskRules();
 
   // ---------- tabs ----------
+
+  // ---------- run in Splunk ----------
+
+  // URL, username and the certificate choice are kept in this browser; the password is not.
+  const SPLUNK_KEY = 'tracezline.splunk';
+  const splunkEls = Object.fromEntries(['url', 'user', 'pass', 'insecure', 'note', 'status', 'csv'].map((k) => [k, document.getElementById('splunk-' + k)]));
+  const splunkBtn = (k) => document.getElementById('btn-splunk-' + k);
+  let splunkResult = null; // { sid, csv }
+  try {
+    const saved = JSON.parse(localStorage.getItem(SPLUNK_KEY) || '{}');
+    splunkEls.url.value = saved.url || '';
+    splunkEls.user.value = saved.user || '';
+    splunkEls.insecure.checked = !!saved.insecure;
+  } catch (e) { /* ignore */ }
+  const saveSplunk = () => {
+    try { localStorage.setItem(SPLUNK_KEY, JSON.stringify({ url: splunkEls.url.value.trim(), user: splunkEls.user.value.trim(), insecure: splunkEls.insecure.checked })); } catch (e) { /* ignore */ }
+  };
+  ['url', 'user', 'insecure'].forEach((k) => splunkEls[k].addEventListener('change', saveSplunk));
+
+  // GitHub Pages has no forwarding server: say how to get one.
+  window.TraceSplunk.available().then((ok) => {
+    if (ok) return;
+    splunkBtn('run').disabled = true;
+    splunkEls.note.textContent = 'Not available here: Splunk only answers this page through the local server. '
+      + 'Run python tools/serve.py and open http://localhost:8765/.';
+    splunkEls.note.classList.add('problem');
+  });
+
+  function splunkStatus(lines) {
+    splunkEls.status.replaceChildren(...lines.map(([cls, text]) => el('li', { class: cls }, [text])));
+  }
+
+  splunkBtn('run').addEventListener('click', async () => {
+    const steps = { login: 'Logging in…', job: 'Creating the search job…', wait: 'Search running…', results: 'Fetching the results as CSV…' };
+    const lines = [];
+    let key = '';
+    let sid = '';
+    const show = (current) => splunkStatus([
+      ...(key ? [['ok', `Logged in (session key ${window.TraceSplunk.maskKey(key)})`]] : []),
+      ...(sid ? [['ok', `Search job (access id): ${sid}`]] : []),
+      ...lines, ...(current ? [['busy', current]] : []),
+    ]);
+    splunkResult = null;
+    splunkBtn('run').disabled = true;
+    splunkBtn('csv').disabled = true;
+    splunkBtn('open').disabled = true;
+    splunkEls.csv.hidden = true;
+    saveSplunk();
+    try {
+      const res = await window.TraceSplunk.run({
+        base: splunkEls.url.value, username: splunkEls.user.value.trim(), password: splunkEls.pass.value,
+        query: generate(state), insecure: splunkEls.insecure.checked,
+        onStatus: (s) => {
+          if (s.sessionKey) key = s.sessionKey;
+          if (s.sid) sid = s.sid;
+          show(s.step === 'wait' ? `Search running… ${Math.round(s.progress * 100)}%, ${s.results} results` : steps[s.step]);
+        },
+      });
+      const table = window.TraceImport.parseCsv(res.csv);
+      splunkResult = { sid: res.sid, csv: res.csv };
+      lines.push(['ok', `Results: ${Math.max(0, table.length - 1).toLocaleString()} rows (CSV, ${res.csv.length.toLocaleString()} chars)`]);
+      show();
+      const preview = res.csv.split('\n');
+      splunkEls.csv.textContent = preview.slice(0, 200).join('\n') + (preview.length > 200 ? `\n… ${preview.length - 200} more lines (Download CSV)` : '');
+      splunkEls.csv.hidden = false;
+      splunkBtn('csv').disabled = false;
+      splunkBtn('open').disabled = table.length < 2;
+    } catch (err) {
+      lines.push(['problem', err.message]);
+      show();
+    } finally {
+      splunkEls.pass.value = '';
+      splunkBtn('run').disabled = false;
+    }
+  });
+
+  splunkBtn('csv').addEventListener('click', () => {
+    if (splunkResult) download(`splunk-${splunkResult.sid}.csv`, splunkResult.csv, 'text/csv');
+  });
+
+  splunkBtn('open').addEventListener('click', async () => {
+    if (!splunkResult) return;
+    showTab('file');
+    logDebug('info', `Splunk search ${splunkResult.sid}: results opened in Load File`);
+    await importResult({ name: `splunk-${splunkResult.sid}.csv` }, new TextEncoder().encode(splunkResult.csv).buffer);
+  });
 
   const TAB_KEY = 'tracezline.tab';
 
