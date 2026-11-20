@@ -228,11 +228,14 @@
       ev.API = {
         eComm: ev.Endpoint || 'N/A', Enterprise: ev.Endpoint || 'N/A',
         WS: ev.URL || ev.LastWsURL || ev.DGEEndpoint || ev.LastDGEEndpoint || 'N/A',
-        Host: ev.Endpoint,
+        Host: ev.DGEEndpoint || 'N/A',
       }[ev.LayerName];
       ev.DirectionSymbol = ev.Direction === 'Request' ? '?' : '!';
       // Requests and responses pair by layer name, not number: Enterprise and WS are both 2.
-      ev.PairKey = `${ev.LayerName}|${(ev.LayerName === 'Host' ? ev.Endpoint : ev.API) || 'N/A'}`;
+      // Host: also its SvcCode pairs (a response must list the same pairs as its request to pair)
+      ev.PairKey = ev.LayerName === 'Host'
+        ? `Host|${ev.DGEEndpoint || 'N/A'}|${pairs.join('|') || 'N/A'}`
+        : `${ev.LayerName}|${ev.API || 'N/A'}`;
       const key = [sid, ev.LayerName, ev.PairKey].join('|');
       if (ev.Direction === 'Response' && lastReq[key] != null) ev.ElapsedMs = Math.round(ev.time - lastReq[key]);
       if (ev.Direction === 'Request') lastReq[key] = ev.time;

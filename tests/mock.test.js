@@ -116,7 +116,7 @@ test('same millisecond: requests eComm > Enterprise > WS > Host, responses Host 
   assert.deepStrictEqual(order(res), ['Host Response -30', 'WS Response -21', 'Enterprise Response -20', 'eComm Response -10']);
 });
 
-test('a Host event without its own [::dge-…] shows Endpoint NA; a WS response without a URL takes LastWsURL', () => {
+test('a Host event without its own [::dge-…] shows API N/A; a WS response without a URL takes LastWsURL', () => {
   const sid = 'aaaaaaaa-0000-4000-8000-000000000008';
   const at = (ms, line) => `2026-10-26 09:30:00.${ms} [x] INFO\n${line}\n`;
   const log = at('100', `WSAppLog | WLS:${sid} | request: URL:/dge-enq/a | [::dge-enq:enq.a.VN.V1]`)
@@ -126,8 +126,8 @@ test('a Host event without its own [::dge-…] shows Endpoint NA; a WS response 
   const rows = flow.run(spl.DEFAULT_CONFIG, [{ name: 'a.log', text: log, anySource: true }], []);
   assert.deepStrictEqual(rows.map((r) => [r.LayerName, r.Direction, r.API]), [
     ['WS', 'Request', '/dge-enq/a'],
-    ['Host', 'Request', 'NA'],
-    ['Host', 'Response', 'NA'],
+    ['Host', 'Request', 'N/A'],
+    ['Host', 'Response', 'N/A'],
     ['WS', 'Response', '/dge-enq/a'], // no URL of its own: LastWsURL, so it pairs with the request
   ]);
   assert.deepStrictEqual(rows.map((r) => r.ElapsedMs ?? null), [null, null, 100, 300]);
@@ -234,4 +234,16 @@ test('an event with none of the session forms gets sessionId NA', () => {
   const log = '2026-10-26 09:30:00.000 [x] [INFO ] [ENQWSAppLog] [t] - [::dge-enq:enq.a.VN.V1] - X: | URL is /dge-enq/a request:\n';
   const rows = flow.run(spl.DEFAULT_CONFIG, [{ name: 'a.log', text: log, anySource: true }], []);
   assert.deepStrictEqual(rows.map((r) => [r.LayerName, r.sessionId]), [['WS', 'NA']]);
+});
+
+test('Host PairKey includes the SvcCode pairs: a response with other pairs does not pair', () => {
+  const sid = 'aaaaaaaa-0000-4000-8000-000000000002';
+  const at = (ms, line) => `2026-10-26 09:30:00.${ms} [x] INFO\n${line}\n`;
+  const host = (ms, dir, codes) => at(ms, `<EAI> ${codes.map((c) => `<SvcCode>${c}</SvcCode>`).join(' ')} ${dir} Message [::dge-enq:enq.a.VN.V1] WLS:${sid} |`);
+  const run = (log) => flow.run(spl.DEFAULT_CONFIG, [{ name: 'a.log', text: log, anySource: true }], []);
+  const same = run(host('100', 'Request', ['A_X', 'A_Y']) + host('300', 'Response', ['A_X', 'A_Y']));
+  assert.deepStrictEqual(same.map((r) => r.ElapsedMs ?? null), [null, 200]);
+  assert.strictEqual(same[0].PairKey, 'Host|dge-enq:enq.a.VN.V1|A_X ~ A_Y');
+  const other = run(host('100', 'Request', ['A_X', 'A_Y', 'B_X']) + host('300', 'Response', ['A_X', 'A_Y']));
+  assert.deepStrictEqual(other.map((r) => r.ElapsedMs ?? null), [null, null]);
 });

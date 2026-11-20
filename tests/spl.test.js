@@ -205,8 +205,9 @@ test('Flow format: per-layer indent and [?]/[!] direction markers', () => {
   assert.match(out, /\| eval Indent=case\(LayerName="eComm","",LayerName="Enterprise","> ",LayerName="Host",">>> ",LayerName="WS",">> "\)/);
   assert.match(out, /\| eval DirectionSymbol=if\(Direction="Request","\?","!"\)/);
   assert.ok(out.includes('\n    LayerName="Host",coalesce(DGEEndpoint,"NA"))\n'), 'Endpoint for Host');
-  assert.ok(out.includes('\n    LayerName="Host",Endpoint)\n'), 'API for Host');
-  assert.ok(out.includes('| eval PairKey=case(LayerName="Host",LayerName."|".Endpoint,'));
+  assert.ok(out.includes('\n    LayerName="Host",coalesce(DGEEndpoint,"N/A"))\n| eval PairKey='), 'API for Host');
+  assert.ok(out.includes('| eval PairKey=case(LayerName="Host",printf("%s|%s|%s",LayerName,coalesce(DGEEndpoint,"N/A"),coalesce(mvjoin(HostPairs,"|"),"N/A")),\n'
+    + '      true(),printf("%s|%s",LayerName,coalesce(API,"N/A")))\n'));
 });
 
 test('URL, eCommEndpoint (eComm) and EnterpriseEndpoint (Enterprise) read their line formats', () => {

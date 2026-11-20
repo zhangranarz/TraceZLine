@@ -89,16 +89,18 @@ __ENDPOINT__
 | rex field=_raw max_match=0 "<SvcCode>(?<SvcCode>[^<]+)</SvcCode>"
 | where LayerName!="Host" OR mvcount(SvcCode)>=1
 | sort 0 _time SortKey
-| eval CurrentWsURL=if(LayerName="WS",URL,null())
-| eval CurrentDGEEndpoint=if(LayerName="WS",DGEEndpoint,null())
-| streamstats last(CurrentWsURL) as LastWsURL last(CurrentDGEEndpoint) as LastDGEEndpoint by sessionId
+| eval CurrentWsURL=if(LayerName="WS" AND isnotnull(URL),URL,null())
+| eval CurrentDGEEndpoint=if(LayerName="WS" AND isnotnull(DGEEndpoint),DGEEndpoint,null())
+| streamstats last(CurrentWsURL) as PreviousWsURL by sessionId
+| streamstats last(CurrentDGEEndpoint) as PreviousDGEEndpoint by sessionId
+| eval LastWsURL=coalesce(CurrentWsURL,PreviousWsURL)
+| eval LastDGEEndpoint=coalesce(CurrentDGEEndpoint,PreviousDGEEndpoint)
 | eval pairIndex=if(LayerName="Host",mvrange(0,ceil(mvcount(SvcCode)/2)),null())
 | eval HostPairs=if(LayerName="Host",mvmap(pairIndex, mvindex(SvcCode,pairIndex*2) . " ~ ".coalesce(mvindex(SvcCode,pairIndex*2+1),mvindex(SvcCode,pairIndex*2))),null())
-| eval API=case(LayerName="eComm",coalesce(Endpoint,"N/A"),
-    LayerName="Enterprise",coalesce(Endpoint,"N/A"),
-    LayerName="WS",coalesce(URL,LastWsURL,DGEEndpoint,LastDGEEndpoint,"N/A"),
-    LayerName="Host",Endpoint)
-| eval PairKey=case(LayerName="Host",LayerName."|".Endpoint,true(),LayerName."|".coalesce(API,"N/A"))
+| eval API=case(__API_RULES__LayerName="WS",coalesce(URL,LastWsURL,DGEEndpoint,LastDGEEndpoint,"N/A"),
+    LayerName="Host",coalesce(DGEEndpoint,"N/A"))
+| eval PairKey=case(LayerName="Host",printf("%s|%s|%s",LayerName,coalesce(DGEEndpoint,"N/A"),coalesce(mvjoin(HostPairs,"|"),"N/A")),
+      true(),printf("%s|%s",LayerName,coalesce(API,"N/A")))
 | eval ReqTime=if(Direction="Request",_time,null())
 | streamstats last(ReqTime) as LastReqTime by sessionId LayerName PairKey
 | eval ElapsedMs=if(Direction="Response" AND isnotnull(LastReqTime),round((_time-LastReqTime)*1000,0),null())
@@ -257,6 +259,7 @@ __INDENT__
     const endpointCases = [...byLayer].map(([layer, f]) => `LayerName="${layer}",coalesce(${endpointOfLayer(layer, f)},"N/A")`)
       .concat(['LayerName="WS",mvappend(coalesce(URL,"NA"),coalesce(DGEEndpoint,"NA"))', 'LayerName="Host",coalesce(DGEEndpoint,"NA")']);
     const endpointLine = '| eval Endpoint=case(' + endpointCases.join(',\n    ') + ')';
+    const apiRules = [...byLayer].map(([layer, f]) => `LayerName="${layer}",coalesce(${endpointOfLayer(layer, f)},"N/A"),\n    `).join('');
 
     const sids = cfg.sessionRules.filter((r) => r.field.trim());
     sids.filter((r) => r.rex.trim()).forEach((r) => out.push(`| rex field=_raw "${r.rex.trim()}"`));
@@ -269,7 +272,7 @@ __INDENT__
     const indentLine = '| eval Indent=case('
       + layers.map((l) => `LayerName="${l.name.trim()}","${l.indent ?? ''}"`).join(',') + ')';
     out.push(...endpointRex);
-    out.push(FLOW_BLOCK.replace('__ENDPOINT__', endpointLine).replace('__INDENT__', indentLine));
+    out.push(FLOW_BLOCK.replace('__ENDPOINT__', endpointLine).replace('__API_RULES__', apiRules).replace('__INDENT__', indentLine));
 
     const params = cfg.params.filter((p) => p.field.trim());
     params.filter((p) => p.rex.trim()).forEach((p) => out.push(`| rex field=_raw "${p.rex.trim()}"`));
