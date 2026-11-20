@@ -31,7 +31,7 @@
       { name: 'eComm', match: String.raw`match(_raw,"\[SPLMessage\]")`, layer: 1, indent: '', subLayer: 0 },
       { name: 'Enterprise', match: String.raw`match(_raw,"\[SPLHostMessage\]")`, layer: 2, indent: '> ', subLayer: 0 },
       { name: 'Host', match: String.raw`match(_raw,"<EAI>") AND match(_raw,"<SvcCode>")`, layer: 3, indent: '>>> ', subLayer: 0 },
-      { name: 'WS', match: String.raw`match(_raw,"WSAppLog")`, layer: 2, indent: '>> ', subLayer: 1 },
+      { name: 'WS', match: String.raw`match(_raw,"(?i)WSAppLog|UFWApsect|UFWAspect")`, layer: 2, indent: '>> ', subLayer: 1 },
     ],
     // rex that extracts the direction word, and an optional raw first case() pair.
     // Optional: a DirWord rex and a first raw case() rule. Not used by default.
@@ -193,20 +193,19 @@ __INDENT__
     }
 
     const layers = cfg.layers.filter((l) => l.name.trim());
-    // Two conditions per line; Layer=case() is listed by layer number (stable for equal numbers).
-    const nameCases = layers.map((l) => `${l.match.trim()},"${l.name.trim()}"`);
-    const nameLines = [];
-    for (let i = 0; i < nameCases.length; i += 2) nameLines.push(nameCases.slice(i, i + 2).join(','));
-    out.push('| eval LayerName=case(' + nameLines.join(',\n    ') + ')');
+    // One condition per line; events no layer condition matches are dropped. Layer=case() is
+    // listed by layer number (stable for equal numbers).
+    out.push('| eval LayerName=case(' + layers.map((l) => `${l.match.trim()},"${l.name.trim()}"`).join(',\n    ') + ')');
+    out.push('| where isnotnull(LayerName)');
     const byNumber = layers.slice().sort((a, b) => Number(a.layer) - Number(b.layer));
-    out.push('| eval Layer=case('
-      + byNumber.map((l) => `LayerName="${l.name.trim()}",${l.layer}`).join(',')
-      + ')');
+    out.push('| eval Layer=case(' + byNumber.map((l) => `LayerName="${l.name.trim()}",${l.layer}`).join(',\n    ') + ')');
     // SubLayer marks processing inside a layer: WS is layer 2 like Enterprise, with SubLayer 1
-    // because it runs inside Enterprise. A layer without a sub-layer number counts as 0.
-    out.push('| eval SubLayer=case('
-      + byNumber.map((l) => `LayerName="${l.name.trim()}",${Number(l.subLayer) || 0}`).join(',')
-      + ')');
+    // because it runs inside Enterprise. A layer without a sub-layer number counts as 0, so
+    // one such layer reads if(LayerName="WS",1,0).
+    const subs = byNumber.filter((l) => Number(l.subLayer));
+    out.push('| eval SubLayer=' + (!subs.length ? '0'
+      : subs.length === 1 ? `if(LayerName="${subs[0].name.trim()}",${Number(subs[0].subLayer)},0)`
+        : 'case(' + subs.map((l) => `LayerName="${l.name.trim()}",${Number(l.subLayer)}`).join(',') + ',true(),0)'));
     out.push('| eval LayerOrder=Layer*10+SubLayer');
 
     if (cfg.dirWordRex.trim()) out.push(`| rex field=_raw "${cfg.dirWordRex.trim()}"`);

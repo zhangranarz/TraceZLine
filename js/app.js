@@ -166,6 +166,10 @@
       out.directionFirst = DEFAULT_CONFIG.directionFirst;
       out.directions = clone(DEFAULT_CONFIG.directions);
     }
+    // WS condition saved as WSAppLog alone: also UFWAspect (and UFWApsect), as in the WS key filter.
+    out.layers.forEach((l) => {
+      if (l && l.name === 'WS' && l.match === 'match(_raw,"WSAppLog")') l.match = DEFAULT_CONFIG.layers.find((d) => d.name === 'WS').match;
+    });
     // Host condition saved before it was <EAI> AND <SvcCode>.
     out.layers.forEach((l) => {
       if (l && l.name === 'Host' && l.match === String.raw`match(_raw,"<SvcCode>") AND match(_raw,"(?i)(request|response) message")`) {

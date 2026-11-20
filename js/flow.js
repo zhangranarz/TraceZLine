@@ -169,6 +169,7 @@
       }
       const r = ev.raw;
       const L = layers.find((l) => evalCond(l.match, ev));
+      if (!L) { if (rec) rec.reason = 'Excluded: no layer condition matched (where isnotnull(LayerName))'; continue; }
       ev.LayerName = L ? L.name : null;
       ev.Layer = L ? Number(L.layer) : null;
       ev.SubLayer = L ? Number(L.subLayer) || 0 : null;

@@ -23,9 +23,10 @@ test('default config reproduces the base query', () => {
 
 test('Layer=case() follows layer number order, LayerName=case() keeps list order', () => {
   const out = spl.generate(spl.DEFAULT_CONFIG);
-  assert.match(out, /\| eval LayerName=case\(match\(_raw,"\\\[SPLMessage\\\]"\),"eComm",match/);
-  assert.match(out, /"Host",match\(_raw,"WSAppLog"\),"WS"\)\n/);
-  assert.match(out, /\| eval Layer=case\(LayerName="eComm",1,LayerName="Enterprise",2,LayerName="WS",2,LayerName="Host",3\)/);
+  // one condition per line, then events with no layer are dropped
+  assert.ok(out.includes('| eval LayerName=case(match(_raw,"\\[SPLMessage\\]"),"eComm",\n    match(_raw,"\\[SPLHostMessage\\]"),"Enterprise",\n'));
+  assert.ok(out.includes('"Host",\n    match(_raw,"(?i)WSAppLog|UFWApsect|UFWAspect"),"WS")\n| where isnotnull(LayerName)\n'));
+  assert.ok(out.includes('| eval Layer=case(LayerName="eComm",1,\n    LayerName="Enterprise",2,\n    LayerName="WS",2,\n    LayerName="Host",3)\n'));
 });
 
 test('search terms are quoted, escaped and OR-joined; empty list drops the line', () => {
@@ -229,9 +230,13 @@ test('URL, eCommEndpoint (eComm) and EnterpriseEndpoint (Enterprise) read their 
 
 test('SubLayer: WS is layer 2 with sub-layer 1; a layer without a sub-layer number counts as 0', () => {
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
-  assert.match(spl.generate(cfg), /\n\| eval SubLayer=case\(LayerName="eComm",0,LayerName="Enterprise",0,LayerName="WS",1,LayerName="Host",0\)\n/);
+  assert.ok(spl.generate(cfg).includes('\n| eval SubLayer=if(LayerName="WS",1,0)\n'));
+  // a layer without a sub-layer number counts as 0: it is not listed
   cfg.layers.push({ name: 'OPI', match: 'match(_raw,"OPIAppLog")', layer: 4, indent: '' });
-  assert.match(spl.generate(cfg), /LayerName="Host",0,LayerName="OPI",0\)\n/);
+  assert.ok(spl.generate(cfg).includes('\n| eval SubLayer=if(LayerName="WS",1,0)\n'));
+  // two layers with a sub-layer: case() with 0 for the rest
+  cfg.layers[cfg.layers.length - 1].subLayer = 2;
+  assert.ok(spl.generate(cfg).includes('\n| eval SubLayer=case(LayerName="WS",1,LayerName="OPI",2,true(),0)\n'));
 });
 
 test('dropNoDirection adds | where isnotnull(Direction) right after Direction', () => {
@@ -284,7 +289,7 @@ test('renameMarker: a marker renamed in a source filter is renamed in the layer 
   assert.ok(sid('sidEnterprise').startsWith(String.raw`(?i)\[MightyHostMessage\]\[`), sid('sidEnterprise'));
   // wildcards are not copied into the regex
   assert.deepStrictEqual(spl.renameMarker(cfg, '"*WSAppLog*" ("request:")', '"*OPIAppLog*" ("request:")'), ['Layer WS']);
-  assert.strictEqual(cfg.layers.find((l) => l.name === 'WS').match, 'match(_raw,"OPIAppLog")');
+  assert.strictEqual(cfg.layers.find((l) => l.name === 'WS').match, 'match(_raw,"(?i)OPIAppLog|UFWApsect|UFWAspect")');
   // nothing when several terms change, or none
   assert.deepStrictEqual(spl.renameMarker(cfg, '"A" "B"', '"C" "D"'), []);
   assert.deepStrictEqual(spl.renameMarker(cfg, '"A"', '"A" OR "B"'), []);
