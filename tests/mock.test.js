@@ -32,7 +32,7 @@ test('every mock event is returned and gets a layer, a direction and a sessionId
 
 test('E: multi-subservice EAI call pairs SvcCodes', () => {
   const host = bySession(S1).find((r) => r.LayerName === 'Host' && r.SvcCode.includes('AC_ACCT_SUM_X'));
-  assert.deepStrictEqual(host.ServiceInfo.slice(1), ['- [AC_ACCT_SUM_X ~ AC_RBK_SUMM_N] [?]', '- [AC_VSA_SUMM_N ~ AC_VSA_SUMM_N] [?]']);
+  assert.deepStrictEqual(host.ServiceInfo.slice(1), ['- [AC_ACCT_SUM_X ~ AC_RBK_SUMM_N][?]', '- [AC_VSA_SUMM_N ~ AC_VSA_SUMM_N][?]']);
 });
 
 test('H: interleaved sessions keep their own Step numbers', () => {
@@ -137,7 +137,7 @@ test('an eComm event without an Endpoint shows API N/A instead of dropping out',
   // the endpoint is not after the - (the rex needs -/path), but the line still has "- Request -"
   const log = '2026-10-26 09:30:00.000 [x] INFO\n[SPLMessage][aaaaaaaa-0000-4000-8000-000000000006][U][VN][9.14][t][A][][] received - Request -\n';
   const rows = flow.run(spl.DEFAULT_CONFIG, [{ name: 'a.log', text: log, anySource: true }], []);
-  assert.deepStrictEqual(rows.map((r) => [r.LayerName, r.Direction, r.API, r.Flow]), [['eComm', 'Request', 'N/A', 'eComm: N/A [?]']]);
+  assert.deepStrictEqual(rows.map((r) => [r.LayerName, r.Direction, r.API, r.Flow]), [['eComm', 'Request', 'N/A', 'eComm: N/A[?]']]);
 });
 
 test('pairing is by layer name: an Enterprise request and a WS response with the same API do not pair', () => {
@@ -214,16 +214,16 @@ test('Start time / End time keep only the events in the window', () => {
   assert.ok(trace.some((t) => t.reason === 'Excluded: outside Start time / End time'));
 });
 
-test('WS Endpoint: URL and service endpoint, NA when missing; pairing still uses the API', () => {
+test('WS rows: API (else the previous WS URL) and "Endpoint: <LastDGEEndpoint>"; pairing uses the API', () => {
   const sid = 'aaaaaaaa-0000-4000-8000-000000000003';
   const at = (ms, line) => `2026-10-26 09:30:00.${ms} [x] INFO\n${line}\n`;
   const log = at('100', `[ENQWSAppLog] [t] - [::dge-enq:enq.a.VN.V1] - X: | WLS:${sid} | URL is /dge-enq/a request:`)
     + at('300', `[ENQWSAppLog] [t] - Y: | WLS:${sid} | Response: {}`);
   const rows = flow.run(spl.DEFAULT_CONFIG, [{ name: 'a.log', text: log, anySource: true }], []);
-  assert.deepStrictEqual(rows.map((r) => r.Endpoint), [['/dge-enq/a', 'dge-enq:enq.a.VN.V1'], ['NA', 'NA']]);
+  // the response has no URL and no [::…] of its own: both are carried over from the request
   assert.deepStrictEqual(rows.map((r) => r.ServiceInfo), [
-    ['>> WS [Enterprise]: /dge-enq/a [?]', 'dge-enq:enq.a.VN.V1'],
-    ['>> WS [Enterprise]: NA [!]', 'NA'],
+    ['>> WS [Enterprise]: /dge-enq/a[?]', 'Endpoint: dge-enq:enq.a.VN.V1'],
+    ['>> WS [Enterprise]: /dge-enq/a[!]', 'Endpoint: dge-enq:enq.a.VN.V1'],
   ]);
   assert.strictEqual(rows[1].API, '/dge-enq/a', 'API keeps the previous WS URL for pairing');
   assert.strictEqual(rows[1].ElapsedMs, 200);

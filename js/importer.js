@@ -189,11 +189,11 @@
       });
     });
     // Host rows list their SvcCode pairs as "- [A ~ B] [?]" lines, which the diagrams read from ServiceInfo.
-    // A WS row's next line is its service endpoint (Endpoint = URL, service endpoint).
+    // A WS row's next line is its service endpoint ("Endpoint: …", LastDGEEndpoint).
     rows.forEach((row) => {
       if (!Array.isArray(row.ServiceInfo)) return;
       const more = row.ServiceInfo.slice(1);
-      if (row.LayerName === 'WS' && more.length && !SERVICE_RE.test(more[0])) row.Endpoint = [row.API || 'NA', more[0].replace(/^Endpoint:\s*/, '')];
+      if (row.LayerName === 'WS' && more.length && !SERVICE_RE.test(more[0])) row.LastDGEEndpoint = more[0].replace(/^Endpoint:\s*/, '');
       row.ServiceInfo = [row.Flow, ...more.filter((s) => SERVICE_RE.test(s))];
     });
     return { rows, problems };

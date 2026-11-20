@@ -105,20 +105,20 @@ test('DirectionSymbol is set before ServiceInfo uses it', () => {
   assert.ok(out.indexOf('| eval DirectionSymbol=') < out.indexOf('| eval ServiceInfo='));
 });
 
-test('endpoint rules: one Endpoint per layer; several rules for a layer are coalesced', () => {
+test('endpoint rules: the API of their layer; several rules for a layer are coalesced', () => {
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
   cfg.endpointRules = [cfg.endpointRules[2], { field: 'EpX', layer: 'Enterprise', rex: '(?<EpX>\\S+)' }, { field: 'EpY', layer: '', rex: '(?<EpY>\\S+)' }];
   const out = spl.generate(cfg);
-  // two rules for Enterprise: EnterpriseEndpoint=coalesce(...) after the rex lines, then used by Endpoint=case()
+  // two rules for Enterprise: EnterpriseEndpoint=coalesce(...) after the rex lines, then used by API=case()
   assert.ok(out.includes('\n| eval EnterpriseEndpoint=coalesce(EnterpriseEndpoint2,EpX)\n'));
-  assert.ok(out.includes('\n| eval Endpoint=case(LayerName="Enterprise",coalesce(EnterpriseEndpoint,"N/A"),\n'
-    + '    LayerName="WS",mvappend(coalesce(URL,"NA"),coalesce(DGEEndpoint,"NA")),\n'
-    + '    LayerName="Host",coalesce(DGEEndpoint,"NA"))\n'));
-  assert.doesNotMatch(out, /eCommEndpoint/);
+  assert.ok(out.includes('\n| eval API=case(LayerName="Enterprise",coalesce(EnterpriseEndpoint,"N/A"),\n'
+    + '    LayerName="WS",coalesce(URL,LastWsURL,DGEEndpoint,LastDGEEndpoint,"N/A"),\n'
+    + '    LayerName="Host",coalesce(DGEEndpoint,"N/A"))\n'));
+  assert.doesNotMatch(out, /eCommEndpoint|eval Endpoint=/);
   assert.ok(spl.validate(cfg).some((w) => /"EpY" has no layer/.test(w)));
   // one rule for a layer: used directly
   cfg.endpointRules = [cfg.endpointRules[0]];
-  assert.ok(spl.generate(cfg).includes('| eval Endpoint=case(LayerName="Enterprise",coalesce(EnterpriseEndpoint2,"N/A"),'));
+  assert.ok(spl.generate(cfg).includes('| eval API=case(LayerName="Enterprise",coalesce(EnterpriseEndpoint2,"N/A"),'));
 });
 
 test('empty DirWord rex and first rule drop out of the query', () => {
@@ -204,7 +204,11 @@ test('Flow format: per-layer indent and [?]/[!] direction markers', () => {
   const out = spl.generate(spl.DEFAULT_CONFIG);
   assert.match(out, /\| eval Indent=case\(LayerName="eComm","",LayerName="Enterprise","> ",LayerName="Host",">>> ",LayerName="WS",">> "\)/);
   assert.match(out, /\| eval DirectionSymbol=if\(Direction="Request","\?","!"\)/);
-  assert.ok(out.includes('\n    LayerName="Host",coalesce(DGEEndpoint,"NA"))\n'), 'Endpoint for Host');
+  // the head and the extra lines, without a space before [?] / [!]
+  assert.ok(out.includes('\n| eval FlowHead=printf("%s%s: %s[%s]",Indent,DisplayLayer, coalesce(API,"N/A"),DirectionSymbol)\n'));
+  assert.ok(out.includes('\n| eval ServiceLines=if(LayerName="Host",mvmap(HostPairs,printf("- [%s][%s]",HostPairs,DirectionSymbol)),null())\n'));
+  assert.ok(out.includes('\n| eval WsDetails=if(LayerName="WS" AND isnotnull(LastDGEEndpoint),printf("Endpoint: %s",LastDGEEndpoint),null())\n'));
+  assert.ok(out.includes('\n| eval ServiceInfo=Flow'), 'ServiceInfo stays for the table');
   assert.ok(out.includes('\n    LayerName="Host",coalesce(DGEEndpoint,"N/A"))\n| eval PairKey='), 'API for Host');
   assert.ok(out.includes('| eval PairKey=case(LayerName="Host",printf("%s|%s|%s",LayerName,coalesce(DGEEndpoint,"N/A"),coalesce(mvjoin(HostPairs,"|"),"N/A")),\n'
     + '      true(),printf("%s|%s",LayerName,coalesce(API,"N/A")))\n'));

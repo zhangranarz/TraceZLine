@@ -18,7 +18,7 @@ for (const file of ['mock-flow.csv', 'mock-flow.xlsx']) {
     assert.deepStrictEqual(problems, []);
     assert.strictEqual(rows.length, fromLogs.length);
     const host = rows.find((r) => r.LayerName === 'Host' && r.ServiceInfo.length === 3);
-    assert.deepStrictEqual(host.ServiceInfo.slice(1), ['- [AC_ACCT_SUM_X ~ AC_RBK_SUMM_N] [?]', '- [AC_VSA_SUMM_N ~ AC_VSA_SUMM_N] [?]']);
+    assert.deepStrictEqual(host.ServiceInfo.slice(1), ['- [AC_ACCT_SUM_X ~ AC_RBK_SUMM_N][?]', '- [AC_VSA_SUMM_N ~ AC_VSA_SUMM_N][?]']);
     assert.deepStrictEqual(rows.find((r) => r.ElapsedMs === 45).Params, ['TxnRefNo=9990000000000101', 'TxnCode=SEC02']);
   });
 

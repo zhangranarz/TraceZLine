@@ -85,7 +85,6 @@
 
   const FLOW_BLOCK = String.raw`| rex field=_raw "\[::(?<DGEEndpoint>[^]]+)\]"
 | rex field=_raw "\bURL(?:\s+is\s+|\s*:\s*)(?<URL>/[^\s:|]+)"
-__ENDPOINT__
 | rex field=_raw max_match=0 "<SvcCode>(?<SvcCode>[^<]+)</SvcCode>"
 | where LayerName!="Host" OR mvcount(SvcCode)>=1
 | sort 0 _time SortKey
@@ -106,9 +105,9 @@ __ENDPOINT__
 | eval ElapsedMs=if(Direction="Response" AND isnotnull(LastReqTime),round((_time-LastReqTime)*1000,0),null())
 __INDENT__
 | eval DisplayLayer=if(LayerName="WS","WS [Enterprise]",LayerName)
-| eval FlowHead=Indent.DisplayLayer.": ".if(LayerName="WS",mvindex(Endpoint,0),coalesce(API,"N/A"))." [".DirectionSymbol."]"
-| eval ServiceLines=if(LayerName="Host",mvmap(HostPairs,"- [".HostPairs."] [".DirectionSymbol."]"),null())
-| eval WsDetails=if(LayerName="WS",mvindex(Endpoint,1),null())
+| eval FlowHead=printf("%s%s: %s[%s]",Indent,DisplayLayer, coalesce(API,"N/A"),DirectionSymbol)
+| eval ServiceLines=if(LayerName="Host",mvmap(HostPairs,printf("- [%s][%s]",HostPairs,DirectionSymbol)),null())
+| eval WsDetails=if(LayerName="WS" AND isnotnull(LastDGEEndpoint),printf("Endpoint: %s",LastDGEEndpoint),null())
 | eval Flow=case(LayerName="Host" AND isnotnull(ServiceLines),mvappend(FlowHead,ServiceLines),
     LayerName="WS" AND isnotnull(WsDetails),mvappend(FlowHead,WsDetails),
     true(),FlowHead)
@@ -240,9 +239,9 @@ __INDENT__
     // stays later, just before the first streamstats (after the where clauses, so less to sort).
     out.push('| eval SortKey=if(Direction="Request",LayerOrder,-LayerOrder)');
 
-    // Endpoint rules: their rex lines go with the DGEEndpoint and URL rex, just above Endpoint=case().
-    // Endpoint=case() per layer: each rule's field for its layer, else N/A (several rules for one
-    // layer: the first found), then WS = URL and service endpoint on separate lines, Host = service endpoint.
+    // Endpoint rules: their rex lines go just above the DGEEndpoint and URL rex. Each rule's field
+    // is the API of its layer (API=case(), else N/A); several rules for one layer are combined into
+    // <Layer>Endpoint=coalesce(...).
     const eps = cfg.endpointRules.filter((r) => r.field.trim());
     const endpointRex = eps.filter((r) => r.rex.trim()).map((r) => `| rex field=_raw "${r.rex.trim()}"`);
     const byLayer = new Map();
@@ -256,9 +255,6 @@ __INDENT__
     [...byLayer].filter(([layer, f]) => f.length > 1 && !fieldNames.has(combined(layer)))
       .forEach(([layer, f]) => endpointRex.push(`| eval ${combined(layer)}=coalesce(${f.join(',')})`));
     const endpointOfLayer = (layer, f) => (f.length > 1 && !fieldNames.has(combined(layer)) ? combined(layer) : f.join(','));
-    const endpointCases = [...byLayer].map(([layer, f]) => `LayerName="${layer}",coalesce(${endpointOfLayer(layer, f)},"N/A")`)
-      .concat(['LayerName="WS",mvappend(coalesce(URL,"NA"),coalesce(DGEEndpoint,"NA"))', 'LayerName="Host",coalesce(DGEEndpoint,"NA")']);
-    const endpointLine = '| eval Endpoint=case(' + endpointCases.join(',\n    ') + ')';
     const apiRules = [...byLayer].map(([layer, f]) => `LayerName="${layer}",coalesce(${endpointOfLayer(layer, f)},"N/A"),\n    `).join('');
 
     const sids = cfg.sessionRules.filter((r) => r.field.trim());
@@ -272,7 +268,7 @@ __INDENT__
     const indentLine = '| eval Indent=case('
       + layers.map((l) => `LayerName="${l.name.trim()}","${l.indent ?? ''}"`).join(',') + ')';
     out.push(...endpointRex);
-    out.push(FLOW_BLOCK.replace('__ENDPOINT__', endpointLine).replace('__API_RULES__', apiRules).replace('__INDENT__', indentLine));
+    out.push(FLOW_BLOCK.replace('__API_RULES__', apiRules).replace('__INDENT__', indentLine));
 
     const params = cfg.params.filter((p) => p.field.trim());
     params.filter((p) => p.rex.trim()).forEach((p) => out.push(`| rex field=_raw "${p.rex.trim()}"`));

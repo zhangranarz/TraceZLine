@@ -62,10 +62,6 @@
 | eval EnterpriseEndpoint=coalesce(EnterpriseEndpoint1,EnterpriseEndpoint2)
 | rex field=_raw "\[::(?<DGEEndpoint>[^]]+)\]"
 | rex field=_raw "\bURL(?:\s+is\s+|\s*:\s*)(?<URL>/[^\s:|]+)"
-| eval Endpoint=case(LayerName="eComm",coalesce(eCommEndpoint,"N/A"),
-    LayerName="Enterprise",coalesce(EnterpriseEndpoint,"N/A"),
-    LayerName="WS",mvappend(coalesce(URL,"NA"),coalesce(DGEEndpoint,"NA")),
-    LayerName="Host",coalesce(DGEEndpoint,"NA"))
 | rex field=_raw max_match=0 "<SvcCode>(?<SvcCode>[^<]+)</SvcCode>"
 | where LayerName!="Host" OR mvcount(SvcCode)>=1
 | sort 0 _time SortKey
@@ -88,9 +84,9 @@
 | eval ElapsedMs=if(Direction="Response" AND isnotnull(LastReqTime),round((_time-LastReqTime)*1000,0),null())
 | eval Indent=case(LayerName="eComm","",LayerName="Enterprise","> ",LayerName="Host",">>> ",LayerName="WS",">> ")
 | eval DisplayLayer=if(LayerName="WS","WS [Enterprise]",LayerName)
-| eval FlowHead=Indent.DisplayLayer.": ".if(LayerName="WS",mvindex(Endpoint,0),coalesce(API,"N/A"))." [".DirectionSymbol."]"
-| eval ServiceLines=if(LayerName="Host",mvmap(HostPairs,"- [".HostPairs."] [".DirectionSymbol."]"),null())
-| eval WsDetails=if(LayerName="WS",mvindex(Endpoint,1),null())
+| eval FlowHead=printf("%s%s: %s[%s]",Indent,DisplayLayer, coalesce(API,"N/A"),DirectionSymbol)
+| eval ServiceLines=if(LayerName="Host",mvmap(HostPairs,printf("- [%s][%s]",HostPairs,DirectionSymbol)),null())
+| eval WsDetails=if(LayerName="WS" AND isnotnull(LastDGEEndpoint),printf("Endpoint: %s",LastDGEEndpoint),null())
 | eval Flow=case(LayerName="Host" AND isnotnull(ServiceLines),mvappend(FlowHead,ServiceLines),
     LayerName="WS" AND isnotnull(WsDetails),mvappend(FlowHead,WsDetails),
     true(),FlowHead)

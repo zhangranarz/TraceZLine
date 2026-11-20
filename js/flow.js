@@ -192,11 +192,8 @@
       const fields = order.length ? (order.find((o) => o.layer === ev.LayerName)?.fields ?? []) : cfg.sessionRules.map((sr) => sr.field);
       ev.sessionId = fields.map((f) => ev[f]).find((v) => v != null) ?? 'NA';
       Object.assign(ev, extract(DGE_RE, r), extract(URL_RE, r));
-      // Endpoint per layer (Endpoint=case()): the endpoint rule(s) of the event's layer, else N/A; WS = URL and
-      // service endpoint [::…] (each NA when missing); Host = service endpoint, else NA.
-      ev.Endpoint = ev.LayerName === 'WS' ? [ev.URL || 'NA', ev.DGEEndpoint || 'NA']
-        : ev.LayerName === 'Host' ? ev.DGEEndpoint || 'NA'
-          : endpointOf(ev);
+      // The endpoint rule(s) of the event's layer, else N/A (eComm / Enterprise API).
+      ev.Endpoint = endpointOf(ev);
       ev.SvcCode = [...r.matchAll(SVC_RE)].map((m) => m[1]);
       for (const p of cfg.params) if (p.rex.trim()) Object.assign(ev, extract(rx(p.rex), r));
       if (!(ev.LayerName !== 'Host' || ev.SvcCode.length >= 1)) { if (rec) rec.reason = 'Excluded: Host event without <SvcCode> (where clause)'; continue; }
@@ -240,15 +237,12 @@
       if (ev.Direction === 'Response' && lastReq[key] != null) ev.ElapsedMs = Math.round(ev.time - lastReq[key]);
       if (ev.Direction === 'Request') lastReq[key] = ev.time;
       const L = layers.find((l) => l.name === ev.LayerName);
-      // A WS row shows its Endpoint as is (NA when missing); pairing keeps using API, which
-      // falls back to the previous WS URL.
-      const ws = ev.LayerName === 'WS' ? ev.Endpoint : null;
-      // FlowHead is the first line; Host adds its SvcCode pairs, WS its service endpoint (Flow=case()).
+      // FlowHead is the first line (printf("%s%s: %s[%s]")); Host adds its SvcCode pairs, WS
+      // "Endpoint: <LastDGEEndpoint>" (Flow=case()).
       ev.DisplayLayer = ev.LayerName === 'WS' ? 'WS [Enterprise]' : ev.LayerName;
-      const shown = ws ? ws[0] : ev.API ?? 'N/A';
-      ev.FlowHead = ev.LayerName == null ? null : `${L.indent ?? ''}${ev.DisplayLayer}: ${shown} [${ev.DirectionSymbol}]`;
-      const svc = ev.LayerName === 'Host' ? pairs.map((p) => `- [${p}] [${ev.DirectionSymbol}]`) : [];
-      const more = svc.length ? svc : ws ? [ws[1]] : [];
+      ev.FlowHead = ev.LayerName == null ? null : `${L.indent ?? ''}${ev.DisplayLayer}: ${ev.API ?? 'N/A'}[${ev.DirectionSymbol}]`;
+      const svc = ev.LayerName === 'Host' ? pairs.map((p) => `- [${p}][${ev.DirectionSymbol}]`) : [];
+      const more = svc.length ? svc : ev.LayerName === 'WS' && ev.LastDGEEndpoint ? [`Endpoint: ${ev.LastDGEEndpoint}`] : [];
       ev.Flow = ev.FlowHead == null ? null : more.length ? [ev.FlowHead, ...more] : ev.FlowHead;
       ev.ServiceInfo = ev.Flow;
       ev.Params = cfg.params.filter((p) => ev[p.field] && ev[p.field].trim()).map((p) => `${p.label || p.field}=${ev[p.field]}`);
@@ -310,12 +304,12 @@
       const total = Math.round(rs[rs.length - 1].time - rs[0].time);
       const items = [];
       const label = (r, ms) => {
-        const ws = r.LayerName === 'WS' && Array.isArray(r.Endpoint) ? r.Endpoint : null;
-        const name = ws ? ws[0] : r.API ?? 'N/A';
+        const name = r.API ?? 'N/A';
         const lines = [{ text: name + (ms != null ? ` (${ms} ms)` : ''), plain: name }];
-        if (ws) lines.push({ text: ws[1] });
+        // a WS call also shows its service endpoint
+        if (r.LayerName === 'WS' && r.LastDGEEndpoint) lines.push({ text: r.LastDGEEndpoint });
         if (r.LayerName === 'Host' && Array.isArray(r.ServiceInfo)) {
-          r.ServiceInfo.slice(1).filter((s) => /^- \[/.test(s)).forEach((s) => lines.push({ text: s.replace(/^- \[(.*)\] \[.\]$/, '$1') }));
+          r.ServiceInfo.slice(1).filter((s) => /^- \[/.test(s)).forEach((s) => lines.push({ text: s.replace(/^- \[(.*)\]\s*\[.\]$/, '$1') }));
         }
         (r.Params || []).forEach((p) => lines.push({ text: p, small: true }));
         return lines;

@@ -54,8 +54,8 @@
       </details>
 
       <details open>
-        <summary>Endpoint Rule <span class="hint">rex + Endpoint=case()</span></summary>
-        <p class="note">Each rule fills Endpoint for its Layer (several rules for one layer: the first found, else N/A). WS (URL and [::…]) and Host ([::…]) are built in. A rule with an empty rex only adds its field.</p>
+        <summary>Endpoint Rule <span class="hint">rex → API=case()</span></summary>
+        <p class="note">Each rule's field is the API of its Layer (several rules for one layer: &lt;Layer&gt;Endpoint=coalesce(), else N/A). WS (URL, else the previous WS URL; "Endpoint:" line from [::…]) and Host ([::…]) are built in. A rule with an empty rex only adds its field.</p>
         <div id="list-endpointRules"></div>
         <button type="button" class="add" data-add="endpointRules">+ Add rule</button>
       </details>
