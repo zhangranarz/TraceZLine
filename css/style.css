@@ -454,3 +454,7 @@ details[open] > summary.icon-after::after { content: " \25BE"; }
 .time-box input.invalid { border-color: var(--danger); outline-color: var(--danger); }
 .time-pick { padding: 0 8px; }
 .time-picker { position: absolute; right: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; border: 0; padding: 0; }
+
+/* Data Masking: the note and the "still looks sensitive" list keep a short height and scroll */
+#mask-status { flex-shrink: 0; line-height: 1.5; max-height: 4.5em; overflow-y: auto; padding-right: 4px; }
+#mask-leftovers { flex-shrink: 0; max-height: 9em; overflow-y: auto; }
