@@ -12,7 +12,7 @@ const sim = require('../tools/simulate.js');
 const logs = ['spl-banking-mock.log', 'spl-ms-mock.log'].map((f) => path.join(__dirname, f));
 const flowRows = sim.run(spl.DEFAULT_CONFIG, logs, []);
 
-const head = ['Step', 'EventTime', 'sessionId', 'ServiceInfo', 'Params', 'ElapsedMs'];
+const head = ['Step', 'EventTime', 'sessionId', 'Flow', 'Params', 'ElapsedMs'];
 const table = [head];
 for (const r of flowRows) {
   const lines = [].concat(r.ServiceInfo);

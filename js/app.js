@@ -182,6 +182,8 @@
     out.layers.forEach((l) => {
       if (l && l.name === 'WS' && l.match === 'match(_raw,"WSAppLog")') l.match = DEFAULT_CONFIG.layers.find((d) => d.name === 'WS').match;
     });
+    // Columns saved as the earlier default: Flow instead of ServiceInfo.
+    if (JSON.stringify(out.columns) === JSON.stringify(['Step', 'EventTime', 'sessionId', 'ServiceInfo', 'Params', 'ElapsedMs'])) out.columns = clone(DEFAULT_CONFIG.columns);
     // Host condition saved before it was <EAI> AND <SvcCode>.
     out.layers.forEach((l) => {
       if (l && l.name === 'Host' && l.match === String.raw`match(_raw,"<SvcCode>") AND match(_raw,"(?i)(request|response) message")`) {

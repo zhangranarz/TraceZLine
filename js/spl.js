@@ -80,7 +80,7 @@
       { field: 'transactionRef', label: 'TxnRefNo', rex: String.raw`(?i)\btransactionRef(?:erenceNumber)?\"?\s*[:=]\s*\"?(?<transactionRef>[^\",]+)` },
       { field: 'transactionCode', label: 'TxnCode', rex: String.raw`(?i)\btransactionCode\"?\s*[:=]\s*\"?(?<transactionCode>[^\",]+)` },
     ],
-    columns: ['Step', 'EventTime', 'sessionId', 'ServiceInfo', 'Params', 'ElapsedMs'],
+    columns: ['Step', 'EventTime', 'sessionId', 'Flow', 'Params', 'ElapsedMs'],
   };
 
   const FLOW_BLOCK = String.raw`| rex field=_raw "\[::(?<DGEEndpoint>[^]]+)\]"

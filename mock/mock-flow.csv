@@ -1,4 +1,4 @@
-Step,EventTime,sessionId,ServiceInfo,Params,ElapsedMs
+Step,EventTime,sessionId,Flow,Params,ElapsedMs
 1,2026-10-26 09:30:00.000,aaaaaaaa-0000-4000-8000-000000000001,eComm: /spl-banking/services/vn/security/preLogin[?],,
 2,2026-10-26 09:30:00.004,aaaaaaaa-0000-4000-8000-000000000001,eComm: /spl-banking/services/vn/security/preLogin[!],,4
 3,2026-10-26 09:30:03.000,aaaaaaaa-0000-4000-8000-000000000001,eComm: /spl-banking/services/vn/security/auth/v2/login[?],,
