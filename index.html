@@ -91,7 +91,6 @@
       <div class="tabs" role="tablist">
         <button type="button" role="tab" class="tab" id="tab-spl" aria-controls="pane-spl" data-tab="spl">Splunk <span id="line-count" class="hint"></span></button>
         <button type="button" role="tab" class="tab" id="tab-file" aria-controls="pane-flow" data-tab="file">Load File <span id="count-file" class="hint"></span></button>
-        <button type="button" role="tab" class="tab" id="tab-mock" aria-controls="pane-flow" data-tab="mock">Mock Test <span id="count-mock" class="hint"></span></button>
         <button type="button" role="tab" class="tab" id="tab-compare" aria-controls="pane-compare" data-tab="compare">Compare <span id="count-compare" class="hint"></span></button>
         <button type="button" role="tab" class="tab" id="tab-mask" aria-controls="pane-mask" data-tab="mask">Mask <span id="count-mask" class="hint"></span></button>
       </div>
@@ -135,7 +134,6 @@
       <div class="pane" id="pane-flow" role="tabpanel" aria-labelledby="tab-file" data-mode="file" hidden>
         <div class="flow-bar">
           <label class="btn primary-btn file-only" title="Load raw log files (or a Splunk EventTime/PopulatedLog export) and run the query logic on them">Local File<input type="file" id="log-files" multiple hidden></label>
-          <button type="button" id="btn-mock" class="mock-only" title="Load the bundled mock logs (fake data) again">Reload Log</button>
           <label class="check"><input type="checkbox" id="use-terms" autocomplete="off"> Only sessions in Search terms</label>
           <select id="session-filter" aria-label="Session"></select>
           <span class="spacer"></span>
@@ -152,7 +150,6 @@
             <button type="button" class="seg-btn" data-view="sequence" aria-pressed="false">Sequence</button>
             <button type="button" class="seg-btn" data-view="rules" aria-pressed="false">Processing Rule</button>
             <button type="button" class="seg-btn" data-view="debug" aria-pressed="false">Debug</button>
-            <button type="button" class="seg-btn mock-only" data-view="logs" aria-pressed="false">Log Files</button>
           </div>
           <span class="spacer"></span>
           <span class="view-actions" data-for="table">

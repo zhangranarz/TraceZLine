@@ -17,8 +17,7 @@ Splunk Excel/CSV export in the browser, and shows the flow table, PlantUML and S
 sequence diagrams, and the processing rules it observes. Nothing is uploaded.
 
 **Live demo:** https://zhangranarz.github.io/TraceZLine/ ·
-[with mock data](https://zhangranarz.github.io/TraceZLine/#mock) ·
-[sequence diagram](https://zhangranarz.github.io/TraceZLine/#mock/sequence)
+[Compare with mock data](https://zhangranarz.github.io/TraceZLine/#compare)
 
 ## Features
 
@@ -26,16 +25,15 @@ sequence diagrams, and the processing rules it observes. Nothing is uploaded.
 |---|---|
 | **Splunk** | Generates the SPL query from editable sources, session IDs, an optional Start/End time, layers and rex rules; copy or download it, or **Run in Splunk** (log in, search job ID, results as CSV, open them in Load File) |
 | **Load File** | Runs the query logic over your raw logs (**Local File**) or a Splunk `.xlsx`/`.csv` export (**Upload**) |
-| **Mock Test** | The same views over bundled fake logs |
 | **Compare** | Maps each line of a Splunk result to its raw log event by timestamp, with the JSON/XML payload as a Parameter / Value table and a data-quality report |
 | **Mask** | Masks sensitive values in log/text files by JSON key, XML tag, exact text or Pre/Post text (replace with `<<MASK_NAME>>` or your own text, digits to `*`, keep last 4, or consistent pseudonyms), flags what still looks sensitive, and downloads the masked files |
 
-Views in Load File and Mock Test: **Flow** (session summary and flow table), **PlantUML**,
+Views in Load File: **Flow** (session summary and flow table), **PlantUML**,
 **Sequence** (SVG diagram: one for all sessions or one per session, with optional notes and elapsed times), **Processing Rule** (each API with a description of the call:
-callers, downstream calls, SvcCodes, gaps, latency), **Debug** and **Log Files**.
+callers, downstream calls, SvcCodes, gaps, latency) and **Debug**.
 
-Everything runs in the browser; settings are saved there too. Demo links: `#mock`,
-`#mock/sequence`, `#mock/rules`, `#compare`, `#mask`.
+Everything runs in the browser; settings are saved there too. Demo links: `#compare`,
+`#mask` (both with the bundled mock data).
 
 ## How to install
 
@@ -59,8 +57,8 @@ dependencies and no build step.
   python tools/serve.py 8765
   ```
 
-  then open http://localhost:8765/ (or http://localhost:8765/#mock for the demo).
-  Use the server rather than opening `index.html` as a file: the Mock Test tab loads
+  then open http://localhost:8765/ (or http://localhost:8765/#compare for the demo).
+  Use the server rather than opening `index.html` as a file: the **Use Mock** buttons load
   `mock/*.log` over HTTP.
 
 Command-line tools:

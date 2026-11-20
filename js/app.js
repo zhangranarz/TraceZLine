@@ -1000,27 +1000,6 @@
     setLogs(read);
   });
 
-  async function loadMock() {
-    try {
-      const names = ['spl-banking-mock.log', 'spl-ms-mock.log'];
-      const texts = await Promise.all(names.map(async (n) => {
-        const res = await fetch('mock/' + n);
-        if (!res.ok) throw new Error(`${n}: HTTP ${res.status}`);
-        return res.text();
-      }));
-      if (mode !== 'mock') return; // the user switched tabs while loading
-      document.getElementById('use-terms').checked = false;
-      logDebug('info', 'Mock Test: ' + names.join(', '));
-      setLogs(names.map((name, i) => ({ name, text: texts[i] })));
-    } catch (err) {
-      document.getElementById('flow-status').textContent = 'Could not load the mock logs: ' + err.message
-        + '. Open the page through the local server (python tools/serve.py) or the published site, not as a file.';
-      logDebug('error', 'Could not load mock logs: ' + err.message);
-    }
-  }
-
-  document.getElementById('btn-mock').addEventListener('click', loadMock);
-
   // Empty flow pane for a tab with nothing loaded yet.
   function clearFlow() {
     flowRows = [];
@@ -1034,21 +1013,16 @@
     renderLogFiles();
   }
 
-  // Swap the flow pane to the Load File or Mock Test tab's data.
+  // Swap the flow pane to another tab's data (only Load File uses it now).
   function switchMode(next) {
     ctx[mode] = { logs, imported };
     mode = next;
     ({ logs, imported } = ctx[mode]);
     document.getElementById('pane-flow').dataset.mode = mode;
     document.getElementById('pane-flow').setAttribute('aria-labelledby', 'tab-' + mode);
-    // Log Files is a Mock Test view; Load File falls back to Flow.
-    if (mode === 'file' && currentView === 'logs') showView('table');
-    if (logs.length || imported) {
-      refreshFlow();
-    } else {
-      clearFlow();
-      if (mode === 'mock') loadMock();
-    }
+    if (currentView === 'logs') showView('table');
+    if (logs.length || imported) refreshFlow();
+    else clearFlow();
   }
 
   // Expand / Collapse buttons (flow pane and Compare) share one page-wide setting.
@@ -1614,7 +1588,7 @@
       t.tabIndex = on ? 0 : -1;
     });
     document.querySelectorAll('.pane').forEach((p) => { p.hidden = p.id !== selected.getAttribute('aria-controls'); });
-    if ((selected.dataset.tab === 'file' || selected.dataset.tab === 'mock') && selected.dataset.tab !== mode) switchMode(selected.dataset.tab);
+    if (selected.dataset.tab === 'file' && mode !== 'file') switchMode('file');
     try { localStorage.setItem(TAB_KEY, selected.dataset.tab); } catch (e) { /* ignore */ }
   }
 
@@ -1632,15 +1606,13 @@
   renderAll();
   clearFlow();
 
-  // Demo links: index.html#mock opens the Mock Test tab; #mock/diagram, #mock/sequence, #mock/logs
-  // and #mock/debug open it on that view; #compare opens Compare with the mock pair loaded.
-  // Otherwise reopen the last tab (the old single Flow tab maps to Load File).
+  // Demo links: #compare opens Compare with the mock pair loaded, #mask Mask with the mock logs.
+  // Old #mock links (the Mock Test tab is gone) open Load File. Otherwise reopen the last tab
+  // (the old single Flow tab and the old Mock Test tab map to Load File).
   let savedTab = 'spl';
   try { savedTab = localStorage.getItem(TAB_KEY) || 'spl'; } catch (e) { /* ignore */ }
   if (location.hash.startsWith('#mock')) {
-    const view = location.hash.split('/')[1];
-    if (['diagram', 'sequence', 'rules', 'debug', 'logs'].includes(view)) showView(view);
-    showTab('mock');
+    showTab('file');
   } else if (location.hash === '#mask') {
     showTab('mask');
     document.getElementById('mask-mock').click();
@@ -1648,6 +1620,6 @@
     showTab('compare');
     document.getElementById('cmp-mock').click();
   } else {
-    showTab({ flow: 'file', file: 'file', mock: 'mock', compare: 'compare', mask: 'mask' }[savedTab] || 'spl');
+    showTab({ flow: 'file', file: 'file', mock: 'file', compare: 'compare', mask: 'mask' }[savedTab] || 'spl');
   }
 })();
