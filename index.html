@@ -96,12 +96,6 @@
       </div>
 
       <div class="pane" id="pane-spl" role="tabpanel" aria-labelledby="tab-spl">
-        <div class="preview-bar">
-          <span class="spacer"></span>
-          <button type="button" id="btn-copy" class="primary">Copy</button>
-          <button type="button" id="btn-download" title="Save the query as a .spl file">Download</button>
-        </div>
-        <ul id="warnings" class="warnings"></ul>
         <details class="splunk-run" id="splunk-run">
           <summary>Run in Splunk <span class="hint">flow query → CSV · log query → log → Mask → API Analysis</span></summary>
           <p class="note" id="splunk-note">Runs both queries below in Splunk through this local server (<code>python tools/serve.py</code>), which forwards the calls to Splunk: the REST API (management port, usually 8089) or Splunk Web (the browser UI, e.g. port 8000). The password is only sent to log in and is not saved. The flow query's CSV goes into Flow Analysis; the log query's raw events are masked with the Mask rules, then API Analysis maps the CSV lines to the masked log.</p>
@@ -131,6 +125,12 @@
           <ol id="splunk-status" class="splunk-status"></ol>
           <pre id="splunk-csv" class="splunk-csv" tabindex="0" hidden></pre>
         </details>
+        <div class="preview-bar">
+          <span class="spacer"></span>
+          <button type="button" id="btn-copy" class="primary">Copy</button>
+          <button type="button" id="btn-download" title="Save the query as a .spl file">Download</button>
+        </div>
+        <ul id="warnings" class="warnings"></ul>
         <pre id="spl" tabindex="0"></pre>
         <div class="preview-bar log-query-bar">
           <strong>Log query</strong>
