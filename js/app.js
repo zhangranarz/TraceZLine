@@ -1517,7 +1517,7 @@
 
   // URL, username and the certificate choice are kept in this browser; the password is not.
   const SPLUNK_KEY = 'tracezline.splunk';
-  const splunkEls = Object.fromEntries(['mode', 'query', 'url', 'user', 'pass', 'range', 'insecure', 'note', 'status', 'csv'].map((k) => [k, document.getElementById('splunk-' + k)]));
+  const splunkEls = Object.fromEntries(['mode', 'url', 'user', 'pass', 'range', 'insecure', 'note', 'status', 'csv'].map((k) => [k, document.getElementById('splunk-' + k)]));
   // REST API on the management port, or Splunk Web (the browser UI) when only that is reachable
   const splunkPlaceholder = () => { splunkEls.url.placeholder = splunkEls.mode.value === 'web' ? 'https://splunk-host:8000' : 'https://splunk-host:8089'; };
   const splunkBtn = (k) => document.getElementById('btn-splunk-' + k);
@@ -1525,16 +1525,15 @@
   try {
     const saved = JSON.parse(localStorage.getItem(SPLUNK_KEY) || '{}');
     splunkEls.mode.value = saved.mode === 'web' ? 'web' : 'rest';
-    splunkEls.query.value = saved.query === 'logs' ? 'logs' : 'flow';
     if (typeof saved.range === 'string' && [...splunkEls.range.options].some((o) => o.value === saved.range)) splunkEls.range.value = saved.range;
     splunkEls.url.value = saved.url || '';
     splunkEls.user.value = saved.user || '';
     splunkEls.insecure.checked = !!saved.insecure;
   } catch (e) { /* ignore */ }
   const saveSplunk = () => {
-    try { localStorage.setItem(SPLUNK_KEY, JSON.stringify({ mode: splunkEls.mode.value, query: splunkEls.query.value, range: splunkEls.range.value, url: splunkEls.url.value.trim(), user: splunkEls.user.value.trim(), insecure: splunkEls.insecure.checked })); } catch (e) { /* ignore */ }
+    try { localStorage.setItem(SPLUNK_KEY, JSON.stringify({ mode: splunkEls.mode.value, range: splunkEls.range.value, url: splunkEls.url.value.trim(), user: splunkEls.user.value.trim(), insecure: splunkEls.insecure.checked })); } catch (e) { /* ignore */ }
   };
-  ['mode', 'query', 'url', 'user', 'range', 'insecure'].forEach((k) => splunkEls[k].addEventListener('change', saveSplunk));
+  ['mode', 'url', 'user', 'range', 'insecure'].forEach((k) => splunkEls[k].addEventListener('change', saveSplunk));
   splunkEls.mode.addEventListener('change', splunkPlaceholder);
   splunkPlaceholder();
 
@@ -1551,67 +1550,86 @@
     splunkEls.status.replaceChildren(...lines.map(([cls, text]) => el('li', { class: cls }, [text])));
   }
 
+  // One run, four steps: the flow query (CSV) goes into Flow Analysis; the log query (raw events)
+  // is masked by the Mask rules; API Analysis then maps the CSV lines to the masked log events.
   splunkBtn('run').addEventListener('click', async () => {
     const steps = { login: 'Logging in…', job: 'Creating the search job…', wait: 'Search running…', results: 'Fetching the results as CSV…' };
     const range = window.TraceSpl.timeRange(state);
-    const logQuery = splunkEls.query.value === 'logs';
-    const lines = [['ok', `Query: ${logQuery ? 'Log query (raw events)' : 'Flow query'}`], ['ok', range ? `Time range: Start time / End time (${state.startTime || 'open'} … ${state.endTime || 'open'})`
+    const lines = [['ok', range ? `Time range: Start time / End time (${state.startTime || 'open'} … ${state.endTime || 'open'})`
       : `Time range: ${splunkEls.range.selectedOptions[0].textContent}`]];
     let key = '';
+    let current = '';
     let sid = '';
-    const show = (current) => splunkStatus([
+    const show = (busy) => splunkStatus([
       ...(key ? [['ok', `Logged in (${splunkEls.mode.value === 'web' ? 'Splunk Web session, token' : 'session key'} ${window.TraceSplunk.maskKey(key)})`]] : []),
-      ...(sid ? [['ok', `Search job (access id): ${sid}`]] : []),
-      ...lines, ...(current ? [['busy', current]] : []),
+      ...lines, ...(busy ? [['busy', busy]] : []),
     ]);
+    const opts = {
+      base: splunkEls.url.value, mode: splunkEls.mode.value, username: splunkEls.user.value.trim(), password: splunkEls.pass.value,
+      insecure: splunkEls.insecure.checked,
+      // Start / End time are in the query (earliest=/latest=); otherwise the chosen range
+      earliest: range ? '' : splunkEls.range.value,
+      onStatus: (s) => {
+        if (s.sessionKey) key = s.sessionKey;
+        if (s.sid && s.sid !== sid) { sid = s.sid; lines.push(['ok', `${current}: search job (access id) ${sid}`]); }
+        show(`${current}: ` + (s.step === 'wait' ? `search running… ${Math.round(s.progress * 100)}%, ${s.results} results` : steps[s.step]));
+      },
+    };
     splunkResult = null;
     splunkBtn('run').disabled = true;
     splunkBtn('csv').disabled = true;
-    document.querySelectorAll('.splunk-view').forEach((b) => { b.disabled = true; });
+    splunkBtn('log').disabled = true;
+    document.querySelectorAll('.splunk-view, .splunk-tab').forEach((b) => { b.disabled = true; });
     splunkEls.csv.hidden = true;
     saveSplunk();
     try {
-      const res = await window.TraceSplunk.run({
-        base: splunkEls.url.value, mode: splunkEls.mode.value, username: splunkEls.user.value.trim(), password: splunkEls.pass.value,
-        query: logQuery ? generateLogs(state) : generate(state), insecure: splunkEls.insecure.checked,
-        // Start / End time are in the query (earliest=/latest=); otherwise the chosen range
-        earliest: window.TraceSpl.timeRange(state) ? '' : splunkEls.range.value,
-        onStatus: (s) => {
-          if (s.sessionKey) key = s.sessionKey;
-          if (s.sid) sid = s.sid;
-          show(s.step === 'wait' ? `Search running… ${Math.round(s.progress * 100)}%, ${s.results} results` : steps[s.step]);
-        },
-      });
+      // 1. Base Splunk query -> CSV -> Flow Analysis
+      current = 'Flow query';
+      const res = await window.TraceSplunk.run({ ...opts, query: generate(state) });
       const table = window.TraceImport.parseCsv(res.csv);
-      splunkResult = { sid: res.sid, csv: res.csv };
-      lines.push(['ok', `Results: ${Math.max(0, table.length - 1).toLocaleString()} rows (CSV, ${res.csv.length.toLocaleString()} chars)`]);
+      splunkResult = { sid: res.sid, csv: res.csv, logs: [] };
+      lines.push(['ok', `Flow query: ${Math.max(0, table.length - 1).toLocaleString()} rows (CSV, ${res.csv.length.toLocaleString()} chars)`]);
       show();
       const preview = res.csv.split('\n');
       splunkEls.csv.textContent = preview.slice(0, 200).join('\n') + (preview.length > 200 ? `\n… ${preview.length - 200} more lines (Download CSV)` : '');
       splunkEls.csv.hidden = false;
       splunkBtn('csv').disabled = false;
-      // The results go straight into Flow Analysis: Flow, PlantUML, Sequence and Processing Rule.
-      if (table.length > 1 && logQuery) {
-        const files = splunkLogFiles(table);
-        if (mode !== 'file') switchMode('file');
-        logDebug('info', `Splunk search ${res.sid}: raw events loaded into Flow Analysis as ${files.length} log file(s)`);
-        setLogs(files);
-        lines.push(flowRows.length
-          ? ['ok', `In Flow Analysis: ${files.length} log file(s), ${flowRows.length.toLocaleString()} flow rows, ${new Set(flowRows.map((r) => r.sessionId)).size} sessions. Open a view below.`]
-          : ['problem', 'The raw events gave no flow rows; see Flow Analysis > Debug.']);
-        show();
-        document.querySelectorAll('.splunk-view').forEach((b) => { b.disabled = !flowRows.length; });
-      } else if (table.length > 1) {
+      if (table.length > 1) {
         await loadSplunkResult();
         const sessions = new Set((imported?.rows || []).map((r) => r.sessionId)).size;
         lines.push(imported?.rows?.length
-          ? ['ok', `In Flow Analysis: ${imported.rows.length.toLocaleString()} flow rows, ${sessions} sessions. Open a view below.`]
+          ? ['ok', `In Flow Analysis: ${imported.rows.length.toLocaleString()} flow rows, ${sessions} sessions.`]
           : ['problem', 'The results have no flow rows (the table needs the Flow or ServiceInfo column); see Flow Analysis > Debug.']);
-        show();
         document.querySelectorAll('.splunk-view').forEach((b) => { b.disabled = !imported?.rows?.length; });
       }
+      // 2. Log query -> raw events as one log file per source
+      current = 'Log query';
+      const logRes = await window.TraceSplunk.run({ ...opts, query: generateLogs(state) });
+      const files = splunkLogFiles(window.TraceImport.parseCsv(logRes.csv));
+      splunkResult.logs = files;
+      const events = files.reduce((t, f) => t + window.TraceFlow.describeLog(f.text).events, 0);
+      lines.push(['ok', `Log query: ${events.toLocaleString()} log events in ${files.length} log file(s): ${files.map((f) => f.name).join(', ') || 'none'}`]);
+      splunkBtn('log').disabled = !files.length;
+      show(files.length ? 'Masking the log…' : '');
+      if (!files.length) throw new Error('The log query returned no events, so there is nothing to mask or analyse.');
+      // 3. Mask rules on the log
+      await setMaskFiles(files);
+      const masked = mask.results.reduce((t, r) => t + r.counts.reduce((a, b) => a + b, 0), 0);
+      const left = mask.results.reduce((t, r) => t + r.left.length, 0);
+      lines.push([left ? 'problem' : 'ok', `Mask: ${masked.toLocaleString()} values masked by ${mask.rules.filter((r) => r.on).length} rules`
+        + (left ? `; ${left} values still look sensitive (see Mask)` : '')]);
+      show('API Analysis…');
+      // 4. API Analysis: the flow CSV against the masked log
+      cmp.excel = { name: `splunk-${res.sid}.csv`, ...window.TraceImport.toFlowRows(table, state) };
+      cmpResult = null;
+      setCmpLogs(mask.results.map((r) => ({ name: window.TraceMask.maskedName(r.name), text: r.text })));
+      lines.push(cmpResult
+        ? ['ok', `API Analysis: ${cmpResult.mapped.toLocaleString()} of ${cmpResult.rows.length.toLocaleString()} lines mapped to a log event. Open a tab below.`]
+        : ['problem', 'API Analysis could not run; see the API Analysis tab.']);
+      show();
+      document.querySelectorAll('.splunk-tab').forEach((b) => { b.disabled = false; });
     } catch (err) {
-      lines.push(['problem', err.message]);
+      lines.push(['problem', `${current}: ${err.message}`]);
       show();
     } finally {
       splunkEls.pass.value = '';
@@ -1622,10 +1640,15 @@
   splunkBtn('csv').addEventListener('click', () => {
     if (splunkResult) download(`splunk-${splunkResult.sid}.csv`, splunkResult.csv, 'text/csv');
   });
+  // the raw log as Splunk returned it, before masking (Mask has the masked download)
+  splunkBtn('log').addEventListener('click', () => {
+    (splunkResult?.logs || []).forEach((f) => download(f.name, f.text, 'text/plain'));
+  });
 
-  // Log query results (_time, source, _raw) as one log file per source, events in time order,
-  // so the source= patterns match the file names as with local files.
+  // Log query results (_time, source, _raw) as one log file per source (named by the file part of
+  // the source), events in time order.
   function splunkLogFiles(table) {
+    if (!table.length) return [];
     const [head, ...rows] = table;
     const col = (name) => head.indexOf(name);
     const iTime = col('_time');
@@ -1636,7 +1659,7 @@
     rows.map((r, i) => ({ r, i, t: iTime < 0 ? 0 : Date.parse(r[iTime]) || 0 }))
       .sort((a, b) => a.t - b.t || a.i - b.i)
       .forEach(({ r }) => {
-        const name = (iSource < 0 ? '' : r[iSource]) || 'splunk.log';
+        const name = base(iSource < 0 ? '' : r[iSource]) || 'splunk.log';
         if (!bySource.has(name)) bySource.set(name, []);
         bySource.get(name).push(String(r[iRaw] ?? '').replace(/\r?\n$/, ''));
       });
@@ -1650,6 +1673,7 @@
     await importResult({ name: `splunk-${splunkResult.sid}.csv` }, new TextEncoder().encode(splunkResult.csv).buffer);
   }
 
+  document.querySelectorAll('.splunk-tab').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
   document.querySelectorAll('.splunk-view').forEach((b) => b.addEventListener('click', () => {
     showTab('file');
     showView(b.dataset.view);
