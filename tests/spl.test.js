@@ -78,7 +78,7 @@ test('ungrouped sources and a Layer<=2 first rule are flagged', () => {
 test('ungrouped sources share only the outer parentheses', () => {
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
   cfg.groupSources = false;
-  assert.ok(spl.generate(cfg).startsWith('(\n\tsource="/var/log/pods/spl-banking-*log"\n\t"[SPLMessage]" ("- Request -" OR "- Response -")\n\tOR\n\tsource="/var/log/pods/spl-banking-*log"\n\t"[SPLHostMessage]" ("[Request]" OR "[Response]")\n\tOR\n'));
+  assert.ok(spl.generate(cfg).startsWith('(\n\tsource="/var/log/pods/spl-banking-*log"\n\t"[SPLMessage]"\n\t("- Request -" OR "- Response -")\n\tOR\n\tsource="/var/log/pods/spl-banking-*log"\n\t"[SPLHostMessage]"\n\t("[Request]" OR "[Response]")\n\tOR\n'));
 });
 
 test('DirWord and rex lines without a named group are flagged', () => {
@@ -128,13 +128,13 @@ test('groupSources wraps each source in its own parentheses inside the outer one
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
   cfg.groupSources = true;
   const out = spl.generate(cfg);
-  assert.ok(out.startsWith('(\n\t(\n\t\tsource="/var/log/pods/spl-banking-*log"\n\t\t"[SPLMessage]" ("- Request -" OR "- Response -")\n\t)\n\tOR\n\t(\n\t\tsource="/var/log/pods/spl-banking-*log"\n\t\t"[SPLHostMessage]" ("[Request]" OR "[Response]")\n\t)\n\tOR\n'));
+  assert.ok(out.startsWith('(\n\t(\n\t\tsource="/var/log/pods/spl-banking-*log"\n\t\t"[SPLMessage]"\n\t\t("- Request -" OR "- Response -")\n\t)\n\tOR\n\t(\n\t\tsource="/var/log/pods/spl-banking-*log"\n\t\t"[SPLHostMessage]"\n\t\t("[Request]" OR "[Response]")\n\t)\n\tOR\n'));
   assert.match(out, /Response Message"\)\n\t\)\n\)\n\("2576dfc8/);
 });
 
 test('a filter with a top-level OR is wrapped in parentheses', () => {
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
-  const filter = (f) => { cfg.sources[1].filter = f; return spl.generate(cfg).split('\n')[8].trim(); }; // 2nd source's filter line
+  const filter = (f) => { cfg.sources[1].filter = f; return spl.generate(cfg).split('\n')[9].trim(); }; // 2nd source's key filter line
   assert.strictEqual(filter('("A" "x") OR ("B")'), '(("A" "x") OR ("B"))');
   assert.strictEqual(filter('"A" OR "B"'), '("A" OR "B")');
   assert.strictEqual(filter('("A" OR "B")'), '("A" OR "B")', 'already wrapped');

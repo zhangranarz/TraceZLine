@@ -14,9 +14,10 @@
       fields: [
         { key: 'enabled', type: 'checkbox', label: 'On' },
         { key: 'source', label: 'source=', placeholder: '/var/log/pods/app-*.log', size: 'm' },
-        { key: 'filter', label: 'Filter', placeholder: '("Marker1" OR "Marker2")', size: 'l', multiline: true },
+        { key: 'filter', label: 'Key filter', placeholder: '"[Marker]"', size: 'l', multiline: true },
+        { key: 'dirFilter', label: 'Direction filter', placeholder: '("Request" OR "Response")', size: 'l', multiline: true },
       ],
-      blank: () => ({ enabled: true, source: '', filter: '' }),
+      blank: () => ({ enabled: true, source: '', filter: '', dirFilter: '' }),
     },
     layers: {
       fields: [
@@ -180,6 +181,18 @@
     const same = out.sources.length === OLD_SOURCES.length
       && out.sources.every((s, i) => s && s.enabled && s.source === OLD_SOURCES[i][0] && String(s.filter).trim() === OLD_SOURCES[i][1]);
     if (same) out.sources = clone(DEFAULT_CONFIG.sources);
+    // Sources saved as one combined filter: the earlier four defaults are split into key and
+    // direction conditions; any other source keeps its filter (with an empty direction filter).
+    const COMBINED = [
+      '"[SPLMessage]" ("- Request -" OR "- Response -")',
+      '"[SPLHostMessage]" ("[Request]" OR "[Response]")',
+      '"*WSAppLog*" ("request:" OR "RESPONSE from" OR "Response:")',
+      '"<EAI>" "<SvcCode>" ("Request Message" OR "Response Message")',
+    ];
+    if (out.sources.length === COMBINED.length && out.sources.every((s, i) => s && s.dirFilter === undefined && s.source === DEFAULT_CONFIG.sources[i].source && String(s.filter).trim() === COMBINED[i])) {
+      out.sources = out.sources.map((s, i) => ({ ...clone(DEFAULT_CONFIG.sources[i]), enabled: s.enabled }));
+    }
+    out.sources.forEach((s) => { if (s && s.dirFilter === undefined) s.dirFilter = ''; });
     return out;
   }
 
@@ -230,7 +243,7 @@
         });
         // A marker renamed in a source filter is renamed in the layer logic too, once the
         // edit is done (not per keystroke, so half-typed text is not copied around).
-        if (name === 'sources' && f.key === 'filter') {
+        if (name === 'sources' && (f.key === 'filter' || f.key === 'dirFilter')) {
           let before = input.value;
           input.addEventListener('focus', () => { before = input.value; });
           input.addEventListener('change', () => {

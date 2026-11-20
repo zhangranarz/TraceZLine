@@ -90,7 +90,7 @@ function simPuml() {
 test('dropNoDirection: an event no direction rule matches is excluded, or kept when off', () => {
   const log = '2026-10-26 09:30:00.000 [x] INFO\n[SPLMessage][aaaaaaaa-0000-4000-8000-000000000009][U][VN][9.14][t][A][][] -/x/hello - note -\n';
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
-  cfg.sources[0].filter = '"[SPLMessage]"'; // let the event past the source filter, to test the direction step
+  cfg.sources[0].dirFilter = ''; // let the event past the source filter, to test the direction step
   const trace = [];
   assert.strictEqual(flow.run(cfg, [{ name: 'a.log', text: log, anySource: true }], [], trace).length, 0);
   assert.ok(trace.some((t) => /no Direction/.test(t.reason || '')));

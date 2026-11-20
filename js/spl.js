@@ -15,11 +15,13 @@
     // otherwise read as responses ([!]) further down.
     dropNoDirection: true,
     // One source block per layer marker: eComm, Enterprise, WS, Host.
+    // filter: the key condition (which layer); dirFilter: the direction condition (request or
+    // response). Each is a line of its own in the source block.
     sources: [
-      { enabled: true, source: '/var/log/pods/spl-banking-*log', filter: '"[SPLMessage]" ("- Request -" OR "- Response -")' },
-      { enabled: true, source: '/var/log/pods/spl-banking-*log', filter: '"[SPLHostMessage]" ("[Request]" OR "[Response]")' },
-      { enabled: true, source: '/var/log/pods/spl-ms-*log', filter: '"*WSAppLog*" ("request:" OR "RESPONSE from" OR "Response:")' },
-      { enabled: true, source: '/var/log/pods/spl-ms-*log', filter: '"<EAI>" "<SvcCode>" ("Request Message" OR "Response Message")' },
+      { enabled: true, source: '/var/log/pods/spl-banking-*log', filter: '"[SPLMessage]"', dirFilter: '("- Request -" OR "- Response -")' },
+      { enabled: true, source: '/var/log/pods/spl-banking-*log', filter: '"[SPLHostMessage]"', dirFilter: '("[Request]" OR "[Response]")' },
+      { enabled: true, source: '/var/log/pods/spl-ms-*log', filter: '("*WSAppLog*" OR "*UFWApsect*" OR "*UFWAspect*")', dirFilter: '("request:" OR "RESPONSE from" OR "Response:")' },
+      { enabled: true, source: '/var/log/pods/spl-ms-*log', filter: '"<EAI>" "<SvcCode>"', dirFilter: '("Request Message" OR "Response Message")' },
     ],
     terms: ['2576dfc8-495a-837a-8a2f291fd003d', '7f269c48-f03a-4fef-bc3007538ec1a2'],
     // Optional time window, "2026-11-18 15:28:25.554" (milliseconds optional); empty = no limit.
@@ -163,6 +165,7 @@ __INDENT__
     const blocks = sources.map((s) => {
       const body = [`${indent}source="${s.source.trim()}"`];
       if (s.filter.trim()) body.push(indent + wrapFilter(s.filter.trim()));
+      if (String(s.dirFilter ?? '').trim()) body.push(indent + wrapFilter(s.dirFilter.trim()));
       return cfg.groupSources ? ['\t(', ...body, '\t)'].join('\n') : body.join('\n');
     });
     out.push('(\n' + blocks.join('\n\tOR\n') + '\n)');
