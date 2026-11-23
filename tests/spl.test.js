@@ -365,3 +365,24 @@ test('typed Start / End times are tidied to YYYY-MM-DD hh:mm:ss.mmm, nonsense is
     assert.strictEqual(n(bad), null, bad);
   }
 });
+
+test('source table: each source is matched to its layer by its key filter, then gets that layer\'s path', () => {
+  const cfg = spl.clone(spl.DEFAULT_CONFIG);
+  assert.deepStrictEqual(cfg.sources.map((s) => spl.sourceLayer(cfg, s)), ['eComm', 'Enterprise', 'MS', 'Host']);
+  const table = [
+    ['Country', 'Module', 'eComm', 'Enterprise', 'MS', 'Host'],
+    ['ID', 'AAA', '/var/log/pods/IDAAA/spl-banking-*log', '/var/log/pods/IDAAA/spl-banking-host-*log', '/var/log/pods/IDAAA/spl-ms-*log', '/var/log/pods/IDAAA/mqinfo/spl-ms-*log'],
+    ['VN', 'BBB', '/var/log/pods/VNBBB/spl-banking-*log', '/var/log/pods/VNBBB/spl-banking-host-*log', '/var/log/pods/VNBBB/spl-ms-*log', '/var/log/pods/VNBBB/mqinfo/spl-ms-*log'],
+    ['', '', '', '', '', ''],
+  ];
+  const t = spl.sourceTable(table, cfg);
+  assert.deepStrictEqual(t.layers, ['eComm', 'Enterprise', 'Host', 'MS']);
+  assert.deepStrictEqual(t.entries.map((e) => `${e.country}/${e.module}`), ['ID/AAA', 'VN/BBB']);
+  const done = spl.applySourcePaths(cfg, t.entries[1].paths);
+  assert.deepStrictEqual(done.map((d) => d.layer), ['eComm', 'Enterprise', 'MS', 'Host']);
+  assert.deepStrictEqual(cfg.sources.map((s) => s.source), ['/var/log/pods/VNBBB/spl-banking-*log', '/var/log/pods/VNBBB/spl-banking-host-*log', '/var/log/pods/VNBBB/spl-ms-*log', '/var/log/pods/VNBBB/mqinfo/spl-ms-*log']);
+  assert.ok(spl.generate(cfg).includes('source="/var/log/pods/VNBBB/mqinfo/spl-ms-*log"'));
+  // header names are matched without case; a table without Country / Module is refused
+  assert.strictEqual(spl.sourceTable([['country', 'MODULE', 'ecomm'], ['SG', 'AAA', '/x']], cfg).entries[0].paths.eComm, '/x');
+  assert.throws(() => spl.sourceTable([['Region', 'eComm']], cfg), /Country and Module/);
+});

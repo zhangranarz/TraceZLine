@@ -458,3 +458,7 @@ details[open] > summary.icon-after::after { content: " \25BE"; }
 /* Data Masking: the note and the "still looks sensitive" list keep a short height and scroll */
 #mask-status { flex-shrink: 0; line-height: 1.5; max-height: 4.5em; overflow-y: auto; padding-right: 4px; }
 #mask-leftovers { flex-shrink: 0; max-height: 9em; overflow-y: auto; }
+
+/* Sources: the source table upload and its Country / Module pickers */
+.source-map { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 10px; margin: 6px 0 10px; }
+.source-map .hint { flex-basis: 100%; }

@@ -19,6 +19,12 @@
       <details open>
         <summary>Sources <span class="hint">source="…" blocks joined with OR</span></summary>
         <label class="check"><input type="checkbox" id="group-sources"> Group each source in its own ( )</label>
+        <div class="source-map">
+          <label class="btn" title="An Excel (.xlsx) or CSV table: Country, Module, then one column per layer (eComm, Enterprise, MS, Host) with its source= path">Source table<input type="file" id="source-table" accept=".xlsx,.csv,.txt" hidden></label>
+          <label class="field size-s"><span>Country</span><select id="source-country" disabled><option value="">—</option></select></label>
+          <label class="field size-s"><span>Module</span><select id="source-module" disabled><option value="">—</option></select></label>
+          <span class="hint" id="source-map-info">Upload a table to pick Country and Module; each source gets its layer's path.</span>
+        </div>
         <div id="list-sources"></div>
         <button type="button" class="add" data-add="sources">+ Add source</button>
       </details>

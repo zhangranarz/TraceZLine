@@ -165,6 +165,53 @@ __INDENT__
       .filter((o) => o.layer && o.fields.length);
   }
 
+  // The layer a source belongs to: the first layer whose match(_raw,"…") conditions all find
+  // something in the source's key filter text (eComm's \[SPLMessage\] in "[SPLMessage]", Host's
+  // <EAI> and <SvcCode> in "<EAI>" "<SvcCode>"). null when no layer fits.
+  function sourceLayer(cfg, source) {
+    const text = String(source.filter ?? '');
+    const fits = (layer) => {
+      const res = [...String(layer.match ?? '').matchAll(/match\(_raw,"((?:\\.|[^"\\])*)"\)/g)].map((m) => m[1].replace(/\\"/g, '"'));
+      return res.length > 0 && res.every((src) => {
+        const i = src.startsWith('(?i)');
+        try { return new RegExp(i ? src.slice(4) : src, i ? 'i' : '').test(text); } catch (e) { return false; }
+      });
+    };
+    return cfg.layers.find((l) => l.name.trim() && fits(l))?.name.trim() ?? null;
+  }
+
+  // A source table (rows of cells, header first): Country, Module, then one column per layer
+  // name (eComm, Enterprise, MS, Host) holding that layer's source= path. Returns
+  // { entries: [{ country, module, paths: { layer: path } }], layers: [layer columns found] }.
+  function sourceTable(table, cfg) {
+    const head = (table[0] || []).map((h) => String(h ?? '').trim());
+    const at = (name) => head.findIndex((h) => h.toLowerCase() === name.toLowerCase());
+    const iCountry = at('Country');
+    const iModule = at('Module');
+    if (iCountry < 0 || iModule < 0) throw new Error('the header row needs Country and Module columns (found: ' + (head.join(', ') || 'nothing') + ')');
+    const layers = cfg.layers.map((l) => l.name.trim()).filter((n) => n && at(n) >= 0);
+    if (!layers.length) throw new Error('no column is named after a layer (' + cfg.layers.map((l) => l.name.trim()).join(', ') + ')');
+    const cell = (r, i) => String(r[i] ?? '').trim();
+    const entries = table.slice(1)
+      .map((r) => ({ country: cell(r, iCountry), module: cell(r, iModule), paths: Object.fromEntries(layers.map((n) => [n, cell(r, at(n))]).filter(([, p]) => p)) }))
+      .filter((e) => e.country && e.module);
+    return { entries, layers };
+  }
+
+  // Sets source= of every source whose layer has a path in `paths` ({ layer: path }). Changes
+  // cfg; returns [{ layer, from, to }] for the sources it set.
+  function applySourcePaths(cfg, paths) {
+    const done = [];
+    cfg.sources.forEach((s) => {
+      const layer = sourceLayer(cfg, s);
+      if (layer && paths[layer]) {
+        done.push({ layer, from: s.source, to: paths[layer] });
+        s.source = paths[layer];
+      }
+    });
+    return done;
+  }
+
   // Splits a pasted block of search terms on newlines and commas.
   function parseTerms(text) {
     return text.split(/[\r\n,]+/).map((t) => t.trim()).filter(Boolean);
@@ -421,5 +468,5 @@ __INDENT__
     return changed;
   }
 
-  return { DEFAULT_CONFIG, clone, generate, generateLogs, validate, parseTerms, quoteTerm, renameMarker, parseTime, normaliseTime, timeRange, sessionOrders };
+  return { DEFAULT_CONFIG, clone, generate, generateLogs, validate, parseTerms, quoteTerm, renameMarker, parseTime, normaliseTime, timeRange, sessionOrders, sourceLayer, sourceTable, applySourcePaths };
 });

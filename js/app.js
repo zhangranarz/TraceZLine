@@ -525,6 +525,62 @@
     }
   });
 
+  // Source table: Country, Module and one source= path per layer. Choosing a Country and Module
+  // sets the path of each source (matched to its layer by its key filter). The table and the
+  // choice are kept in this browser.
+  const SOURCE_MAP_KEY = 'tracezline.sourcemap';
+  const srcEls = { country: document.getElementById('source-country'), module: document.getElementById('source-module'), info: document.getElementById('source-map-info') };
+  let sourceMap = null; // { name, entries, layers, country, module }
+  try { sourceMap = JSON.parse(localStorage.getItem(SOURCE_MAP_KEY) || 'null'); } catch (e) { /* ignore */ }
+  const saveSourceMap = () => { try { localStorage.setItem(SOURCE_MAP_KEY, JSON.stringify(sourceMap)); } catch (e) { /* ignore */ } };
+  const options = (select, values, chosen) => {
+    select.replaceChildren(el('option', { value: '' }, ['Choose…']), ...values.map((v) => el('option', { value: v }, [v])));
+    select.value = values.includes(chosen) ? chosen : '';
+    select.disabled = !values.length;
+  };
+  function renderSourceMap() {
+    if (!sourceMap?.entries?.length) return;
+    const uniq = (xs) => [...new Set(xs)];
+    options(srcEls.country, uniq(sourceMap.entries.map((e) => e.country)), sourceMap.country);
+    options(srcEls.module, uniq(sourceMap.entries.filter((e) => e.country === srcEls.country.value).map((e) => e.module)), sourceMap.module);
+    srcEls.info.textContent = `${sourceMap.name}: ${sourceMap.entries.length} rows, columns ${sourceMap.layers.join(', ')}`;
+  }
+  function applySourceMap() {
+    sourceMap.country = srcEls.country.value;
+    sourceMap.module = srcEls.module.value;
+    renderSourceMap(); // the Module list follows the Country (the Module stays when the Country has it)
+    sourceMap.module = srcEls.module.value;
+    saveSourceMap();
+    const entry = sourceMap.entries.find((e) => e.country === sourceMap.country && e.module === sourceMap.module);
+    if (!entry) return;
+    const done = window.TraceSpl.applySourcePaths(state, entry.paths);
+    const missed = state.sources.filter((s) => s.enabled).length - done.length;
+    renderList('sources');
+    update();
+    srcEls.info.textContent = `${entry.country} / ${entry.module}: source= set for ${done.map((d) => d.layer).join(', ') || 'no source'}`
+      + (missed ? `; ${missed} source(s) without a path in the table kept as they are` : '');
+    toast(`Sources set for ${entry.country} / ${entry.module}`);
+  }
+  srcEls.country.addEventListener('change', applySourceMap); // the same Module is kept when the Country has it
+  srcEls.module.addEventListener('change', applySourceMap);
+  document.getElementById('source-table').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const table = await window.TraceImport.readTable(file.name, await file.arrayBuffer());
+      const t = window.TraceSpl.sourceTable(table, state);
+      if (!t.entries.length) throw new Error('no row has both a Country and a Module');
+      sourceMap = { name: file.name, ...t, country: '', module: '' };
+      saveSourceMap();
+      renderSourceMap();
+      toast(`${file.name}: ${t.entries.length} rows. Choose a Country and Module.`);
+    } catch (err) {
+      toast(`${file.name}: could not be read as a source table (${err.message})`);
+    }
+  });
+  renderSourceMap();
+
   document.getElementById('btn-reset').addEventListener('click', () => {
     if (!confirm('Replace the current settings with the base query?')) return;
     state = clone(DEFAULT_CONFIG);
