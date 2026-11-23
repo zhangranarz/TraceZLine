@@ -245,6 +245,7 @@
       out.layers.forEach((l) => { if (l && l.name === 'WS') l.name = 'MS'; });
       [out.directions, out.sessionOrder, out.endpointRules].forEach((list) => (list || []).forEach((r) => { if (r && r.layer === 'WS') r.layer = 'MS'; }));
     }
+    if (out.termMode !== 'api') out.termMode = 'session';
     return out;
   }
 
@@ -343,6 +344,8 @@
   function renderAll() {
     Object.keys(SECTIONS).forEach(renderList);
     document.getElementById('terms').value = state.terms.join('\n');
+    document.getElementById('api-pattern').value = state.apiPattern;
+    document.querySelectorAll('input[name="term-mode"]').forEach((r) => { r.checked = r.value === state.termMode; });
     document.getElementById('group-sources').checked = state.groupSources;
     document.getElementById('drop-no-direction').checked = state.dropNoDirection;
     document.getElementById('dir-word-rex').value = state.dirWordRex;
@@ -361,7 +364,10 @@
     document.getElementById('line-count').textContent = (text.trimEnd().split('\n').length) + ' lines';
     document.getElementById('spl-logs').textContent = generateLogs(state);
     const n = state.terms.filter((t) => t.trim()).length;
-    document.getElementById('terms-count').textContent = n + (n === 1 ? ' term' : ' terms');
+    const api = state.termMode === 'api';
+    document.getElementById('terms-count').textContent = api ? `last session of ${state.apiPattern.trim() || '(no API)'}` : n + (n === 1 ? ' term' : ' terms');
+    document.getElementById('terms-session').hidden = api;
+    document.getElementById('terms-api').hidden = !api;
     const warnings = validate(state);
     document.getElementById('warnings').replaceChildren(...warnings.map((w) => el('li', {}, [w])));
     save();
@@ -391,6 +397,14 @@
 
   document.getElementById('terms').addEventListener('input', (e) => {
     state.terms = parseTerms(e.target.value);
+    update();
+  });
+  document.querySelectorAll('input[name="term-mode"]').forEach((r) => r.addEventListener('change', () => {
+    state.termMode = r.value;
+    update();
+  }));
+  document.getElementById('api-pattern').addEventListener('input', (e) => {
+    state.apiPattern = e.target.value;
     update();
   });
 
@@ -500,6 +514,14 @@
 
   document.getElementById('btn-copy').addEventListener('click', () => copyQuery(generate(state), 'spl'));
   document.getElementById('btn-copy-logs').addEventListener('click', () => copyQuery(generateLogs(state), 'spl-logs'));
+  // Base query (open at first) and Log query (hidden at first) sections remember if they were left open
+  document.querySelectorAll('.query-section').forEach((d) => {
+    const key = `tracezline.${d.id.replace('-', '')}.open`;
+    try { const v = localStorage.getItem(key); if (v) d.open = v === '1'; } catch (e) { /* ignore */ }
+    d.addEventListener('toggle', () => {
+      try { localStorage.setItem(key, d.open ? '1' : '0'); } catch (e) { /* ignore */ }
+    });
+  });
 
   document.getElementById('btn-download').addEventListener('click', () => {
     download('tracezline-query.spl', generate(state), 'text/plain');
@@ -625,12 +647,15 @@
 
   // Search terms on imported rows: a term must appear in the row (as Splunk matches raw text).
   const rowHasTerm = (r, terms) => terms.some((t) => r.raw.toLowerCase().includes(t.toLowerCase()));
+  // The session IDs Flow Analysis keeps: the Search terms, or by API the session Run in Splunk found
+  let lastSession = '';
+  const activeTerms = () => (state.termMode === 'api' ? (lastSession ? [lastSession] : []) : state.terms.filter((t) => t.trim()));
 
   function refreshFlow() {
     const status = document.getElementById('flow-status');
     if (!logs.length && !imported) return;
     const useTerms = document.getElementById('use-terms').checked;
-    const terms = useTerms ? state.terms.filter((t) => t.trim()) : [];
+    const terms = useTerms ? activeTerms() : [];
     if (imported) {
       const range = window.TraceSpl.timeRange(state);
       const inRange = (r) => !range || ((range.from == null || r.time >= range.from) && (range.to == null || r.time <= range.to));
@@ -722,11 +747,11 @@
     const useIds = el('button', { type: 'button', class: 'primary' }, ['Use these IDs as Search terms']);
     useIds.addEventListener('click', () => {
       state.terms = ids;
-      document.getElementById('terms').value = ids.join('\n');
-      update();
+      state.termMode = 'session';
+      renderAll();
       toast('Search terms updated');
     });
-    show(el('p', {}, [`No events match the Search terms (${state.terms.filter((t) => t.trim()).length}). The loaded files contain these sessions:`]),
+    show(el('p', {}, [`No events match the Search terms (${activeTerms().length}). The loaded files contain these sessions:`]),
       el('ul', {}, ids.slice(0, 20).map((id) => el('li', {}, [el('code', {}, [id])]))),
       ...(ids.length > 20 ? [el('p', {}, [`… and ${ids.length - 20} more.`])] : []),
       el('div', { class: 'problem-actions' }, [showAll, useIds]));
@@ -1659,10 +1684,11 @@
     splunkEls.url.value = saved.url || '';
     splunkEls.user.value = saved.user || '';
     splunkEls.insecure.checked = !!saved.insecure;
-    splunkEls.api.checked = saved.api !== false;
+    // off unless ticked (a new name: earlier saves kept api: true whether or not it was ticked)
+    splunkEls.api.checked = saved.apiAnalysis === true;
   } catch (e) { /* ignore */ }
   const saveSplunk = () => {
-    try { localStorage.setItem(SPLUNK_KEY, JSON.stringify({ mode: splunkEls.mode.value, range: splunkEls.range.value, url: splunkEls.url.value.trim(), user: splunkEls.user.value.trim(), insecure: splunkEls.insecure.checked, api: splunkEls.api.checked })); } catch (e) { /* ignore */ }
+    try { localStorage.setItem(SPLUNK_KEY, JSON.stringify({ mode: splunkEls.mode.value, range: splunkEls.range.value, url: splunkEls.url.value.trim(), user: splunkEls.user.value.trim(), insecure: splunkEls.insecure.checked, apiAnalysis: splunkEls.api.checked })); } catch (e) { /* ignore */ }
   };
   ['mode', 'url', 'user', 'range', 'insecure', 'api'].forEach((k) => splunkEls[k].addEventListener('change', saveSplunk));
   splunkEls.mode.addEventListener('change', splunkPlaceholder);
@@ -1720,9 +1746,23 @@
     splunkEls.csv.hidden = true;
     saveSplunk();
     try {
+      // 0. Search terms by API: the newest top-layer event with the API pattern gives the session
+      // that both queries then search for (the same session, rather than a subsearch in each).
+      let runCfg = state;
+      if (state.termMode === 'api') {
+        current = 'Last session';
+        const layer = window.TraceSpl.topLayer(state) || 'top layer';
+        const found = window.TraceImport.parseCsv((await window.TraceSplunk.run({ ...opts, query: window.TraceSpl.generateLastSession(state) })).csv);
+        const head = found[0] || [];
+        const row = found.slice(1).find((r) => String(r[head.indexOf('sessionId')] ?? '').trim());
+        if (!row) throw new Error(`no ${layer} event with "${state.apiPattern.trim()}" and a session ID in the time range.`);
+        lastSession = String(row[head.indexOf('sessionId')]).trim();
+        lines.push(['ok', `Last session: ${lastSession} (${layer} ${state.apiPattern.trim()} at ${row[head.indexOf('EventTime')] ?? '?'})`]);
+        runCfg = { ...state, termMode: 'session', terms: [lastSession] };
+      }
       // 1. Base Splunk query -> CSV -> Flow Analysis
       current = 'Flow query';
-      const res = await window.TraceSplunk.run({ ...opts, query: generate(state) });
+      const res = await window.TraceSplunk.run({ ...opts, query: generate(runCfg) });
       const table = window.TraceImport.parseCsv(res.csv);
       splunkResult = { sid: res.sid, csv: res.csv, logs: [] };
       lines.push(['ok', `Flow query: ${Math.max(0, table.length - 1).toLocaleString()} rows (CSV, ${res.csv.length.toLocaleString()} chars)`]);
@@ -1747,7 +1787,7 @@
       }
       // 2. Log query -> raw events (EventTime, _raw) as one log file
       current = 'Log query';
-      const logRes = await window.TraceSplunk.run({ ...opts, query: generateLogs(state) });
+      const logRes = await window.TraceSplunk.run({ ...opts, query: generateLogs(runCfg) });
       const files = splunkLogFiles(window.TraceImport.parseCsv(logRes.csv), `splunk-${logRes.sid}.log`);
       splunkResult.logs = files;
       const events = files.reduce((t, f) => t + window.TraceFlow.describeLog(f.text).events, 0);

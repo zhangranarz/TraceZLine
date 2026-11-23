@@ -406,3 +406,28 @@ test('source table: N/A leaves that layer\'s source out of the search until a re
   assert.deepStrictEqual(cfg.sources.map((s) => s.enabled), [false, true, true, true]);
   assert.strictEqual(cfg.sources[3].source, '/var/log/pods/SGBBB/mqinfo/spl-ms-*log');
 });
+
+test('search by API: the newest eComm event with the API gives the session, as a subsearch in both queries', () => {
+  const cfg = spl.clone(spl.DEFAULT_CONFIG);
+  cfg.termMode = 'api';
+  const last = spl.generateLastSession(cfg);
+  // only the eComm source, the API as the term, eComm's session order, newest first
+  assert.strictEqual((last.match(/source=/g) || []).length, 1);
+  assert.ok(last.includes('("[SPLMessage]" OR "[MightyMessage]")'));
+  assert.ok(last.includes('\n"/application/confirm"\n'));
+  assert.ok(last.includes('| eval sessionId=coalesce(sidSessionId, sidSessionIdentity, sidEcomm)'));
+  assert.ok(!last.includes('sidWls'));
+  assert.ok(last.trimEnd().endsWith('| head 1\n| eval EventTime=strftime(_time,"%Y-%m-%d %H:%M:%S.%3N")\n| table EventTime sessionId'));
+  for (const q of [spl.generate(cfg), spl.generateLogs(cfg)]) {
+    assert.ok(q.includes('[search (\n'));
+    assert.ok(q.includes('| head 1\n| return $sessionId]\n'));
+    assert.ok(!q.includes('2576dfc8'), 'the session ID terms are not used');
+  }
+  assert.deepStrictEqual(spl.validate(cfg), []);
+  cfg.apiPattern = ' ';
+  assert.ok(!spl.generate(cfg).includes('[search'));
+  assert.ok(spl.validate(cfg).some((w) => /No API pattern/.test(w)));
+  // session mode is unchanged
+  cfg.termMode = 'session';
+  assert.ok(spl.generate(cfg).includes('("2576dfc8-495a-837a-8a2f291fd003d" OR "7f269c48-f03a-4fef-bc3007538ec1a2")'));
+});

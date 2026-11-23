@@ -31,8 +31,18 @@
 
       <details open>
         <summary>Search terms <span class="hint" id="terms-count"></span></summary>
-        <p class="note">One per line (or comma separated), e.g. session IDs. Each is quoted and joined with OR. Leave empty to drop the line.</p>
-        <textarea id="terms" rows="4" spellcheck="false"></textarea>
+        <div class="row term-mode" role="radiogroup" aria-label="Search by">
+          <label class="check"><input type="radio" name="term-mode" value="session"> 1) Session IDs</label>
+          <label class="check"><input type="radio" name="term-mode" value="api"> 2) Last session of an eComm API</label>
+        </div>
+        <div id="terms-session">
+          <p class="note">One per line (or comma separated), e.g. session IDs. Each is quoted and joined with OR. Leave empty to drop the line.</p>
+          <textarea id="terms" rows="4" spellcheck="false"></textarea>
+        </div>
+        <div id="terms-api" hidden>
+          <label class="field size-m"><span>eComm API pattern</span><input type="text" id="api-pattern" placeholder="/application/confirm" spellcheck="false" autocomplete="off"></label>
+          <p class="note">Finds the newest eComm event with this text (within Start / End time, or the Run in Splunk time range), takes its session ID (eComm's Session order), and searches for that session. The queries hold it as a subsearch, <code>[search … | head 1 | return $sessionId]</code>; Run in Splunk runs that search first and shows the session it found.</p>
+        </div>
         <div class="row">
           <label class="field size-m"><span>Start time <em>optional</em></span><span class="time-box"><input type="text" id="start-time" placeholder="YYYY-MM-DD hh:mm:ss.mmm" spellcheck="false" autocomplete="off" title="Type a time (e.g. 2026-10-26 09:30, 2026/10/26 09:30:15.250 or 10/26/2026:09:30:00) or pick one with the calendar button"><button type="button" class="time-pick" data-for="start-time" title="Pick from a calendar" aria-label="Pick Start time from a calendar">📅</button><input type="datetime-local" class="time-picker" data-for="start-time" step="0.001" tabindex="-1" aria-hidden="true"></span></label>
           <label class="field size-m"><span>End time <em>optional</em></span><span class="time-box"><input type="text" id="end-time" placeholder="YYYY-MM-DD hh:mm:ss.mmm" spellcheck="false" autocomplete="off" title="Type a time (e.g. 2026-10-26 09:30, 2026/10/26 09:30:15.250 or 10/26/2026:09:30:00) or pick one with the calendar button"><button type="button" class="time-pick" data-for="end-time" title="Pick from a calendar" aria-label="Pick End time from a calendar">📅</button><input type="datetime-local" class="time-picker" data-for="end-time" step="0.001" tabindex="-1" aria-hidden="true"></span></label>
@@ -114,7 +124,7 @@
           <div class="row splunk-actions">
             <label class="field size-s" title="Used when Start time / End time (Search terms) are empty; a time range keeps Splunk from searching all time"><span>Time range</span><select id="splunk-range"><option value="-15m">Last 15 minutes</option><option value="-60m">Last 60 minutes</option><option value="-4h">Last 4 hours</option><option value="-24h" selected>Last 24 hours</option><option value="-7d">Last 7 days</option><option value="">All time (slow)</option></select></label>
             <label class="check"><input type="checkbox" id="splunk-insecure"> Accept a self-signed certificate</label>
-            <label class="check" title="Off: only the flow query runs (CSV → Flow Analysis); the log query, masking and API Analysis are skipped"><input type="checkbox" id="splunk-api" checked> Include API Analysis</label>
+            <label class="check" title="Off: only the flow query runs (CSV → Flow Analysis); the log query, masking and API Analysis are skipped"><input type="checkbox" id="splunk-api"> Include API Analysis</label>
             <span class="spacer"></span>
             <button type="button" id="btn-splunk-run" class="primary">Login &amp; Run</button>
             <button type="button" id="btn-splunk-csv" disabled title="Save the flow query results as a .csv file">Download CSV</button>
@@ -132,21 +142,25 @@
           <ol id="splunk-status" class="splunk-status"></ol>
           <pre id="splunk-csv" class="splunk-csv" tabindex="0" hidden></pre>
         </details>
-        <div class="preview-bar">
-          <span class="spacer"></span>
-          <button type="button" id="btn-copy" class="primary">Copy</button>
-          <button type="button" id="btn-download" title="Save the query as a .spl file">Download</button>
-        </div>
-        <ul id="warnings" class="warnings"></ul>
-        <pre id="spl" tabindex="0"></pre>
-        <div class="preview-bar log-query-bar">
-          <strong>Log query</strong>
-          <span class="hint">raw events of the Source and Search terms, sorted by time</span>
-          <span class="spacer"></span>
-          <button type="button" id="btn-copy-logs">Copy</button>
-          <button type="button" id="btn-download-logs" title="Save the log query as a .spl file">Download</button>
-        </div>
-        <pre id="spl-logs" tabindex="0"></pre>
+        <details class="query-section" id="base-query" open>
+          <summary>Base query <span class="hint">flow query: one row per step of each session (CSV → Flow Analysis)</span></summary>
+          <div class="preview-bar query-bar">
+            <span class="spacer"></span>
+            <button type="button" id="btn-copy" class="primary">Copy</button>
+            <button type="button" id="btn-download" title="Save the query as a .spl file">Download</button>
+          </div>
+          <ul id="warnings" class="warnings"></ul>
+          <pre id="spl" tabindex="0"></pre>
+        </details>
+        <details class="query-section" id="log-query">
+          <summary>Log query <span class="hint">raw events of the Source and Search terms, sorted by time</span></summary>
+          <div class="preview-bar query-bar">
+            <span class="spacer"></span>
+            <button type="button" id="btn-copy-logs">Copy</button>
+            <button type="button" id="btn-download-logs" title="Save the log query as a .spl file">Download</button>
+          </div>
+          <pre id="spl-logs" tabindex="0"></pre>
+        </details>
       </div>
 
       <div class="pane" id="pane-flow" role="tabpanel" aria-labelledby="tab-file" data-mode="file" hidden>

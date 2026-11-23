@@ -23,7 +23,11 @@
       { enabled: true, source: '/var/log/pods/spl-ms-*log', filter: '("*WSAppLog*" OR "*Apsect*" OR "*Aspect*")', dirFilter: '("request:" OR "RESPONSE from" OR "Response:")' },
       { enabled: true, source: '/var/log/pods/spl-ms-*log', filter: '"<EAI>" "<SvcCode>"', dirFilter: '("Request Message" OR "Response Message")' },
     ],
+    // Search terms: 'session' uses the session IDs in terms; 'api' finds the newest event of the
+    // top layer (eComm) whose text has apiPattern, and searches for that event's session ID.
+    termMode: 'session',
     terms: ['2576dfc8-495a-837a-8a2f291fd003d', '7f269c48-f03a-4fef-bc3007538ec1a2'],
+    apiPattern: '/application/confirm',
     // Optional time window, "2026-11-18 15:28:25.554" (milliseconds optional); empty = no limit.
     startTime: '',
     endTime: '',
@@ -264,9 +268,15 @@ __INDENT__
     });
     out.push('(\n' + blocks.join('\n\tOR\n') + '\n)');
 
-    const terms = cfg.terms.map((t) => t.trim()).filter(Boolean);
-    // part of the base search, so no |; two or more terms are grouped: ("a" OR "b")
-    if (terms.length) out.push(terms.length > 1 ? '(' + terms.map(quoteTerm).join(' OR ') + ')' : quoteTerm(terms[0]));
+    if (cfg.termMode === 'api') {
+      // The session ID of the newest top-layer event with the API, as a subsearch: Splunk runs it
+      // first and puts its value here as the search term (no match: NOT (), so nothing is found).
+      if (String(cfg.apiPattern ?? '').trim()) out.push('[search ' + lastSessionSearch(cfg).join('\n') + '\n| return $sessionId]');
+    } else {
+      const terms = cfg.terms.map((t) => t.trim()).filter(Boolean);
+      // part of the base search, so no |; two or more terms are grouped: ("a" OR "b")
+      if (terms.length) out.push(terms.length > 1 ? '(' + terms.map(quoteTerm).join(' OR ') + ')' : quoteTerm(terms[0]));
+    }
 
     // Time window: earliest/latest (whole seconds, Splunk's MM/DD/YYYY:HH:MM:SS) let Splunk skip
     // the rest of the index; the where clause then keeps the exact milliseconds.
@@ -286,6 +296,32 @@ __INDENT__
       out.push('| where ' + conds.join(' AND '));
     }
     return out;
+  }
+
+  // The top layer (lowest layer number, eComm): the one whose events carry the API pattern.
+  function topLayer(cfg) {
+    return cfg.layers.filter((l) => l.name.trim()).sort((a, b) => Number(a.layer) - Number(b.layer))[0]?.name.trim() ?? null;
+  }
+
+  // The newest top-layer event with the API pattern, and its session ID (the top layer's session
+  // order; events without one are skipped). Splunk returns events newest first, so head 1.
+  function lastSessionSearch(cfg) {
+    const layer = topLayer(cfg);
+    const out = baseSearch({
+      ...cfg, termMode: 'session', terms: [String(cfg.apiPattern ?? '').trim()],
+      sources: cfg.sources.filter((s) => sourceLayer(cfg, s) === layer),
+    });
+    const rules = cfg.sessionRules.filter((r) => r.field.trim() && r.rex.trim());
+    const order = sessionOrders(cfg).find((o) => o.layer === layer);
+    const fields = order ? order.fields : rules.map((r) => r.field.trim());
+    rules.filter((r) => fields.includes(r.field.trim())).forEach((r) => out.push(`| rex field=_raw "${r.rex.trim()}"`));
+    out.push(`| eval sessionId=coalesce(${fields.join(', ')})`, '| where isnotnull(sessionId)', '| head 1');
+    return out;
+  }
+
+  // Last session query: run on its own, it shows which session the API search picks.
+  function generateLastSession(cfg) {
+    return [...lastSessionSearch(cfg), '| eval EventTime=strftime(_time,"%Y-%m-%d %H:%M:%S.%3N")', '| table EventTime sessionId'].join('\n') + '\n';
   }
 
   // Log query: the raw events of the sources and search terms, oldest first
@@ -384,7 +420,10 @@ __INDENT__
         + 'source="A" filterA OR source="B" filterB reads as source="A" AND (filterA OR source="B") AND filterB. '
         + 'Tick "Group each source" if events from the second source are missing.');
     }
-    if (!cfg.terms.some((t) => t.trim())) warnings.push('No search terms: the query will scan every event from the sources.');
+    if (cfg.termMode === 'api') {
+      if (!String(cfg.apiPattern ?? '').trim()) warnings.push('No API pattern: the query will scan every event from the sources.');
+      else if (!cfg.sources.some((s) => s.enabled && s.source.trim() && sourceLayer(cfg, s) === topLayer(cfg))) warnings.push(`No enabled ${topLayer(cfg) || 'top layer'} source: the last session search finds nothing.`);
+    } else if (!cfg.terms.some((t) => t.trim())) warnings.push('No search terms: the query will scan every event from the sources.');
     [['Start time', cfg.startTime], ['End time', cfg.endTime]].forEach(([label, v]) => {
       if (String(v ?? '').trim() && parseTime(v) == null) warnings.push(`${label} "${v}" is not a time like 2026-11-18 15:28:25.554; it is ignored.`);
     });
@@ -476,5 +515,5 @@ __INDENT__
     return changed;
   }
 
-  return { DEFAULT_CONFIG, clone, generate, generateLogs, validate, parseTerms, quoteTerm, renameMarker, parseTime, normaliseTime, timeRange, sessionOrders, sourceLayer, sourceTable, applySourcePaths };
+  return { DEFAULT_CONFIG, clone, generate, generateLogs, generateLastSession, topLayer, validate, parseTerms, quoteTerm, renameMarker, parseTime, normaliseTime, timeRange, sessionOrders, sourceLayer, sourceTable, applySourcePaths };
 });
