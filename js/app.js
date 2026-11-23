@@ -360,17 +360,20 @@
   }
 
   function update() {
-    const text = generate(state);
+    const text = generate(queryCfg());
     document.getElementById('spl').textContent = text;
     document.getElementById('line-count').textContent = (text.trimEnd().split('\n').length) + ' lines';
-    document.getElementById('spl-logs').textContent = generateLogs(state);
+    document.getElementById('spl-logs').textContent = generateLogs(queryCfg());
+    document.getElementById('session-query').hidden = state.termMode !== 'api';
+    document.getElementById('spl-session').textContent = window.TraceSpl.generateSession(state);
+    document.getElementById('session-found').textContent = foundSession() || 'not run yet (Run in Splunk runs it first)';
     const n = state.terms.filter((t) => t.trim()).length;
     const api = state.termMode === 'api';
     document.getElementById('terms-count').textContent = api ? `last session of ${state.apiLayer} ${state.apiPattern.trim() || '(no API)'}` : n + (n === 1 ? ' term' : ' terms');
     document.getElementById('terms-session').hidden = api;
     document.getElementById('terms-api').hidden = !api;
     document.getElementById('api-layer-name').textContent = state.apiLayer;
-    const warnings = validate(state);
+    const warnings = validate(queryCfg());
     document.getElementById('warnings').replaceChildren(...warnings.map((w) => el('li', {}, [w])));
     save();
     refreshFlow();
@@ -514,9 +517,10 @@
     }
   }
 
-  document.getElementById('btn-copy').addEventListener('click', () => copyQuery(generate(state), 'spl'));
-  document.getElementById('btn-copy-logs').addEventListener('click', () => copyQuery(generateLogs(state), 'spl-logs'));
-  // Flow query (open at first) and Log query (hidden at first) sections remember if they were left open
+  document.getElementById('btn-copy').addEventListener('click', () => copyQuery(generate(queryCfg()), 'spl'));
+  document.getElementById('btn-copy-logs').addEventListener('click', () => copyQuery(generateLogs(queryCfg()), 'spl-logs'));
+  document.getElementById('btn-copy-session').addEventListener('click', () => copyQuery(window.TraceSpl.generateSession(state), 'spl-session'));
+  // Session and Flow query (open at first) and Log query (hidden at first) sections remember if they were left open
   document.querySelectorAll('.query-section').forEach((d) => {
     const key = `tracezline.${d.id.replace('-', '')}.open`;
     try { const v = localStorage.getItem(key); if (v) d.open = v === '1'; } catch (e) { /* ignore */ }
@@ -526,10 +530,13 @@
   });
 
   document.getElementById('btn-download').addEventListener('click', () => {
-    download('tracezline-query.spl', generate(state), 'text/plain');
+    download('tracezline-query.spl', generate(queryCfg()), 'text/plain');
   });
   document.getElementById('btn-download-logs').addEventListener('click', () => {
-    download('tracezline-logs.spl', generateLogs(state), 'text/plain');
+    download('tracezline-logs.spl', generateLogs(queryCfg()), 'text/plain');
+  });
+  document.getElementById('btn-download-session').addEventListener('click', () => {
+    download('tracezline-session.spl', window.TraceSpl.generateSession(state), 'text/plain');
   });
 
   document.getElementById('btn-export').addEventListener('click', () => {
@@ -650,8 +657,12 @@
   // Search terms on imported rows: a term must appear in the row (as Splunk matches raw text).
   const rowHasTerm = (r, terms) => terms.some((t) => r.raw.toLowerCase().includes(t.toLowerCase()));
   // The session IDs Flow Analysis keeps: the Search terms, or by API the session Run in Splunk found
-  let lastSession = '';
-  const activeTerms = () => (state.termMode === 'api' ? (lastSession ? [lastSession] : []) : state.terms.filter((t) => t.trim()));
+  // The session ID the Session query returned, kept while the Session query stays the same
+  let lastSession = { id: '', query: '' };
+  const foundSession = () => (state.termMode === 'api' && lastSession.query === window.TraceSpl.generateSession(state) ? lastSession.id : '');
+  // Flow / Log query settings: by API, the search term is the session the Session query found
+  const queryCfg = () => (state.termMode === 'api' ? { ...state, apiSession: foundSession() } : state);
+  const activeTerms = () => (state.termMode === 'api' ? [foundSession()].filter(Boolean) : state.terms.filter((t) => t.trim()));
 
   function refreshFlow() {
     const status = document.getElementById('flow-status');
@@ -1748,20 +1759,24 @@
     splunkEls.csv.hidden = true;
     saveSplunk();
     try {
-      // 0. Search terms by API: the newest eComm / Enterprise event with the API pattern gives the session
-      // that both queries then search for (the same session, rather than a subsearch in each).
-      let runCfg = state;
+      // 0. Search terms by API: the Session query finds the newest eComm / Enterprise event with the
+      // API pattern; its session ID is the search term of the Flow and Log queries. No session ID:
+      // stop, neither of them runs. (Session IDs: they run with the typed IDs.)
       if (state.termMode === 'api') {
-        current = 'Last session';
+        current = 'Session query';
+        lastSession = { id: '', query: '' }; // a run that finds none leaves no older session behind
+        update();
         const layer = window.TraceSpl.apiLayer(state) || 'top layer';
-        const found = window.TraceImport.parseCsv((await window.TraceSplunk.run({ ...opts, query: window.TraceSpl.generateLastSession(state) })).csv);
-        const head = found[0] || [];
-        const row = found.slice(1).find((r) => String(r[head.indexOf('sessionId')] ?? '').trim());
-        if (!row) throw new Error(`no ${layer} event with "${state.apiPattern.trim()}" and a session ID in the time range.`);
-        lastSession = String(row[head.indexOf('sessionId')]).trim();
-        lines.push(['ok', `Last session: ${lastSession} (${layer} ${state.apiPattern.trim()} at ${row[head.indexOf('EventTime')] ?? '?'})`]);
-        runCfg = { ...state, termMode: 'session', terms: [lastSession] };
+        const query = window.TraceSpl.generateSession(state);
+        const found = window.TraceImport.parseCsv((await window.TraceSplunk.run({ ...opts, query })).csv);
+        const col = (found[0] || []).indexOf('sessionId');
+        const id = col < 0 ? '' : String(found.slice(1).map((r) => r[col]).find((v) => String(v ?? '').trim()) ?? '').trim();
+        if (!id) throw new Error(`no ${layer} event with "${state.apiPattern.trim()}" and a session ID in the time range, so the Flow and Log queries were not run.`);
+        lastSession = { id, query };
+        lines.push(['ok', `Session query: sessionId ${id} (newest ${layer} ${state.apiPattern.trim()})`]);
+        update();
       }
+      const runCfg = queryCfg();
       // 1. Flow query -> CSV -> Flow Analysis
       current = 'Flow query';
       const res = await window.TraceSplunk.run({ ...opts, query: generate(runCfg) });

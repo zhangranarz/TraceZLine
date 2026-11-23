@@ -168,7 +168,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .pane[hidden] { display: none; }
 .preview-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
 .spacer { flex: 1; }
-#spl, #spl-logs {
+#spl, #spl-logs, #spl-session {
   margin: 0;
   flex: 1;
   overflow: auto;
@@ -182,6 +182,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 }
 /* Each query box keeps its own height and scrolls inside (about half the window) */
 #spl, #spl-logs { flex: none; max-height: 55vh; }
+#spl-session { flex: none; max-height: 30vh; }
 /* Flow query and Log query: sections of their own, each shown or hidden from its header */
 .query-section { flex: none; margin: 10px 0 0; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; }
 .query-section > summary { cursor: pointer; font-weight: 600; }

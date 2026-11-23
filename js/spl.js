@@ -127,6 +127,9 @@ __INDENT__
     return JSON.parse(JSON.stringify(obj));
   }
 
+  // The Flow / Log query's search term until the Session query has returned a session ID
+  const SESSION_PLACEHOLDER = '<sessionId from the Session query>';
+
   function quoteTerm(term) {
     return '"' + term.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
   }
@@ -270,17 +273,22 @@ __INDENT__
     out.push('(\n' + blocks.join('\n\tOR\n') + '\n)');
 
     if (cfg.termMode === 'api') {
-      // The session ID of the newest apiLayer event with the API, as a subsearch: Splunk runs it
-      // first and puts its value here as the search term (no match: NOT (), so nothing is found).
-      if (String(cfg.apiPattern ?? '').trim()) out.push('[search ' + lastSessionSearch(cfg).join('\n') + '\n| return $sessionId]');
+      // The session ID the Session query returned (apiSession), or a placeholder until it has run
+      out.push(quoteTerm(String(cfg.apiSession ?? '').trim() || SESSION_PLACEHOLDER));
     } else {
       const terms = cfg.terms.map((t) => t.trim()).filter(Boolean);
       // part of the base search, so no |; two or more terms are grouped: ("a" OR "b")
       if (terms.length) out.push(terms.length > 1 ? '(' + terms.map(quoteTerm).join(' OR ') + ')' : quoteTerm(terms[0]));
     }
 
-    // Time window: earliest/latest (whole seconds, Splunk's MM/DD/YYYY:HH:MM:SS) let Splunk skip
-    // the rest of the index; the where clause then keeps the exact milliseconds.
+    out.push(...timeWindow(cfg));
+    return out;
+  }
+
+  // Time window: earliest/latest (whole seconds, Splunk's MM/DD/YYYY:HH:MM:SS) let Splunk skip
+  // the rest of the index; the where clause then keeps the exact milliseconds.
+  function timeWindow(cfg) {
+    const out = [];
     const range = timeRange(cfg);
     if (range) {
       const pad = (n, w = 2) => String(n).padStart(w, '0');
@@ -310,25 +318,26 @@ __INDENT__
     return cfg.layers.some((l) => l.name.trim() === name) ? name : topLayer(cfg);
   }
 
-  // The newest apiLayer event with the API pattern, and its session ID (that layer's session
-  // order; events without one are skipped). Splunk returns events newest first, so head 1.
-  function lastSessionSearch(cfg) {
+  // Session query (Search terms by API): the newest apiLayer event with the API pattern, and its
+  // session ID (that layer's session order; events without one are skipped). Its sessionId is then
+  // the search term of the Flow and Log queries.
+  function generateSession(cfg) {
     const layer = apiLayer(cfg);
-    const out = baseSearch({
-      ...cfg, termMode: 'session', terms: [String(cfg.apiPattern ?? '').trim()],
-      sources: cfg.sources.filter((s) => sourceLayer(cfg, s) === layer),
-    });
+    const sources = cfg.sources.filter((s) => s.enabled && s.source.trim() && sourceLayer(cfg, s) === layer);
+    const filters = (s) => [s.filter, s.dirFilter].map((f) => String(f ?? '').trim()).filter(Boolean).map(wrapFilter);
+    const pattern = String(cfg.apiPattern ?? '').trim();
+    // one source: source= with its filters and the API below it; several: each in ( ), joined with OR
+    const out = sources.length > 1
+      ? ['(\n' + sources.map((s) => ['\t(', `\t\tsource="${s.source.trim()}"`, ...filters(s).map((f) => '\t\t' + f), '\t)'].join('\n')).join('\n\tOR\n') + '\n)',
+        ...(pattern ? [quoteTerm(pattern)] : [])]
+      : sources.map((s) => [`source="${s.source.trim()}"`, ...filters(s).map((f) => '\t' + f), ...(pattern ? ['\t' + quoteTerm(pattern)] : [])].join('\n'));
+    out.push(...timeWindow(cfg));
     const rules = cfg.sessionRules.filter((r) => r.field.trim() && r.rex.trim());
     const order = sessionOrders(cfg).find((o) => o.layer === layer);
     const fields = order ? order.fields : rules.map((r) => r.field.trim());
     rules.filter((r) => fields.includes(r.field.trim())).forEach((r) => out.push(`| rex field=_raw "${r.rex.trim()}"`));
-    out.push(`| eval sessionId=coalesce(${fields.join(', ')})`, '| where isnotnull(sessionId)', '| head 1');
-    return out;
-  }
-
-  // Last session query: run on its own, it shows which session the API search picks.
-  function generateLastSession(cfg) {
-    return [...lastSessionSearch(cfg), '| eval EventTime=strftime(_time,"%Y-%m-%d %H:%M:%S.%3N")', '| table EventTime sessionId'].join('\n') + '\n';
+    out.push(`| eval sessionId=coalesce(${fields.join(', ')})`, '| where isnotnull(sessionId)', '| sort 0 - _time', '| head 1', '| table sessionId');
+    return out.join('\n') + '\n';
   }
 
   // Log query: the raw events of the sources and search terms, oldest first
@@ -428,8 +437,9 @@ __INDENT__
         + 'Tick "Group each source" if events from the second source are missing.');
     }
     if (cfg.termMode === 'api') {
-      if (!String(cfg.apiPattern ?? '').trim()) warnings.push('No API pattern: the query will scan every event from the sources.');
-      else if (!cfg.sources.some((s) => s.enabled && s.source.trim() && sourceLayer(cfg, s) === apiLayer(cfg))) warnings.push(`No enabled ${apiLayer(cfg) || 'top layer'} source: the last session search finds nothing.`);
+      if (!String(cfg.apiPattern ?? '').trim()) warnings.push('No API pattern: the Session query takes the newest session of any event from the source.');
+      if (!cfg.sources.some((s) => s.enabled && s.source.trim() && sourceLayer(cfg, s) === apiLayer(cfg))) warnings.push(`No enabled ${apiLayer(cfg) || 'top layer'} source: the Session query finds nothing.`);
+      else if (!String(cfg.apiSession ?? '').trim()) warnings.push('The Session query has not run: the Flow and Log queries hold a placeholder for its sessionId until Run in Splunk runs it first.');
     } else if (!cfg.terms.some((t) => t.trim())) warnings.push('No search terms: the query will scan every event from the sources.');
     [['Start time', cfg.startTime], ['End time', cfg.endTime]].forEach(([label, v]) => {
       if (String(v ?? '').trim() && parseTime(v) == null) warnings.push(`${label} "${v}" is not a time like 2026-11-18 15:28:25.554; it is ignored.`);
@@ -522,5 +532,5 @@ __INDENT__
     return changed;
   }
 
-  return { DEFAULT_CONFIG, clone, generate, generateLogs, generateLastSession, topLayer, apiLayer, validate, parseTerms, quoteTerm, renameMarker, parseTime, normaliseTime, timeRange, sessionOrders, sourceLayer, sourceTable, applySourcePaths };
+  return { DEFAULT_CONFIG, clone, generate, generateLogs, generateSession, SESSION_PLACEHOLDER, topLayer, apiLayer, validate, parseTerms, quoteTerm, renameMarker, parseTime, normaliseTime, timeRange, sessionOrders, sourceLayer, sourceTable, applySourcePaths };
 });

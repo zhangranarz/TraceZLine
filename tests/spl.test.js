@@ -407,44 +407,57 @@ test('source table: N/A leaves that layer\'s source out of the search until a re
   assert.strictEqual(cfg.sources[3].source, '/var/log/pods/SGBBB/mqinfo/spl-ms-*log');
 });
 
-test('search by API: the newest eComm event with the API gives the session, as a subsearch in both queries', () => {
+test('Session query (eComm API): the newest eComm event with the API gives the sessionId', () => {
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
   cfg.termMode = 'api';
-  const last = spl.generateLastSession(cfg);
-  // only the eComm source, the API as the term, eComm's session order, newest first
-  assert.strictEqual((last.match(/source=/g) || []).length, 1);
-  assert.ok(last.includes('("[SPLMessage]" OR "[MightyMessage]")'));
-  assert.ok(last.includes('\n"/application/confirm"\n'));
-  assert.ok(last.includes('| eval sessionId=coalesce(sidSessionId, sidSessionIdentity, sidEcomm)'));
-  assert.ok(!last.includes('sidWls'));
-  assert.ok(last.trimEnd().endsWith('| head 1\n| eval EventTime=strftime(_time,"%Y-%m-%d %H:%M:%S.%3N")\n| table EventTime sessionId'));
+  assert.strictEqual(spl.generateSession(cfg), [
+    'source="/var/log/pods/spl-banking-*log"',
+    '\t("[SPLMessage]" OR "[MightyMessage]")',
+    '\t("- Request -" OR "- Response -")',
+    '\t"/application/confirm"',
+    String.raw`| rex field=_raw "\"sessionId\"\s*:\s*\"(?<sidSessionId>[^\"]+)\""`,
+    String.raw`| rex field=_raw "\"sessionIdentity\"\s*:\s*\"(?<sidSessionIdentity>[^\"]+)\""`,
+    String.raw`| rex field=_raw "(?i)(?:\[SPLMessage\]|\[MightyMessage\])\[(?<sidEcomm>[^\]]+)\]"`,
+    '| eval sessionId=coalesce(sidSessionId, sidSessionIdentity, sidEcomm)',
+    '| where isnotnull(sessionId)',
+    '| sort 0 - _time',
+    '| head 1',
+    '| table sessionId',
+  ].join('\n') + '\n');
+  // until it has run, the Flow and Log queries hold a placeholder, and a warning says so
   for (const q of [spl.generate(cfg), spl.generateLogs(cfg)]) {
-    assert.ok(q.includes('[search (\n'));
-    assert.ok(q.includes('| head 1\n| return $sessionId]\n'));
-    assert.ok(!q.includes('2576dfc8'), 'the session ID terms are not used');
+    assert.ok(q.includes('\n"<sessionId from the Session query>"\n'));
+    assert.ok(!q.includes('[search') && !q.includes('2576dfc8'));
   }
+  assert.ok(spl.validate(cfg).some((w) => /Session query has not run/.test(w)));
+  // its sessionId is then the search term of both
+  cfg.apiSession = 'sid-123';
+  for (const q of [spl.generate(cfg), spl.generateLogs(cfg)]) assert.ok(q.includes('\n)\n"sid-123"\n'));
   assert.deepStrictEqual(spl.validate(cfg), []);
-  cfg.apiPattern = ' ';
-  assert.ok(!spl.generate(cfg).includes('[search'));
-  assert.ok(spl.validate(cfg).some((w) => /No API pattern/.test(w)));
-  // session mode is unchanged
+  // the time window applies to the Session query too
+  cfg.startTime = '2026-11-18 10:00:00';
+  assert.ok(spl.generateSession(cfg).includes('\t"/application/confirm"\nearliest="11/18/2026:10:00:00"\n| where _time>='));
+  // Session IDs: unchanged, no Session query involved
   cfg.termMode = 'session';
   assert.ok(spl.generate(cfg).includes('("2576dfc8-495a-837a-8a2f291fd003d" OR "7f269c48-f03a-4fef-bc3007538ec1a2")'));
 });
 
-test('search by API: Enterprise uses its own source and session order; an unknown layer falls back to eComm', () => {
+test('Session query (Enterprise API): Enterprise source and session order; an unknown layer falls back to eComm', () => {
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
   cfg.termMode = 'api';
   cfg.apiLayer = 'Enterprise';
-  const last = spl.generateLastSession(cfg);
-  assert.strictEqual((last.match(/source=/g) || []).length, 1);
-  assert.ok(last.includes('("[SPLHostMessage]" OR "[MightyHostMessage]")'));
-  assert.ok(!last.includes('[SPLMessage]'));
-  assert.ok(last.includes('| eval sessionId=coalesce(sidSessionId, sidSessionIdentity, sidEnterprise)'));
-  assert.ok(spl.generate(cfg).includes('sidEnterprise)\n| where isnotnull(sessionId)\n| head 1\n| return $sessionId]'));
-  assert.deepStrictEqual(spl.validate(cfg), []);
+  const q = spl.generateSession(cfg);
+  assert.ok(q.startsWith('source="/var/log/pods/spl-banking-*log"\n\t("[SPLHostMessage]" OR "[MightyHostMessage]")\n\t("[Request]" OR "[Response]")\n\t"/application/confirm"\n'));
+  assert.ok(!q.includes('[SPLMessage]'));
+  assert.ok(q.includes('| eval sessionId=coalesce(sidSessionId, sidSessionIdentity, sidEnterprise)'));
   cfg.sources[1].enabled = false;
   assert.ok(spl.validate(cfg).some((w) => /No enabled Enterprise source/.test(w)));
+  // two sources of the layer: each in ( ), joined with OR, the API below
+  cfg.sources[1].enabled = true;
+  cfg.sources.push({ ...cfg.sources[1], source: '/var/log/pods/other-*log' });
+  assert.ok(spl.generateSession(cfg).startsWith('(\n\t(\n\t\tsource="/var/log/pods/spl-banking-*log"\n'));
+  assert.ok(spl.generateSession(cfg).includes('\t)\n\tOR\n\t(\n\t\tsource="/var/log/pods/other-*log"\n'));
+  assert.ok(spl.generateSession(cfg).includes('\n)\n"/application/confirm"\n'));
   cfg.apiLayer = 'Nope';
   assert.strictEqual(spl.apiLayer(cfg), 'eComm');
 });
