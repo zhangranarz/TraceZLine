@@ -180,10 +180,9 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
   white-space: pre;
   tab-size: 4;
 }
-/* The log query below the flow query: short, so it keeps its own height */
-#spl { flex: none; max-height: 55vh; }
-#spl-logs { flex: none; max-height: 30vh; }
-/* Base query and Log query: sections of their own, each shown or hidden from its header */
+/* Each query box keeps its own height and scrolls inside (about half the window) */
+#spl, #spl-logs { flex: none; max-height: 55vh; }
+/* Flow query and Log query: sections of their own, each shown or hidden from its header */
 .query-section { flex: none; margin: 10px 0 0; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; }
 .query-section > summary { cursor: pointer; font-weight: 600; }
 .query-section[open] { padding-bottom: 10px; }

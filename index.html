@@ -33,15 +33,16 @@
         <summary>Search terms <span class="hint" id="terms-count"></span></summary>
         <div class="row term-mode" role="radiogroup" aria-label="Search by">
           <label class="check"><input type="radio" name="term-mode" value="session"> 1) Session IDs</label>
-          <label class="check"><input type="radio" name="term-mode" value="api"> 2) Last session of an eComm API</label>
+          <label class="check"><input type="radio" name="term-mode" value="api:eComm"> 2) Last session of an eComm API</label>
+          <label class="check"><input type="radio" name="term-mode" value="api:Enterprise"> 3) Last session of an Enterprise API</label>
         </div>
         <div id="terms-session">
           <p class="note">One per line (or comma separated), e.g. session IDs. Each is quoted and joined with OR. Leave empty to drop the line.</p>
           <textarea id="terms" rows="4" spellcheck="false"></textarea>
         </div>
         <div id="terms-api" hidden>
-          <label class="field size-m"><span>eComm API pattern</span><input type="text" id="api-pattern" placeholder="/application/confirm" spellcheck="false" autocomplete="off"></label>
-          <p class="note">Finds the newest eComm event with this text (within Start / End time, or the Run in Splunk time range), takes its session ID (eComm's Session order), and searches for that session. The queries hold it as a subsearch, <code>[search … | head 1 | return $sessionId]</code>; Run in Splunk runs that search first and shows the session it found.</p>
+          <label class="field size-m"><span><b id="api-layer-name">eComm</b> API pattern</span><input type="text" id="api-pattern" placeholder="/application/confirm" spellcheck="false" autocomplete="off"></label>
+          <p class="note">Finds the newest event of that layer (eComm or Enterprise) with this text (within Start / End time, or the Run in Splunk time range), takes its session ID (that layer's Session order), and searches for that session. The queries hold it as a subsearch, <code>[search … | head 1 | return $sessionId]</code>; Run in Splunk runs that search first and shows the session it found.</p>
         </div>
         <div class="row">
           <label class="field size-m"><span>Start time <em>optional</em></span><span class="time-box"><input type="text" id="start-time" placeholder="YYYY-MM-DD hh:mm:ss.mmm" spellcheck="false" autocomplete="off" title="Type a time (e.g. 2026-10-26 09:30, 2026/10/26 09:30:15.250 or 10/26/2026:09:30:00) or pick one with the calendar button"><button type="button" class="time-pick" data-for="start-time" title="Pick from a calendar" aria-label="Pick Start time from a calendar">📅</button><input type="datetime-local" class="time-picker" data-for="start-time" step="0.001" tabindex="-1" aria-hidden="true"></span></label>
@@ -143,7 +144,7 @@
           <pre id="splunk-csv" class="splunk-csv" tabindex="0" hidden></pre>
         </details>
         <details class="query-section" id="base-query" open>
-          <summary>Base query <span class="hint">flow query: one row per step of each session (CSV → Flow Analysis)</span></summary>
+          <summary>Flow query <span class="hint">one row per step of each session (CSV → Flow Analysis)</span></summary>
           <div class="preview-bar query-bar">
             <span class="spacer"></span>
             <button type="button" id="btn-copy" class="primary">Copy</button>

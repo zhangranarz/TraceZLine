@@ -246,6 +246,7 @@
       [out.directions, out.sessionOrder, out.endpointRules].forEach((list) => (list || []).forEach((r) => { if (r && r.layer === 'WS') r.layer = 'MS'; }));
     }
     if (out.termMode !== 'api') out.termMode = 'session';
+    if (!['eComm', 'Enterprise'].includes(out.apiLayer)) out.apiLayer = 'eComm';
     return out;
   }
 
@@ -345,7 +346,7 @@
     Object.keys(SECTIONS).forEach(renderList);
     document.getElementById('terms').value = state.terms.join('\n');
     document.getElementById('api-pattern').value = state.apiPattern;
-    document.querySelectorAll('input[name="term-mode"]').forEach((r) => { r.checked = r.value === state.termMode; });
+    document.querySelectorAll('input[name="term-mode"]').forEach((r) => { r.checked = r.value === (state.termMode === 'api' ? `api:${state.apiLayer}` : 'session'); });
     document.getElementById('group-sources').checked = state.groupSources;
     document.getElementById('drop-no-direction').checked = state.dropNoDirection;
     document.getElementById('dir-word-rex').value = state.dirWordRex;
@@ -365,9 +366,10 @@
     document.getElementById('spl-logs').textContent = generateLogs(state);
     const n = state.terms.filter((t) => t.trim()).length;
     const api = state.termMode === 'api';
-    document.getElementById('terms-count').textContent = api ? `last session of ${state.apiPattern.trim() || '(no API)'}` : n + (n === 1 ? ' term' : ' terms');
+    document.getElementById('terms-count').textContent = api ? `last session of ${state.apiLayer} ${state.apiPattern.trim() || '(no API)'}` : n + (n === 1 ? ' term' : ' terms');
     document.getElementById('terms-session').hidden = api;
     document.getElementById('terms-api').hidden = !api;
+    document.getElementById('api-layer-name').textContent = state.apiLayer;
     const warnings = validate(state);
     document.getElementById('warnings').replaceChildren(...warnings.map((w) => el('li', {}, [w])));
     save();
@@ -400,7 +402,7 @@
     update();
   });
   document.querySelectorAll('input[name="term-mode"]').forEach((r) => r.addEventListener('change', () => {
-    state.termMode = r.value;
+    [state.termMode, state.apiLayer = state.apiLayer] = r.value.split(':');
     update();
   }));
   document.getElementById('api-pattern').addEventListener('input', (e) => {
@@ -514,7 +516,7 @@
 
   document.getElementById('btn-copy').addEventListener('click', () => copyQuery(generate(state), 'spl'));
   document.getElementById('btn-copy-logs').addEventListener('click', () => copyQuery(generateLogs(state), 'spl-logs'));
-  // Base query (open at first) and Log query (hidden at first) sections remember if they were left open
+  // Flow query (open at first) and Log query (hidden at first) sections remember if they were left open
   document.querySelectorAll('.query-section').forEach((d) => {
     const key = `tracezline.${d.id.replace('-', '')}.open`;
     try { const v = localStorage.getItem(key); if (v) d.open = v === '1'; } catch (e) { /* ignore */ }
@@ -1746,12 +1748,12 @@
     splunkEls.csv.hidden = true;
     saveSplunk();
     try {
-      // 0. Search terms by API: the newest top-layer event with the API pattern gives the session
+      // 0. Search terms by API: the newest eComm / Enterprise event with the API pattern gives the session
       // that both queries then search for (the same session, rather than a subsearch in each).
       let runCfg = state;
       if (state.termMode === 'api') {
         current = 'Last session';
-        const layer = window.TraceSpl.topLayer(state) || 'top layer';
+        const layer = window.TraceSpl.apiLayer(state) || 'top layer';
         const found = window.TraceImport.parseCsv((await window.TraceSplunk.run({ ...opts, query: window.TraceSpl.generateLastSession(state) })).csv);
         const head = found[0] || [];
         const row = found.slice(1).find((r) => String(r[head.indexOf('sessionId')] ?? '').trim());
@@ -1760,7 +1762,7 @@
         lines.push(['ok', `Last session: ${lastSession} (${layer} ${state.apiPattern.trim()} at ${row[head.indexOf('EventTime')] ?? '?'})`]);
         runCfg = { ...state, termMode: 'session', terms: [lastSession] };
       }
-      // 1. Base Splunk query -> CSV -> Flow Analysis
+      // 1. Flow query -> CSV -> Flow Analysis
       current = 'Flow query';
       const res = await window.TraceSplunk.run({ ...opts, query: generate(runCfg) });
       const table = window.TraceImport.parseCsv(res.csv);

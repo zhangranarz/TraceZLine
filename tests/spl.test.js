@@ -431,3 +431,20 @@ test('search by API: the newest eComm event with the API gives the session, as a
   cfg.termMode = 'session';
   assert.ok(spl.generate(cfg).includes('("2576dfc8-495a-837a-8a2f291fd003d" OR "7f269c48-f03a-4fef-bc3007538ec1a2")'));
 });
+
+test('search by API: Enterprise uses its own source and session order; an unknown layer falls back to eComm', () => {
+  const cfg = spl.clone(spl.DEFAULT_CONFIG);
+  cfg.termMode = 'api';
+  cfg.apiLayer = 'Enterprise';
+  const last = spl.generateLastSession(cfg);
+  assert.strictEqual((last.match(/source=/g) || []).length, 1);
+  assert.ok(last.includes('("[SPLHostMessage]" OR "[MightyHostMessage]")'));
+  assert.ok(!last.includes('[SPLMessage]'));
+  assert.ok(last.includes('| eval sessionId=coalesce(sidSessionId, sidSessionIdentity, sidEnterprise)'));
+  assert.ok(spl.generate(cfg).includes('sidEnterprise)\n| where isnotnull(sessionId)\n| head 1\n| return $sessionId]'));
+  assert.deepStrictEqual(spl.validate(cfg), []);
+  cfg.sources[1].enabled = false;
+  assert.ok(spl.validate(cfg).some((w) => /No enabled Enterprise source/.test(w)));
+  cfg.apiLayer = 'Nope';
+  assert.strictEqual(spl.apiLayer(cfg), 'eComm');
+});

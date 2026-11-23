@@ -24,10 +24,11 @@
       { enabled: true, source: '/var/log/pods/spl-ms-*log', filter: '"<EAI>" "<SvcCode>"', dirFilter: '("Request Message" OR "Response Message")' },
     ],
     // Search terms: 'session' uses the session IDs in terms; 'api' finds the newest event of the
-    // top layer (eComm) whose text has apiPattern, and searches for that event's session ID.
+    // apiLayer (eComm or Enterprise) whose text has apiPattern, and searches for that event's session ID.
     termMode: 'session',
     terms: ['2576dfc8-495a-837a-8a2f291fd003d', '7f269c48-f03a-4fef-bc3007538ec1a2'],
     apiPattern: '/application/confirm',
+    apiLayer: 'eComm',
     // Optional time window, "2026-11-18 15:28:25.554" (milliseconds optional); empty = no limit.
     startTime: '',
     endTime: '',
@@ -269,7 +270,7 @@ __INDENT__
     out.push('(\n' + blocks.join('\n\tOR\n') + '\n)');
 
     if (cfg.termMode === 'api') {
-      // The session ID of the newest top-layer event with the API, as a subsearch: Splunk runs it
+      // The session ID of the newest apiLayer event with the API, as a subsearch: Splunk runs it
       // first and puts its value here as the search term (no match: NOT (), so nothing is found).
       if (String(cfg.apiPattern ?? '').trim()) out.push('[search ' + lastSessionSearch(cfg).join('\n') + '\n| return $sessionId]');
     } else {
@@ -303,10 +304,16 @@ __INDENT__
     return cfg.layers.filter((l) => l.name.trim()).sort((a, b) => Number(a.layer) - Number(b.layer))[0]?.name.trim() ?? null;
   }
 
-  // The newest top-layer event with the API pattern, and its session ID (the top layer's session
+  // The layer searched for the API pattern: apiLayer when it names a layer, else the top layer.
+  function apiLayer(cfg) {
+    const name = String(cfg.apiLayer ?? '').trim();
+    return cfg.layers.some((l) => l.name.trim() === name) ? name : topLayer(cfg);
+  }
+
+  // The newest apiLayer event with the API pattern, and its session ID (that layer's session
   // order; events without one are skipped). Splunk returns events newest first, so head 1.
   function lastSessionSearch(cfg) {
-    const layer = topLayer(cfg);
+    const layer = apiLayer(cfg);
     const out = baseSearch({
       ...cfg, termMode: 'session', terms: [String(cfg.apiPattern ?? '').trim()],
       sources: cfg.sources.filter((s) => sourceLayer(cfg, s) === layer),
@@ -422,7 +429,7 @@ __INDENT__
     }
     if (cfg.termMode === 'api') {
       if (!String(cfg.apiPattern ?? '').trim()) warnings.push('No API pattern: the query will scan every event from the sources.');
-      else if (!cfg.sources.some((s) => s.enabled && s.source.trim() && sourceLayer(cfg, s) === topLayer(cfg))) warnings.push(`No enabled ${topLayer(cfg) || 'top layer'} source: the last session search finds nothing.`);
+      else if (!cfg.sources.some((s) => s.enabled && s.source.trim() && sourceLayer(cfg, s) === apiLayer(cfg))) warnings.push(`No enabled ${apiLayer(cfg) || 'top layer'} source: the last session search finds nothing.`);
     } else if (!cfg.terms.some((t) => t.trim())) warnings.push('No search terms: the query will scan every event from the sources.');
     [['Start time', cfg.startTime], ['End time', cfg.endTime]].forEach(([label, v]) => {
       if (String(v ?? '').trim() && parseTime(v) == null) warnings.push(`${label} "${v}" is not a time like 2026-11-18 15:28:25.554; it is ignored.`);
@@ -515,5 +522,5 @@ __INDENT__
     return changed;
   }
 
-  return { DEFAULT_CONFIG, clone, generate, generateLogs, generateLastSession, topLayer, validate, parseTerms, quoteTerm, renameMarker, parseTime, normaliseTime, timeRange, sessionOrders, sourceLayer, sourceTable, applySourcePaths };
+  return { DEFAULT_CONFIG, clone, generate, generateLogs, generateLastSession, topLayer, apiLayer, validate, parseTerms, quoteTerm, renameMarker, parseTime, normaliseTime, timeRange, sessionOrders, sourceLayer, sourceTable, applySourcePaths };
 });
