@@ -51,9 +51,9 @@
 | rex field=_raw "(?i)(?:\[SPLMessage\]|\[MightyMessage\])\[(?<sidEcomm>[^\]]+)\]"
 | rex field=_raw "(?i)(?:\[SPLHostMessage\]|\[MightyHostMessage\])\[(?<sidEnterprise>[^\]]+)\]"
 | rex field=_raw "(?i)\bWLS:\s*(?<sidWls>[^\s|]+)"
-| eval sessionId=case(LayerName="eComm", coalesce(sidEcomm, sidSessionId, sidSessionIdentity, sidWls, "NA"),
+| eval sessionId=case(LayerName="eComm", coalesce(sidSessionId, sidSessionIdentity, sidEcomm, "NA"),
     LayerName="Enterprise", coalesce(sidSessionId, sidSessionIdentity, sidEnterprise, sidWls, "NA"),
-    LayerName="Host", coalesce(sidWls, sidSessionId, sidSessionIdentity, "NA"),
+    LayerName="Host", coalesce(sidSessionId, sidSessionIdentity, sidWls, "NA"),
     LayerName="WS", coalesce(sidSessionId, sidSessionIdentity, sidWls, "NA"),
     true(),"NA")
 | rex field=_raw "\s*-\s*(?<eCommEndpoint>/\S+)\s*-\s*(?:Request|Response|\{|\r?\n|$)"

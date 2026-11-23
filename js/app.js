@@ -211,6 +211,14 @@
       out.sources = out.sources.map((s, i) => ({ ...clone(DEFAULT_CONFIG.sources[i]), enabled: s.enabled }));
     }
     out.sources.forEach((s) => { if (s && s.dirFilter === undefined) s.dirFilter = ''; });
+    // Session order saved as the earlier default (eComm header first and WLS: last, Host WLS:
+    // first): the JSON IDs first now for eComm and Host, and no WLS: for eComm.
+    const OLD_ORDER = JSON.stringify([['eComm', 'sidEcomm, sidSessionId, sidSessionIdentity, sidWls'],
+      ['Enterprise', 'sidSessionId, sidSessionIdentity, sidEnterprise, sidWls'], ['Host', 'sidWls, sidSessionId, sidSessionIdentity'],
+      ['WS', 'sidSessionId, sidSessionIdentity, sidWls']]);
+    if (Array.isArray(out.sessionOrder) && JSON.stringify(out.sessionOrder.map((o) => [o && o.layer, o && o.fields])) === OLD_ORDER) {
+      out.sessionOrder = clone(DEFAULT_CONFIG.sessionOrder);
+    }
     // eComm / Enterprise saved with one marker (key filter, layer condition, session rule): also
     // [MightyMessage] / [MightyHostMessage]. Edited values are kept.
     [['eComm', '"[SPLMessage]"', '("- Request -" OR "- Response -")', String.raw`match(_raw,"\[SPLMessage\]")`,

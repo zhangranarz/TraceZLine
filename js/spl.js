@@ -60,11 +60,11 @@
     // sessionId per layer: the session rules of sessionOrder, in that order, else "NA" (no
     // sessionOrder: all rules in list order). One row per layer; fields comma separated.
     sessionOrder: [
-      { layer: 'eComm', fields: 'sidEcomm, sidSessionId, sidSessionIdentity, sidWls' },
+      { layer: 'eComm', fields: 'sidSessionId, sidSessionIdentity, sidEcomm' },
       // Enterprise: the JSON IDs first, as the header's first bracket can also be the country code
       // ([SPLHostMessage][VN]) or the elapsed time ([SPLHostMessage][11ms]).
       { layer: 'Enterprise', fields: 'sidSessionId, sidSessionIdentity, sidEnterprise, sidWls' },
-      { layer: 'Host', fields: 'sidWls, sidSessionId, sidSessionIdentity' },
+      { layer: 'Host', fields: 'sidSessionId, sidSessionIdentity, sidWls' },
       { layer: 'WS', fields: 'sidSessionId, sidSessionIdentity, sidWls' },
     ],
     // The marker in sidEcomm and
