@@ -1647,7 +1647,7 @@
 
   // URL, username and the certificate choice are kept in this browser; the password is not.
   const SPLUNK_KEY = 'tracezline.splunk';
-  const splunkEls = Object.fromEntries(['mode', 'url', 'user', 'pass', 'range', 'insecure', 'note', 'status', 'csv'].map((k) => [k, document.getElementById('splunk-' + k)]));
+  const splunkEls = Object.fromEntries(['mode', 'url', 'user', 'pass', 'range', 'insecure', 'api', 'note', 'status', 'csv'].map((k) => [k, document.getElementById('splunk-' + k)]));
   // REST API on the management port, or Splunk Web (the browser UI) when only that is reachable
   const splunkPlaceholder = () => { splunkEls.url.placeholder = splunkEls.mode.value === 'web' ? 'https://splunk-host:8000' : 'https://splunk-host:8089'; };
   const splunkBtn = (k) => document.getElementById('btn-splunk-' + k);
@@ -1659,13 +1659,20 @@
     splunkEls.url.value = saved.url || '';
     splunkEls.user.value = saved.user || '';
     splunkEls.insecure.checked = !!saved.insecure;
+    splunkEls.api.checked = saved.api !== false;
   } catch (e) { /* ignore */ }
   const saveSplunk = () => {
-    try { localStorage.setItem(SPLUNK_KEY, JSON.stringify({ mode: splunkEls.mode.value, range: splunkEls.range.value, url: splunkEls.url.value.trim(), user: splunkEls.user.value.trim(), insecure: splunkEls.insecure.checked })); } catch (e) { /* ignore */ }
+    try { localStorage.setItem(SPLUNK_KEY, JSON.stringify({ mode: splunkEls.mode.value, range: splunkEls.range.value, url: splunkEls.url.value.trim(), user: splunkEls.user.value.trim(), insecure: splunkEls.insecure.checked, api: splunkEls.api.checked })); } catch (e) { /* ignore */ }
   };
-  ['mode', 'url', 'user', 'range', 'insecure'].forEach((k) => splunkEls[k].addEventListener('change', saveSplunk));
+  ['mode', 'url', 'user', 'range', 'insecure', 'api'].forEach((k) => splunkEls[k].addEventListener('change', saveSplunk));
   splunkEls.mode.addEventListener('change', splunkPlaceholder);
   splunkPlaceholder();
+  const splunkHint = () => {
+    document.getElementById('splunk-hint').textContent = splunkEls.api.checked
+      ? 'flow query → CSV · log query → log → Mask → API Analysis' : 'flow query → CSV (API Analysis not included)';
+  };
+  splunkEls.api.addEventListener('change', splunkHint);
+  splunkHint();
 
   // GitHub Pages has no forwarding server: say how to get one.
   window.TraceSplunk.available().then((ok) => {
@@ -1731,6 +1738,12 @@
           ? ['ok', `In Flow Analysis: ${imported.rows.length.toLocaleString()} flow rows, ${sessions} sessions.`]
           : ['problem', 'The results have no flow rows (the table needs the Flow or ServiceInfo column); see Flow Analysis > Debug.']);
         document.querySelectorAll('.splunk-view').forEach((b) => { b.disabled = !imported?.rows?.length; });
+      }
+      // Without API Analysis the log query, masking and mapping are not needed
+      if (!splunkEls.api.checked) {
+        lines.push(['ok', 'API Analysis not included: the log query, masking and mapping were skipped.']);
+        show();
+        return;
       }
       // 2. Log query -> raw events (EventTime, _raw) as one log file
       current = 'Log query';
