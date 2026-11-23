@@ -198,16 +198,24 @@ __INDENT__
     return { entries, layers };
   }
 
-  // Sets source= of every source whose layer has a path in `paths` ({ layer: path }). Changes
-  // cfg; returns [{ layer, from, to }] for the sources it set.
+  // Sets source= of every source whose layer has a path in `paths` ({ layer: path }). A path of
+  // N/A switches the source off (left out of the search); a later real path switches it back on,
+  // but only when N/A switched it off (naOff), not when it was switched off by hand. Changes cfg;
+  // returns [{ layer, from, to, off }] for the sources it changed (off: excluded by N/A).
   function applySourcePaths(cfg, paths) {
     const done = [];
     cfg.sources.forEach((s) => {
       const layer = sourceLayer(cfg, s);
-      if (layer && paths[layer]) {
-        done.push({ layer, from: s.source, to: paths[layer] });
-        s.source = paths[layer];
+      const path = layer && paths[layer];
+      if (!path) return;
+      if (/^N\/?A$/i.test(path)) {
+        if (s.enabled) { s.enabled = false; s.naOff = true; }
+        done.push({ layer, from: s.source, to: s.source, off: true });
+        return;
       }
+      if (s.naOff) { s.enabled = true; delete s.naOff; }
+      done.push({ layer, from: s.source, to: path, off: false });
+      s.source = path;
     });
     return done;
   }

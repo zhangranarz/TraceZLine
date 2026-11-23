@@ -386,3 +386,23 @@ test('source table: each source is matched to its layer by its key filter, then 
   assert.strictEqual(spl.sourceTable([['country', 'MODULE', 'ecomm'], ['SG', 'AAA', '/x']], cfg).entries[0].paths.eComm, '/x');
   assert.throws(() => spl.sourceTable([['Region', 'eComm']], cfg), /Country and Module/);
 });
+
+test('source table: N/A leaves that layer\'s source out of the search until a real path comes back', () => {
+  const cfg = spl.clone(spl.DEFAULT_CONFIG);
+  const t = spl.sourceTable([
+    ['Country', 'Module', 'eComm', 'Enterprise', 'MS', 'Host'],
+    ['SG', 'AAA', '/var/log/pods/SGAAA/spl-banking-*log', 'N/A', '/var/log/pods/SGAAA/spl-ms-*log', 'n/a'],
+    ['SG', 'BBB', '/var/log/pods/SGBBB/spl-banking-*log', '/var/log/pods/SGBBB/spl-banking-host-*log', '/var/log/pods/SGBBB/spl-ms-*log', '/var/log/pods/SGBBB/mqinfo/spl-ms-*log'],
+  ], cfg);
+  const done = spl.applySourcePaths(cfg, t.entries[0].paths);
+  assert.deepStrictEqual(done.filter((d) => d.off).map((d) => d.layer), ['Enterprise', 'Host']);
+  assert.deepStrictEqual(cfg.sources.map((s) => s.enabled), [true, false, true, false]);
+  const block = spl.generate(cfg).split('\n)\n')[0]; // the source block
+  assert.ok(!block.includes('SPLHostMessage') && !block.includes('<EAI>') && block.includes('SGAAA/spl-ms'), 'N/A sources are not searched');
+  assert.strictEqual((spl.generateLogs(cfg).match(/source="/g) || []).length, 2, 'nor in the log query');
+  // a source switched off by hand stays off; one N/A switched off comes back with a real path
+  cfg.sources[0].enabled = false;
+  spl.applySourcePaths(cfg, t.entries[1].paths);
+  assert.deepStrictEqual(cfg.sources.map((s) => s.enabled), [false, true, true, true]);
+  assert.strictEqual(cfg.sources[3].source, '/var/log/pods/SGBBB/mqinfo/spl-ms-*log');
+});

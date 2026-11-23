@@ -554,10 +554,13 @@
     const entry = sourceMap.entries.find((e) => e.country === sourceMap.country && e.module === sourceMap.module);
     if (!entry) return;
     const done = window.TraceSpl.applySourcePaths(state, entry.paths);
-    const missed = state.sources.filter((s) => s.enabled).length - done.length;
+    const set = done.filter((d) => !d.off).map((d) => d.layer);
+    const off = done.filter((d) => d.off).map((d) => d.layer);
+    const missed = state.sources.length - done.length;
     renderList('sources');
     update();
-    srcEls.info.textContent = `${entry.country} / ${entry.module}: source= set for ${done.map((d) => d.layer).join(', ') || 'no source'}`
+    srcEls.info.textContent = `${entry.country} / ${entry.module}: source= set for ${set.join(', ') || 'no source'}`
+      + (off.length ? `; ${off.join(', ')} N/A: left out of the search` : '')
       + (missed ? `; ${missed} source(s) without a path in the table kept as they are` : '');
     toast(`Sources set for ${entry.country} / ${entry.module}`);
   }
