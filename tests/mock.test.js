@@ -302,3 +302,12 @@ test('[MightyHostMessage] is an Enterprise marker like [SPLHostMessage]: key fil
     'Enterprise H-0003 /enq/m Response',
   ]);
 });
+
+test('DGEEndpoint: [::endpoint], else the part after two colons in [a:b:endpoint]', () => {
+  const sid = 'aaaaaaaa-0000-4000-8000-000000000011';
+  const at = (ms, line) => `2026-10-26 09:30:00.${ms} [x] INFO\n${line}\n`;
+  const log = at('100', `<EAI> <SvcCode>A_X</SvcCode> Request Message - [::dge-enq:enq.a.VN.V1] WLS:${sid} |`)
+    + at('200', `<EAI> <SvcCode>B_Y</SvcCode> Request Message - [ESB:dge-bfs:bfs.b.VN.V1] WLS:${sid} |`);
+  const rows = flow.run(spl.DEFAULT_CONFIG, [{ name: 'spl-ms-x.log', text: log, anySource: true }], []);
+  assert.deepStrictEqual(rows.map((r) => r.API), ['dge-enq:enq.a.VN.V1', 'bfs.b.VN.V1']);
+});
