@@ -311,3 +311,12 @@ test('DGEEndpoint: [::endpoint], else the part after two colons in [a:b:endpoint
   const rows = flow.run(spl.DEFAULT_CONFIG, [{ name: 'spl-ms-x.log', text: log, anySource: true }], []);
   assert.deepStrictEqual(rows.map((r) => r.API), ['dge-enq:enq.a.VN.V1', 'bfs.b.VN.V1']);
 });
+
+test('WS key: WSAppLog, Apsect or Aspect anywhere in the event', () => {
+  const sid = 'aaaaaaaa-0000-4000-8000-000000000012';
+  const at = (ms, line) => `2026-10-26 09:30:00.${ms} [x] INFO\n${line}\n`;
+  const log = at('100', `[t] - [::dge-a:a.VN.V1] - RestEndPointAspect: | WLS:${sid} | URL is /dge-a/a request:`)
+    + at('200', `[t] - [::dge-b:b.VN.V1] - WebLogApsect: | WLS:${sid} | URL:/dge-b/b | Response:{}`);
+  const rows = flow.run(spl.DEFAULT_CONFIG, [{ name: 'spl-ms-x.log', text: log, anySource: true }], []);
+  assert.deepStrictEqual(rows.map((r) => `${r.LayerName} ${r.API} ${r.Direction}`), ['WS /dge-a/a Request', 'WS /dge-b/b Response']);
+});

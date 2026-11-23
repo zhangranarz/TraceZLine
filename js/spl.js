@@ -20,7 +20,7 @@
     sources: [
       { enabled: true, source: '/var/log/pods/spl-banking-*log', filter: '("[SPLMessage]" OR "[MightyMessage]")', dirFilter: '("- Request -" OR "- Response -")' },
       { enabled: true, source: '/var/log/pods/spl-banking-*log', filter: '("[SPLHostMessage]" OR "[MightyHostMessage]")', dirFilter: '("[Request]" OR "[Response]")' },
-      { enabled: true, source: '/var/log/pods/spl-ms-*log', filter: '("*WSAppLog*" OR "*UFWApsect*" OR "*UFWAspect*")', dirFilter: '("request:" OR "RESPONSE from" OR "Response:")' },
+      { enabled: true, source: '/var/log/pods/spl-ms-*log', filter: '("*WSAppLog*" OR "*Apsect*" OR "*Aspect*")', dirFilter: '("request:" OR "RESPONSE from" OR "Response:")' },
       { enabled: true, source: '/var/log/pods/spl-ms-*log', filter: '"<EAI>" "<SvcCode>"', dirFilter: '("Request Message" OR "Response Message")' },
     ],
     terms: ['2576dfc8-495a-837a-8a2f291fd003d', '7f269c48-f03a-4fef-bc3007538ec1a2'],
@@ -31,7 +31,7 @@
       { name: 'eComm', match: String.raw`match(_raw,"\[SPLMessage\]|\[MightyMessage\]")`, layer: 1, indent: '', subLayer: 0 },
       { name: 'Enterprise', match: String.raw`match(_raw,"\[SPLHostMessage\]|\[MightyHostMessage\]")`, layer: 2, indent: '> ', subLayer: 0 },
       { name: 'Host', match: String.raw`match(_raw,"<EAI>") AND match(_raw,"<SvcCode>")`, layer: 3, indent: '>>> ', subLayer: 0 },
-      { name: 'WS', match: String.raw`match(_raw,"(?i)WSAppLog|UFWApsect|UFWAspect")`, layer: 2, indent: '>> ', subLayer: 1 },
+      { name: 'WS', match: String.raw`match(_raw,"(?i)WSAppLog|Apsect|Aspect")`, layer: 2, indent: '>> ', subLayer: 1 },
     ],
     // rex that extracts the direction word, and an optional raw first case() pair.
     // Optional: a DirWord rex and a first raw case() rule. Not used by default.

@@ -178,7 +178,7 @@
       out.directionFirst = DEFAULT_CONFIG.directionFirst;
       out.directions = clone(DEFAULT_CONFIG.directions);
     }
-    // WS condition saved as WSAppLog alone: also UFWAspect (and UFWApsect), as in the WS key filter.
+    // WS condition saved as WSAppLog alone: also Aspect (and Apsect), as in the WS key filter.
     out.layers.forEach((l) => {
       if (l && l.name === 'WS' && l.match === 'match(_raw,"WSAppLog")') l.match = DEFAULT_CONFIG.layers.find((d) => d.name === 'WS').match;
     });
@@ -222,6 +222,11 @@
     if (Array.isArray(out.sessionOrder) && OLD_ORDERS.includes(JSON.stringify(out.sessionOrder.map((o) => [o && o.layer, o && o.fields])))) {
       out.sessionOrder = clone(DEFAULT_CONFIG.sessionOrder);
     }
+    // WS key filter and condition saved with UFWApsect / UFWAspect: Apsect / Aspect now.
+    out.sources.forEach((s) => { if (s && s.filter === '("*WSAppLog*" OR "*UFWApsect*" OR "*UFWAspect*")') s.filter = DEFAULT_CONFIG.sources.find((d) => d.filter.includes('WSAppLog')).filter; });
+    out.layers.forEach((l) => {
+      if (l && l.name === 'WS' && l.match === 'match(_raw,"(?i)WSAppLog|UFWApsect|UFWAspect")') l.match = DEFAULT_CONFIG.layers.find((d) => d.name === 'WS').match;
+    });
     // eComm / Enterprise saved with one marker (key filter, layer condition, session rule): also
     // [MightyMessage] / [MightyHostMessage]. Edited values are kept.
     [['eComm', '"[SPLMessage]"', '("- Request -" OR "- Response -")', String.raw`match(_raw,"\[SPLMessage\]")`,

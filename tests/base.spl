@@ -13,7 +13,7 @@
 	OR
 	(
 		source="/var/log/pods/spl-ms-*log"
-		("*WSAppLog*" OR "*UFWApsect*" OR "*UFWAspect*")
+		("*WSAppLog*" OR "*Apsect*" OR "*Aspect*")
 		("request:" OR "RESPONSE from" OR "Response:")
 	)
 	OR
@@ -27,7 +27,7 @@
 | eval LayerName=case(match(_raw,"\[SPLMessage\]|\[MightyMessage\]"),"eComm",
     match(_raw,"\[SPLHostMessage\]|\[MightyHostMessage\]"),"Enterprise",
     match(_raw,"<EAI>") AND match(_raw,"<SvcCode>"),"Host",
-    match(_raw,"(?i)WSAppLog|UFWApsect|UFWAspect"),"WS")
+    match(_raw,"(?i)WSAppLog|Apsect|Aspect"),"WS")
 | where isnotnull(LayerName)
 | eval Layer=case(LayerName="eComm",1,
     LayerName="Enterprise",2,

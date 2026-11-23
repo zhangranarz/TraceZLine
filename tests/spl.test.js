@@ -25,7 +25,7 @@ test('Layer=case() follows layer number order, LayerName=case() keeps list order
   const out = spl.generate(spl.DEFAULT_CONFIG);
   // one condition per line, then events with no layer are dropped
   assert.ok(out.includes('| eval LayerName=case(match(_raw,"\\[SPLMessage\\]|\\[MightyMessage\\]"),"eComm",\n    match(_raw,"\\[SPLHostMessage\\]|\\[MightyHostMessage\\]"),"Enterprise",\n'));
-  assert.ok(out.includes('"Host",\n    match(_raw,"(?i)WSAppLog|UFWApsect|UFWAspect"),"WS")\n| where isnotnull(LayerName)\n'));
+  assert.ok(out.includes('"Host",\n    match(_raw,"(?i)WSAppLog|Apsect|Aspect"),"WS")\n| where isnotnull(LayerName)\n'));
   assert.ok(out.includes('| eval Layer=case(LayerName="eComm",1,\n    LayerName="Enterprise",2,\n    LayerName="WS",2,\n    LayerName="Host",3)\n'));
 });
 
@@ -317,7 +317,7 @@ test('renameMarker: a marker renamed in a source filter is renamed in the layer 
   assert.ok(sid('sidEnterprise').startsWith(String.raw`(?i)(?:\[SPLHostRenamed\]|\[MightyHostMessage\])\[`), sid('sidEnterprise'));
   // wildcards are not copied into the regex
   assert.deepStrictEqual(spl.renameMarker(cfg, '"*WSAppLog*" ("request:")', '"*OPIAppLog*" ("request:")'), ['Layer WS']);
-  assert.strictEqual(cfg.layers.find((l) => l.name === 'WS').match, 'match(_raw,"(?i)OPIAppLog|UFWApsect|UFWAspect")');
+  assert.strictEqual(cfg.layers.find((l) => l.name === 'WS').match, 'match(_raw,"(?i)OPIAppLog|Apsect|Aspect")');
   // nothing when several terms change, or none
   assert.deepStrictEqual(spl.renameMarker(cfg, '"A" "B"', '"C" "D"'), []);
   assert.deepStrictEqual(spl.renameMarker(cfg, '"A"', '"A" OR "B"'), []);
