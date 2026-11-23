@@ -63,7 +63,7 @@
       { layer: 'eComm', fields: 'sidSessionId, sidSessionIdentity, sidEcomm' },
       // Enterprise: the JSON IDs first, as the header's first bracket can also be the country code
       // ([SPLHostMessage][VN]) or the elapsed time ([SPLHostMessage][11ms]).
-      { layer: 'Enterprise', fields: 'sidSessionId, sidSessionIdentity, sidEnterprise, sidWls' },
+      { layer: 'Enterprise', fields: 'sidSessionId, sidSessionIdentity, sidEnterprise' },
       { layer: 'Host', fields: 'sidSessionId, sidSessionIdentity, sidWls' },
       { layer: 'WS', fields: 'sidSessionId, sidSessionIdentity, sidWls' },
     ],

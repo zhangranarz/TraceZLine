@@ -189,7 +189,7 @@ test('session rules: five forms, sessionId is the first one found, else NA', () 
   assert.strictEqual('| WLS: | SSO:'.match(wls), null);
   // sessionId per layer (Session order), each layer falling back to NA
   assert.ok(spl.generate(spl.DEFAULT_CONFIG).includes('\n| eval sessionId=case(LayerName="eComm", coalesce(sidSessionId, sidSessionIdentity, sidEcomm, "NA"),\n'
-    + '    LayerName="Enterprise", coalesce(sidSessionId, sidSessionIdentity, sidEnterprise, sidWls, "NA"),\n'
+    + '    LayerName="Enterprise", coalesce(sidSessionId, sidSessionIdentity, sidEnterprise, "NA"),\n'
     + '    LayerName="Host", coalesce(sidSessionId, sidSessionIdentity, sidWls, "NA"),\n'
     + '    LayerName="WS", coalesce(sidSessionId, sidSessionIdentity, sidWls, "NA"),\n'
     + '    true(),"NA")\n'));

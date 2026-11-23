@@ -211,12 +211,15 @@
       out.sources = out.sources.map((s, i) => ({ ...clone(DEFAULT_CONFIG.sources[i]), enabled: s.enabled }));
     }
     out.sources.forEach((s) => { if (s && s.dirFilter === undefined) s.dirFilter = ''; });
-    // Session order saved as the earlier default (eComm header first and WLS: last, Host WLS:
-    // first): the JSON IDs first now for eComm and Host, and no WLS: for eComm.
-    const OLD_ORDER = JSON.stringify([['eComm', 'sidEcomm, sidSessionId, sidSessionIdentity, sidWls'],
-      ['Enterprise', 'sidSessionId, sidSessionIdentity, sidEnterprise, sidWls'], ['Host', 'sidWls, sidSessionId, sidSessionIdentity'],
-      ['WS', 'sidSessionId, sidSessionIdentity, sidWls']]);
-    if (Array.isArray(out.sessionOrder) && JSON.stringify(out.sessionOrder.map((o) => [o && o.layer, o && o.fields])) === OLD_ORDER) {
+    // Session order saved as an earlier default: the JSON IDs first for every layer now, and no
+    // WLS: for eComm and Enterprise.
+    const OLD_ORDERS = [
+      [['eComm', 'sidEcomm, sidSessionId, sidSessionIdentity, sidWls'], ['Enterprise', 'sidSessionId, sidSessionIdentity, sidEnterprise, sidWls'],
+        ['Host', 'sidWls, sidSessionId, sidSessionIdentity'], ['WS', 'sidSessionId, sidSessionIdentity, sidWls']],
+      [['eComm', 'sidSessionId, sidSessionIdentity, sidEcomm'], ['Enterprise', 'sidSessionId, sidSessionIdentity, sidEnterprise, sidWls'],
+        ['Host', 'sidSessionId, sidSessionIdentity, sidWls'], ['WS', 'sidSessionId, sidSessionIdentity, sidWls']],
+    ].map((o) => JSON.stringify(o));
+    if (Array.isArray(out.sessionOrder) && OLD_ORDERS.includes(JSON.stringify(out.sessionOrder.map((o) => [o && o.layer, o && o.fields])))) {
       out.sessionOrder = clone(DEFAULT_CONFIG.sessionOrder);
     }
     // eComm / Enterprise saved with one marker (key filter, layer condition, session rule): also
