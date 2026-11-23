@@ -27,13 +27,13 @@
 | eval LayerName=case(match(_raw,"\[SPLMessage\]|\[MightyMessage\]"),"eComm",
     match(_raw,"\[SPLHostMessage\]|\[MightyHostMessage\]"),"Enterprise",
     match(_raw,"<EAI>") AND match(_raw,"<SvcCode>"),"Host",
-    match(_raw,"(?i)WSAppLog|Apsect|Aspect"),"WS")
+    match(_raw,"(?i)WSAppLog|Apsect|Aspect"),"MS")
 | where isnotnull(LayerName)
 | eval Layer=case(LayerName="eComm",1,
     LayerName="Enterprise",2,
-    LayerName="WS",2,
+    LayerName="MS",2,
     LayerName="Host",3)
-| eval SubLayer=if(LayerName="WS",1,0)
+| eval SubLayer=if(LayerName="MS",1,0)
 | eval LayerOrder=Layer*10+SubLayer
 | eval Direction=case(LayerName="eComm" AND match(_raw,"(?i)- Request -"),"Request",
     LayerName="eComm" AND match(_raw,"(?i)- Response -"),"Response",
@@ -41,8 +41,8 @@
     LayerName="Enterprise" AND match(_raw,"(?i)\[Response\]"),"Response",
     LayerName="Host" AND match(_raw,"(?i)Request Message"),"Request",
     LayerName="Host" AND match(_raw,"(?i)Response Message"),"Response",
-    LayerName="WS" AND match(_raw,"(?i)request:"),"Request",
-    LayerName="WS" AND match(_raw,"(?i)(RESPONSE from|Response:)"),"Response")
+    LayerName="MS" AND match(_raw,"(?i)request:"),"Request",
+    LayerName="MS" AND match(_raw,"(?i)(RESPONSE from|Response:)"),"Response")
 | where isnotnull(Direction)
 | eval DirectionSymbol=if(Direction="Request","?","!")
 | eval SortKey=if(Direction="Request",LayerOrder,-LayerOrder)
@@ -54,7 +54,7 @@
 | eval sessionId=case(LayerName="eComm", coalesce(sidSessionId, sidSessionIdentity, sidEcomm, "NA"),
     LayerName="Enterprise", coalesce(sidSessionId, sidSessionIdentity, sidEnterprise, "NA"),
     LayerName="Host", coalesce(sidSessionId, sidSessionIdentity, sidWls, "NA"),
-    LayerName="WS", coalesce(sidSessionId, sidSessionIdentity, sidWls, "NA"),
+    LayerName="MS", coalesce(sidSessionId, sidSessionIdentity, sidWls, "NA"),
     true(),"NA")
 | rex field=_raw "\s*-\s*(?<eCommEndpoint>/\S+)\s*-\s*(?:Request|Response|\{|\r?\n|$)"
 | rex field=_raw ",\s*(?<EnterpriseEndpoint1>/\S+)\s*-\s*\[(?:Request|Response)\]"
@@ -67,30 +67,30 @@
 | rex field=_raw max_match=0 "<SvcCode>(?<SvcCode>[^<]+)</SvcCode>"
 | where LayerName!="Host" OR mvcount(SvcCode)>=1
 | sort 0 _time SortKey
-| eval CurrentWsURL=if(LayerName="WS" AND isnotnull(URL),URL,null())
-| eval CurrentDGEEndpoint=if(LayerName="WS" AND isnotnull(DGEEndpoint),DGEEndpoint,null())
-| streamstats last(CurrentWsURL) as PreviousWsURL by sessionId
+| eval CurrentMsURL=if(LayerName="MS" AND isnotnull(URL),URL,null())
+| eval CurrentDGEEndpoint=if(LayerName="MS" AND isnotnull(DGEEndpoint),DGEEndpoint,null())
+| streamstats last(CurrentMsURL) as PreviousMsURL by sessionId
 | streamstats last(CurrentDGEEndpoint) as PreviousDGEEndpoint by sessionId
-| eval LastWsURL=coalesce(CurrentWsURL,PreviousWsURL)
+| eval LastMsURL=coalesce(CurrentMsURL,PreviousMsURL)
 | eval LastDGEEndpoint=coalesce(CurrentDGEEndpoint,PreviousDGEEndpoint)
 | eval pairIndex=if(LayerName="Host",mvrange(0,ceil(mvcount(SvcCode)/2)),null())
 | eval HostPairs=if(LayerName="Host",mvmap(pairIndex, mvindex(SvcCode,pairIndex*2) . " ~ ".coalesce(mvindex(SvcCode,pairIndex*2+1),mvindex(SvcCode,pairIndex*2))),null())
 | eval API=case(LayerName="eComm",coalesce(eCommEndpoint,"N/A"),
     LayerName="Enterprise",coalesce(EnterpriseEndpoint,"N/A"),
-    LayerName="WS",coalesce(URL,LastWsURL,DGEEndpoint,LastDGEEndpoint,"N/A"),
+    LayerName="MS",coalesce(URL,LastMsURL,DGEEndpoint,LastDGEEndpoint,"N/A"),
     LayerName="Host",coalesce(DGEEndpoint,"N/A"))
 | eval PairKey=case(LayerName="Host",printf("%s|%s|%s",LayerName,coalesce(DGEEndpoint,"N/A"),coalesce(mvjoin(HostPairs,"|"),"N/A")),
       true(),printf("%s|%s",LayerName,coalesce(API,"N/A")))
 | eval ReqTime=if(Direction="Request",_time,null())
 | streamstats last(ReqTime) as LastReqTime by sessionId LayerName PairKey
 | eval ElapsedMs=if(Direction="Response" AND isnotnull(LastReqTime),round((_time-LastReqTime)*1000,0),null())
-| eval Indent=case(LayerName="eComm","",LayerName="Enterprise","> ",LayerName="Host",">>> ",LayerName="WS",">> ")
-| eval DisplayLayer=if(LayerName="WS","WS [Enterprise]",LayerName)
+| eval Indent=case(LayerName="eComm","",LayerName="Enterprise","> ",LayerName="Host",">>> ",LayerName="MS",">> ")
+| eval DisplayLayer=if(LayerName="MS","MS [Enterprise]",LayerName)
 | eval FlowHead=printf("%s%s: %s[%s]",Indent,DisplayLayer, coalesce(API,"N/A"),DirectionSymbol)
 | eval ServiceLines=if(LayerName="Host",mvmap(HostPairs,printf("- [%s][%s]",HostPairs,DirectionSymbol)),null())
-| eval WsDetails=if(LayerName="WS" AND isnotnull(LastDGEEndpoint),printf("Endpoint: %s",LastDGEEndpoint),null())
+| eval MsDetails=if(LayerName="MS" AND isnotnull(LastDGEEndpoint),printf("Endpoint: %s",LastDGEEndpoint),null())
 | eval Flow=case(LayerName="Host" AND isnotnull(ServiceLines),mvappend(FlowHead,ServiceLines),
-    LayerName="WS" AND isnotnull(WsDetails),mvappend(FlowHead,WsDetails),
+    LayerName="MS" AND isnotnull(MsDetails),mvappend(FlowHead,MsDetails),
     true(),FlowHead)
 | eval ServiceInfo=Flow
 | rex field=_raw "(?i)\btransactionRef(?:erenceNumber)?\"?\s*[:=]\s*\"?(?<transactionRef>[^\",]+)"

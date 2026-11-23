@@ -14,7 +14,7 @@ Pending-changes commit message, if the user gave one: $ARGUMENTS
 - Local repo: this folder. GitHub: `zhangranarz/TraceZLine` (public), branch `main`.
 - GitHub Pages: `https://zhangranarz.github.io/TraceZLine/`, deployed by GitHub Actions.
 - Purpose (use it for the description, README intro and topics): a browser-only Splunk
-  API flow tracer for banking call chains (App → eComm → Enterprise → WS → EAI/Host).
+  API flow tracer for banking call chains (App → eComm → Enterprise → MS → EAI/Host).
   It generates a parameterised SPL query, runs the same logic over local log files or a
   Splunk Excel/CSV export in the browser, and shows the flow table, PlantUML and SVG
   sequence diagrams, and observed processing rules. Nothing is uploaded.

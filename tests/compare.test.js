@@ -54,7 +54,7 @@ test('a line mapped to an event of another layer is flagged', () => {
   const relabeled = excel.map((r, i) => (i === 4 ? { ...r, LayerName: 'Enterprise' } : r));
   const r = compare(relabeled, events);
   assert.strictEqual(r.rows[4].status, 'mapped, differs');
-  assert.match(r.rows[4].checks.join(), /log layer: WS/);
+  assert.match(r.rows[4].checks.join(), /log layer: MS/);
 });
 
 test('an unreadable EventTime is reported, not guessed', () => {

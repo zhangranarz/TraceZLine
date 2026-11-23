@@ -207,31 +207,31 @@
       }
       // SPL string comparison is case-sensitive: "response" is not "Response".
       // Events in the same millisecond: requests go down the layers (eComm 10, Enterprise 20,
-      // WS 21, Host 30) and responses come back up (Host -30 ... eComm -10).
+      // MS 21, Host 30) and responses come back up (Host -30 ... eComm -10).
       ev.LayerOrder = ev.Layer == null ? null : ev.Layer * 10 + (ev.SubLayer || 0);
       ev.SortKey = ev.LayerOrder == null ? null : (ev.Direction === 'Request' ? ev.LayerOrder : -ev.LayerOrder);
       rows.push(ev);
     }
     rows.sort((a, b) => a.time - b.time || (a.SortKey ?? -Infinity) - (b.SortKey ?? -Infinity));
 
-    // LastWsURL / LastDGEEndpoint: the latest WS values in the session (streamstats last()).
-    const lastWs = {}; const lastDge = {}; const lastReq = {}; const step = {};
+    // LastMsURL / LastDGEEndpoint: the latest MS values in the session (streamstats last()).
+    const lastMs = {}; const lastDge = {}; const lastReq = {}; const step = {};
     for (const ev of rows) {
       const sid = ev.sessionId ?? '';
-      if (ev.LayerName === 'WS' && ev.URL) lastWs[sid] = ev.URL;
-      if (ev.LayerName === 'WS' && ev.DGEEndpoint) lastDge[sid] = ev.DGEEndpoint;
-      ev.LastWsURL = lastWs[sid] ?? null;
+      if (ev.LayerName === 'MS' && ev.URL) lastMs[sid] = ev.URL;
+      if (ev.LayerName === 'MS' && ev.DGEEndpoint) lastDge[sid] = ev.DGEEndpoint;
+      ev.LastMsURL = lastMs[sid] ?? null;
       ev.LastDGEEndpoint = lastDge[sid] ?? null;
       // HostPairs: SvcCodes as request ~ response pairs, for Host events only
       const sv = ev.LayerName === 'Host' ? ev.SvcCode : []; const pairs = [];
       for (let k = 0; k < Math.ceil(sv.length / 2); k++) pairs.push(`${sv[k * 2]} ~ ${sv[k * 2 + 1] ?? sv[k * 2]}`);
       ev.API = {
         eComm: ev.Endpoint || 'N/A', Enterprise: ev.Endpoint || 'N/A',
-        WS: ev.URL || ev.LastWsURL || ev.DGEEndpoint || ev.LastDGEEndpoint || 'N/A',
+        MS: ev.URL || ev.LastMsURL || ev.DGEEndpoint || ev.LastDGEEndpoint || 'N/A',
         Host: ev.DGEEndpoint || 'N/A',
       }[ev.LayerName];
       ev.DirectionSymbol = ev.Direction === 'Request' ? '?' : '!';
-      // Requests and responses pair by layer name, not number: Enterprise and WS are both 2.
+      // Requests and responses pair by layer name, not number: Enterprise and MS are both 2.
       // Host: also its SvcCode pairs (a response must list the same pairs as its request to pair)
       ev.PairKey = ev.LayerName === 'Host'
         ? `Host|${ev.DGEEndpoint || 'N/A'}|${pairs.join('|') || 'N/A'}`
@@ -240,12 +240,12 @@
       if (ev.Direction === 'Response' && lastReq[key] != null) ev.ElapsedMs = Math.round(ev.time - lastReq[key]);
       if (ev.Direction === 'Request') lastReq[key] = ev.time;
       const L = layers.find((l) => l.name === ev.LayerName);
-      // FlowHead is the first line (printf("%s%s: %s[%s]")); Host adds its SvcCode pairs, WS
+      // FlowHead is the first line (printf("%s%s: %s[%s]")); Host adds its SvcCode pairs, MS
       // "Endpoint: <LastDGEEndpoint>" (Flow=case()).
-      ev.DisplayLayer = ev.LayerName === 'WS' ? 'WS [Enterprise]' : ev.LayerName;
+      ev.DisplayLayer = ev.LayerName === 'MS' ? 'MS [Enterprise]' : ev.LayerName;
       ev.FlowHead = ev.LayerName == null ? null : `${L.indent ?? ''}${ev.DisplayLayer}: ${ev.API ?? 'N/A'}[${ev.DirectionSymbol}]`;
       const svc = ev.LayerName === 'Host' ? pairs.map((p) => `- [${p}][${ev.DirectionSymbol}]`) : [];
-      const more = svc.length ? svc : ev.LayerName === 'WS' && ev.LastDGEEndpoint ? [`Endpoint: ${ev.LastDGEEndpoint}`] : [];
+      const more = svc.length ? svc : ev.LayerName === 'MS' && ev.LastDGEEndpoint ? [`Endpoint: ${ev.LastDGEEndpoint}`] : [];
       ev.Flow = ev.FlowHead == null ? null : more.length ? [ev.FlowHead, ...more] : ev.FlowHead;
       ev.ServiceInfo = ev.Flow;
       ev.Params = cfg.params.filter((p) => ev[p.field] && ev[p.field].trim()).map((p) => `${p.label || p.field}=${ev[p.field]}`);
@@ -309,8 +309,8 @@
       const label = (r, ms) => {
         const name = r.API ?? 'N/A';
         const lines = [{ text: name + (ms != null ? ` (${ms} ms)` : ''), plain: name }];
-        // a WS call also shows its service endpoint
-        if (r.LayerName === 'WS' && r.LastDGEEndpoint) lines.push({ text: r.LastDGEEndpoint });
+        // a MS call also shows its service endpoint
+        if (r.LayerName === 'MS' && r.LastDGEEndpoint) lines.push({ text: r.LastDGEEndpoint });
         if (r.LayerName === 'Host' && Array.isArray(r.ServiceInfo)) {
           r.ServiceInfo.slice(1).filter((s) => /^- \[/.test(s)).forEach((s) => lines.push({ text: s.replace(/^- \[(.*)\]\s*\[.\]$/, '$1') }));
         }

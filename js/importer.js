@@ -114,7 +114,7 @@
   // ---------- flow rows ----------
 
   // "> Enterprise: /idm/user/profile/get [?]" -> layer, API, direction symbol (may be missing).
-  // "> Enterprise: /path [?]"; a layer shown inside another reads "WS [Enterprise]: /path [?]"
+  // "> Enterprise: /path [?]"; a layer shown inside another reads "MS [Enterprise]: /path [?]"
   const FLOW_RE = /^\s*[>\-\s]*?([A-Za-z][\w.\- ]*?)(?:\s*\[[^\]]*\])?\s*:\s*(.*?)\s*(?:\[([?!<>])\])?\s*$/;
   const SERVICE_RE = /^\s*-\s*\[(.*)\]\s*\[[?!<>]\]\s*$/;
 
@@ -164,7 +164,9 @@
       const m = first.match(FLOW_RE);
       if (!m) { problems.push({ line, text: first, reason: 'ServiceInfo is not "Layer: API [?]" / "[!]"; row skipped' }); return; }
       if (!m[3]) problems.push({ line, text: first, reason: 'no [?] / [!] marker; direction unknown' });
-      const [name, layer] = layerNo[m[1].toLowerCase()] || [m[1], null];
+      // "WS" in a table exported before the layer was renamed MS
+      const key = m[1].toLowerCase() === 'ws' && !layerNo.ws ? 'ms' : m[1].toLowerCase();
+      const [name, layer] = layerNo[key] || [m[1], null];
       const time = parseTime(get(r, c.time));
       if (time == null) problems.push({ line, text: get(r, c.time), reason: 'EventTime not recognised; using the row order' });
       const ms = get(r, c.ms).trim();
@@ -189,11 +191,11 @@
       });
     });
     // Host rows list their SvcCode pairs as "- [A ~ B] [?]" lines, which the diagrams read from ServiceInfo.
-    // A WS row's next line is its service endpoint ("Endpoint: …", LastDGEEndpoint).
+    // A MS row's next line is its service endpoint ("Endpoint: …", LastDGEEndpoint).
     rows.forEach((row) => {
       if (!Array.isArray(row.ServiceInfo)) return;
       const more = row.ServiceInfo.slice(1);
-      if (row.LayerName === 'WS' && more.length && !SERVICE_RE.test(more[0])) row.LastDGEEndpoint = more[0].replace(/^Endpoint:\s*/, '');
+      if (row.LayerName === 'MS' && more.length && !SERVICE_RE.test(more[0])) row.LastDGEEndpoint = more[0].replace(/^Endpoint:\s*/, '');
       row.ServiceInfo = [row.Flow, ...more.filter((s) => SERVICE_RE.test(s))];
     });
     return { rows, problems };

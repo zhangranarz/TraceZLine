@@ -51,16 +51,16 @@ test('rows without a [?]/[!] marker are kept with an unknown direction and repor
 });
 
 test('overlapping calls: each request goes to its own caller and closes on its own response', () => {
-  // asv runs in the background while softtoken -> stn runs; asv's WS call matches asv by path.
+  // asv runs in the background while softtoken -> stn runs; asv's MS call matches asv by path.
   const csv = [
     'Step,EventTime,sessionId,ServiceInfo,Params,ElapsedMs',
     '1,26/10/2026 16:29:04,s,eComm: /spl-banking/login [?],,',
     '2,26/10/2026 16:29:04,s,> Enterprise: /asv/channelaccess/update [?],,',
     '3,26/10/2026 16:29:04,s,> Enterprise: /softtoken/validateSoftTokenOTP [?],,',
-    '4,26/10/2026 16:29:04,s,>> WS: /dge-stn/stn/validate [?],,',
-    '5,26/10/2026 16:29:04,s,>> WS: /dge-asv/asv/channelaccess/update [?],,',
-    '6,26/10/2026 16:29:04,s,>> WS: /dge-asv/asv/channelaccess/update [!],,20',
-    '7,26/10/2026 16:29:04,s,>> WS: /dge-stn/stn/validate [!],,56',
+    '4,26/10/2026 16:29:04,s,>> MS: /dge-stn/stn/validate [?],,',
+    '5,26/10/2026 16:29:04,s,>> MS: /dge-asv/asv/channelaccess/update [?],,',
+    '6,26/10/2026 16:29:04,s,>> MS: /dge-asv/asv/channelaccess/update [!],,20',
+    '7,26/10/2026 16:29:04,s,>> MS: /dge-stn/stn/validate [!],,56',
     '8,26/10/2026 16:29:04,s,> Enterprise: /softtoken/validateSoftTokenOTP [!],,62',
     '9,26/10/2026 16:29:04,s,> Enterprise: /asv/channelaccess/update [!],,70',
     '10,26/10/2026 16:29:04,s,eComm: /spl-banking/login [!],,90',
@@ -68,7 +68,7 @@ test('overlapping calls: each request goes to its own caller and closes on its o
   const { rows } = imp.toFlowRows(imp.parseCsv(csv), spl.DEFAULT_CONFIG);
   const puml = flow.toPlantUml(rows, spl.DEFAULT_CONFIG);
   assert.match(puml, /^P_eComm -> P_Enterprise : \/softtoken\/validateSoftTokenOTP$/m);
-  assert.match(puml, /^P_Enterprise -> P_WS : \/dge-asv\/asv\/channelaccess\/update$/m);
+  assert.match(puml, /^P_Enterprise -> P_MS : \/dge-asv\/asv\/channelaccess\/update$/m);
   assert.match(puml, /^P_Enterprise --> P_eComm : \/asv\/channelaccess\/update \(70 ms\)$/m);
   assert.doesNotMatch(puml, /No response|without a request/);
 });
@@ -78,25 +78,25 @@ test('a non-zip, non-CSV upload is reported, not misread', async () => {
   assert.throws(() => imp.toFlowRows([['a', 'b'], ['1', '2']], spl.DEFAULT_CONFIG), /no ServiceInfo or Flow column/);
 });
 
-test('new ServiceInfo format: "WS [Enterprise]:" is layer WS and its "Endpoint:" line is not a SvcCode', () => {
+test('new ServiceInfo format: "MS [Enterprise]:" is layer MS and its "Endpoint:" line is not a SvcCode', () => {
   const csv = imp.parseCsv([
     'Step,EventTime,sessionId,ServiceInfo,Params,ElapsedMs',
-    '1,26/10/2026 10:00:00.000,s,>> WS [Enterprise]: /dge-enq/a [?],,',
+    '1,26/10/2026 10:00:00.000,s,>> MS [Enterprise]: /dge-enq/a [?],,',
     ',,,Endpoint: dge-enq:enq.a.VN.V1,,',
     '2,26/10/2026 10:00:00.100,s,>>> Host: dge-enq:enq.a.VN.V1 [?],,',
     ',,,- [A_X ~ A_Y] [?],,',
     '3,26/10/2026 10:00:00.200,s,>>> Host: dge-enq:enq.a.VN.V1 [!],,100',
     ',,,- [A_X ~ A_Y] [!],,',
-    '4,26/10/2026 10:00:00.300,s,>> WS [Enterprise]: /dge-enq/a [!],,300',
+    '4,26/10/2026 10:00:00.300,s,>> MS [Enterprise]: /dge-enq/a [!],,300',
     ',,,Endpoint: dge-enq:enq.a.VN.V1,,',
   ].join('\n'));
   const { rows, problems } = imp.toFlowRows(csv, spl.DEFAULT_CONFIG);
   assert.deepStrictEqual(problems, []);
   assert.deepStrictEqual(rows.map((r) => [r.LayerName, r.Layer, r.API, r.Direction]), [
-    ['WS', 2, '/dge-enq/a', 'Request'], ['Host', 3, 'dge-enq:enq.a.VN.V1', 'Request'],
-    ['Host', 3, 'dge-enq:enq.a.VN.V1', 'Response'], ['WS', 2, '/dge-enq/a', 'Response'],
+    ['MS', 2, '/dge-enq/a', 'Request'], ['Host', 3, 'dge-enq:enq.a.VN.V1', 'Request'],
+    ['Host', 3, 'dge-enq:enq.a.VN.V1', 'Response'], ['MS', 2, '/dge-enq/a', 'Response'],
   ]);
-  assert.deepStrictEqual([].concat(rows[0].ServiceInfo), [rows[0].Flow], 'Endpoint line dropped from the WS row');
+  assert.deepStrictEqual([].concat(rows[0].ServiceInfo), [rows[0].Flow], 'Endpoint line dropped from the MS row');
   assert.deepStrictEqual(rows[1].ServiceInfo.slice(1), ['- [A_X ~ A_Y] [?]']);
 });
 
@@ -113,4 +113,10 @@ test('a Splunk results CSV (multi-line Flow and Params in one cell) gives the sa
   const rules = require('../js/rules.js');
   assert.strictEqual(rules.toMarkdown(rules.analyze(flow.sequenceModel(rows, spl.DEFAULT_CONFIG))),
     rules.toMarkdown(rules.analyze(flow.sequenceModel(fromLogs, spl.DEFAULT_CONFIG))));
+});
+
+test('a flow table exported before the rename: "WS [Enterprise]" rows read as the MS layer', () => {
+  const csv = 'Step,EventTime,sessionId,Flow\n1,2026-10-26 09:30:03.008,s1,">> WS [Enterprise]: /dge-a/a[?]"\n';
+  const { rows } = imp.toFlowRows(imp.parseCsv(csv), spl.DEFAULT_CONFIG);
+  assert.deepStrictEqual(rows.map((r) => [r.LayerName, r.Layer, r.API, r.Direction]), [['MS', 2, '/dge-a/a', 'Request']]);
 });

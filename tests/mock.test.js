@@ -40,9 +40,9 @@ test('H: interleaved sessions keep their own Step numbers', () => {
   assert.deepStrictEqual(bySession(S2).map((r) => r.Step), [...Array(8).keys()].map((i) => i + 1));
 });
 
-test('G1: WS timeout leaves a request without a response and the Enterprise hop takes ~30s', () => {
+test('G1: MS timeout leaves a request without a response and the Enterprise hop takes ~30s', () => {
   const s3 = bySession(S3);
-  const ws = s3.filter((r) => r.LayerName === 'WS' && r.API === '/dge-bfs/bfs/bp/initiate');
+  const ws = s3.filter((r) => r.LayerName === 'MS' && r.API === '/dge-bfs/bfs/bp/initiate');
   assert.deepStrictEqual(ws.map((r) => r.Direction), ['Request']);
   const ent = s3.find((r) => r.API === '/bfs/quick/bp/initiate' && r.Direction === 'Response');
   assert.strictEqual(ent.ElapsedMs, 30006);
@@ -62,9 +62,9 @@ test('PlantUML: one diagram per session with nested calls and elapsed times', ()
   const s1 = blocks[0];
   assert.match(s1, /^actor App as P_App$/m);
   assert.match(s1, /^participant "Host" as P_Host$/m);
-  // a WS call shows its Endpoint: the URL, then the service endpoint
-  assert.match(s1, /^P_Enterprise -> P_WS : \/dge-idm\/idm\/user\/profile\/get\\ndge-idm:idm\.user\.profile\.get\.VN\.V7\.6\\n<size:10>TxnCode=SEC02<\/size>$/m);
-  assert.match(s1, /^P_Host --> P_WS : dge-enq:enq\.customer\.portfolio\.VN\.V2\.3 \(1100 ms\)\\nAC_ACCT_SUM_X ~ AC_RBK_SUMM_N\\nAC_VSA_SUMM_N ~ AC_VSA_SUMM_N$/m);
+  // a MS call shows its Endpoint: the URL, then the service endpoint
+  assert.match(s1, /^P_Enterprise -> P_MS : \/dge-idm\/idm\/user\/profile\/get\\ndge-idm:idm\.user\.profile\.get\.VN\.V7\.6\\n<size:10>TxnCode=SEC02<\/size>$/m);
+  assert.match(s1, /^P_Host --> P_MS : dge-enq:enq\.customer\.portfolio\.VN\.V2\.3 \(1100 ms\)\\nAC_ACCT_SUM_X ~ AC_RBK_SUMM_N\\nAC_VSA_SUMM_N ~ AC_VSA_SUMM_N$/m);
   assert.match(s1, /^P_eComm --> P_App : \/spl-banking\/services\/vn\/security\/auth\/v2\/login \(2110 ms\)$/m);
   // every activate has a matching deactivate
   for (const b of blocks) assert.strictEqual((b.match(/^activate /gm) || []).length, (b.match(/^deactivate /gm) || []).length);
@@ -72,7 +72,7 @@ test('PlantUML: one diagram per session with nested calls and elapsed times', ()
 
 test('PlantUML: a request without a response gets a note and is closed', () => {
   const s3 = simPuml().split(/(?=@startuml)/)[2];
-  assert.match(s3, /^note over P_WS #FFE0B2 : No response\\n\/dge-bfs\/bfs\/bp\/initiate\ndeactivate P_WS$/m);
+  assert.match(s3, /^note over P_MS #FFE0B2 : No response\\n\/dge-bfs\/bfs\/bp\/initiate\ndeactivate P_MS$/m);
   assert.match(s3, /^P_Enterprise --> P_eComm : \/bfs\/quick\/bp\/initiate \(30006 ms\)/m);
 });
 
@@ -98,7 +98,7 @@ test('dropNoDirection: an event no direction rule matches is excluded, or kept w
   assert.strictEqual(flow.run(cfg, [{ name: 'a.log', text: log, anySource: true }], []).length, 1);
 });
 
-test('same millisecond: requests eComm > Enterprise > WS > Host, responses Host > WS > Enterprise > eComm', () => {
+test('same millisecond: requests eComm > Enterprise > MS > Host, responses Host > MS > Enterprise > eComm', () => {
   const sid = 'aaaaaaaa-0000-4000-8000-000000000007';
   const ev = (line) => `2026-10-26 09:30:00.000 [x] INFO\n${line}\n`;
   // written to the file in the wrong order on purpose
@@ -112,11 +112,11 @@ test('same millisecond: requests eComm > Enterprise > WS > Host, responses Host 
     + ev(`<EAI> <SvcCode>A_X</SvcCode> Response Message - [::dge-enq:enq.a.VN.V1] WLS:${sid} |`);
   const order = (text) => flow.run(spl.DEFAULT_CONFIG, [{ name: 'a.log', text, anySource: true }], [])
     .map((r) => `${r.LayerName} ${r.Direction} ${r.SortKey}`);
-  assert.deepStrictEqual(order(req), ['eComm Request 10', 'Enterprise Request 20', 'WS Request 21', 'Host Request 30']);
-  assert.deepStrictEqual(order(res), ['Host Response -30', 'WS Response -21', 'Enterprise Response -20', 'eComm Response -10']);
+  assert.deepStrictEqual(order(req), ['eComm Request 10', 'Enterprise Request 20', 'MS Request 21', 'Host Request 30']);
+  assert.deepStrictEqual(order(res), ['Host Response -30', 'MS Response -21', 'Enterprise Response -20', 'eComm Response -10']);
 });
 
-test('a Host event without its own [::dge-…] shows API N/A; a WS response without a URL takes LastWsURL', () => {
+test('a Host event without its own [::dge-…] shows API N/A; a MS response without a URL takes LastMsURL', () => {
   const sid = 'aaaaaaaa-0000-4000-8000-000000000008';
   const at = (ms, line) => `2026-10-26 09:30:00.${ms} [x] INFO\n${line}\n`;
   const log = at('100', `WSAppLog | WLS:${sid} | request: URL:/dge-enq/a | [::dge-enq:enq.a.VN.V1]`)
@@ -125,10 +125,10 @@ test('a Host event without its own [::dge-…] shows API N/A; a WS response with
     + at('400', `WSAppLog | WLS:${sid} | Response: | [::dge-enq:enq.a.VN.V1]`);
   const rows = flow.run(spl.DEFAULT_CONFIG, [{ name: 'a.log', text: log, anySource: true }], []);
   assert.deepStrictEqual(rows.map((r) => [r.LayerName, r.Direction, r.API]), [
-    ['WS', 'Request', '/dge-enq/a'],
+    ['MS', 'Request', '/dge-enq/a'],
     ['Host', 'Request', 'N/A'],
     ['Host', 'Response', 'N/A'],
-    ['WS', 'Response', '/dge-enq/a'], // no URL of its own: LastWsURL, so it pairs with the request
+    ['MS', 'Response', '/dge-enq/a'], // no URL of its own: LastMsURL, so it pairs with the request
   ]);
   assert.deepStrictEqual(rows.map((r) => r.ElapsedMs ?? null), [null, null, 100, 300]);
 });
@@ -140,7 +140,7 @@ test('an eComm event without an Endpoint shows API N/A instead of dropping out',
   assert.deepStrictEqual(rows.map((r) => [r.LayerName, r.Direction, r.API, r.Flow]), [['eComm', 'Request', 'N/A', 'eComm: N/A[?]']]);
 });
 
-test('pairing is by layer name: an Enterprise request and a WS response with the same API do not pair', () => {
+test('pairing is by layer name: an Enterprise request and a MS response with the same API do not pair', () => {
   const sid = 'aaaaaaaa-0000-4000-8000-000000000005';
   const at = (ms, line) => `2026-10-26 09:30:00.${ms} [x] INFO\n${line}\n`;
   const log = at('100', `[SPLHostMessage][${sid}][U][VN][9.14][t][A][] -/same/api - [Request]:`)
@@ -148,7 +148,7 @@ test('pairing is by layer name: an Enterprise request and a WS response with the
   const rows = flow.run(spl.DEFAULT_CONFIG, [{ name: 'a.log', text: log, anySource: true }], []);
   assert.deepStrictEqual(rows.map((r) => [r.LayerName, r.Direction, r.PairKey, r.ElapsedMs ?? null]), [
     ['Enterprise', 'Request', 'Enterprise|/same/api', null],
-    ['WS', 'Response', 'WS|/same/api', null],
+    ['MS', 'Response', 'MS|/same/api', null],
   ]);
 });
 
@@ -167,7 +167,7 @@ test('one diagram for all sessions: sessions in time order, separated by divider
   const models = flow.sequenceModel(rows, spl.DEFAULT_CONFIG);
   const [all] = flow.combineDiagrams(models);
   assert.deepStrictEqual(all.title, ['3 sessions', '33 steps']);
-  assert.deepStrictEqual(all.participants.map((p) => p.name), ['App', 'eComm', 'Enterprise', 'WS', 'Host']);
+  assert.deepStrictEqual(all.participants.map((p) => p.name), ['App', 'eComm', 'Enterprise', 'MS', 'Host']);
   assert.deepStrictEqual(all.items.filter((it) => it.t === 'divider').map((it) => it.text.split(' · ')[0]), [`Session ${S1}`, `Session ${S2}`, `Session ${S3}`]);
   assert.strictEqual(all.items.length, models.reduce((t, d) => t + d.items.length + 1, 0));
   assert.deepStrictEqual(flow.combineDiagrams(models.slice(0, 1)), models.slice(0, 1), 'one session: unchanged');
@@ -214,7 +214,7 @@ test('Start time / End time keep only the events in the window', () => {
   assert.ok(trace.some((t) => t.reason === 'Excluded: outside Start time / End time'));
 });
 
-test('WS rows: API (else the previous WS URL) and "Endpoint: <LastDGEEndpoint>"; pairing uses the API', () => {
+test('MS rows: API (else the previous MS URL) and "Endpoint: <LastDGEEndpoint>"; pairing uses the API', () => {
   const sid = 'aaaaaaaa-0000-4000-8000-000000000003';
   const at = (ms, line) => `2026-10-26 09:30:00.${ms} [x] INFO\n${line}\n`;
   const log = at('100', `[ENQWSAppLog] [t] - [::dge-enq:enq.a.VN.V1] - X: | WLS:${sid} | URL is /dge-enq/a request:`)
@@ -222,18 +222,18 @@ test('WS rows: API (else the previous WS URL) and "Endpoint: <LastDGEEndpoint>";
   const rows = flow.run(spl.DEFAULT_CONFIG, [{ name: 'a.log', text: log, anySource: true }], []);
   // the response has no URL and no [::…] of its own: both are carried over from the request
   assert.deepStrictEqual(rows.map((r) => r.ServiceInfo), [
-    ['>> WS [Enterprise]: /dge-enq/a[?]', 'Endpoint: dge-enq:enq.a.VN.V1'],
-    ['>> WS [Enterprise]: /dge-enq/a[!]', 'Endpoint: dge-enq:enq.a.VN.V1'],
+    ['>> MS [Enterprise]: /dge-enq/a[?]', 'Endpoint: dge-enq:enq.a.VN.V1'],
+    ['>> MS [Enterprise]: /dge-enq/a[!]', 'Endpoint: dge-enq:enq.a.VN.V1'],
   ]);
-  assert.strictEqual(rows[1].API, '/dge-enq/a', 'API keeps the previous WS URL for pairing');
+  assert.strictEqual(rows[1].API, '/dge-enq/a', 'API keeps the previous MS URL for pairing');
   assert.strictEqual(rows[1].ElapsedMs, 200);
 });
 
 test('an event with none of the session forms gets sessionId NA', () => {
-  // a WS request line with no WLS: and no "sessionId" / "sessionIdentity"
+  // a MS request line with no WLS: and no "sessionId" / "sessionIdentity"
   const log = '2026-10-26 09:30:00.000 [x] [INFO ] [ENQWSAppLog] [t] - [::dge-enq:enq.a.VN.V1] - X: | URL is /dge-enq/a request:\n';
   const rows = flow.run(spl.DEFAULT_CONFIG, [{ name: 'a.log', text: log, anySource: true }], []);
-  assert.deepStrictEqual(rows.map((r) => [r.LayerName, r.sessionId]), [['WS', 'NA']]);
+  assert.deepStrictEqual(rows.map((r) => [r.LayerName, r.sessionId]), [['MS', 'NA']]);
 });
 
 test('Host PairKey includes the SvcCode pairs: a response with other pairs does not pair', () => {
@@ -254,7 +254,7 @@ test('step range: the diagrams show only steps x to y of each session', () => {
   assert.deepStrictEqual(part.map((r) => r.Step), [4, 5, 6, 7, 8, 9]);
   assert.strictEqual(flow.stepRange(s1, null, null), s1, 'no range: all rows');
   assert.deepStrictEqual(flow.stepRange(s1, 15, null).map((r) => r.Step), [15, 16], 'open end');
-  // steps 4-9 of session 1: Enterprise profile/get with its WS call, and the next Enterprise request
+  // steps 4-9 of session 1: Enterprise profile/get with its MS call, and the next Enterprise request
   const puml = flow.toPlantUml(part, spl.DEFAULT_CONFIG);
   assert.match(puml, /\/idm\/user\/profile\/get/);
   assert.doesNotMatch(puml, /preLogin/, 'step 1-2 left out');
@@ -312,11 +312,11 @@ test('DGEEndpoint: [::endpoint], else the part after two colons in [a:b:endpoint
   assert.deepStrictEqual(rows.map((r) => r.API), ['dge-enq:enq.a.VN.V1', 'bfs.b.VN.V1']);
 });
 
-test('WS key: WSAppLog, Apsect or Aspect anywhere in the event', () => {
+test('MS key: WSAppLog, Apsect or Aspect anywhere in the event', () => {
   const sid = 'aaaaaaaa-0000-4000-8000-000000000012';
   const at = (ms, line) => `2026-10-26 09:30:00.${ms} [x] INFO\n${line}\n`;
   const log = at('100', `[t] - [::dge-a:a.VN.V1] - RestEndPointAspect: | WLS:${sid} | URL is /dge-a/a request:`)
     + at('200', `[t] - [::dge-b:b.VN.V1] - WebLogApsect: | WLS:${sid} | URL:/dge-b/b | Response:{}`);
   const rows = flow.run(spl.DEFAULT_CONFIG, [{ name: 'spl-ms-x.log', text: log, anySource: true }], []);
-  assert.deepStrictEqual(rows.map((r) => `${r.LayerName} ${r.API} ${r.Direction}`), ['WS /dge-a/a Request', 'WS /dge-b/b Response']);
+  assert.deepStrictEqual(rows.map((r) => `${r.LayerName} ${r.API} ${r.Direction}`), ['MS /dge-a/a Request', 'MS /dge-b/b Response']);
 });

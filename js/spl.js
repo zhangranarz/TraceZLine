@@ -14,7 +14,7 @@
     // true: | where isnotnull(Direction) drops events no direction rule matched; they would
     // otherwise read as responses ([!]) further down.
     dropNoDirection: true,
-    // One source block per layer marker: eComm, Enterprise, WS, Host.
+    // One source block per layer marker: eComm, Enterprise, MS, Host.
     // filter: the key condition (which layer); dirFilter: the direction condition (request or
     // response). Each is a line of its own in the source block.
     sources: [
@@ -31,7 +31,7 @@
       { name: 'eComm', match: String.raw`match(_raw,"\[SPLMessage\]|\[MightyMessage\]")`, layer: 1, indent: '', subLayer: 0 },
       { name: 'Enterprise', match: String.raw`match(_raw,"\[SPLHostMessage\]|\[MightyHostMessage\]")`, layer: 2, indent: '> ', subLayer: 0 },
       { name: 'Host', match: String.raw`match(_raw,"<EAI>") AND match(_raw,"<SvcCode>")`, layer: 3, indent: '>>> ', subLayer: 0 },
-      { name: 'WS', match: String.raw`match(_raw,"(?i)WSAppLog|Apsect|Aspect")`, layer: 2, indent: '>> ', subLayer: 1 },
+      { name: 'MS', match: String.raw`match(_raw,"(?i)WSAppLog|Apsect|Aspect")`, layer: 2, indent: '>> ', subLayer: 1 },
     ],
     // rex that extracts the direction word, and an optional raw first case() pair.
     // Optional: a DirWord rex and a first raw case() rule. Not used by default.
@@ -45,8 +45,8 @@
       { layer: 'Enterprise', pattern: String.raw`(?i)\[Response\]`, direction: 'Response' },
       { layer: 'Host', pattern: '(?i)Request Message', direction: 'Request' },
       { layer: 'Host', pattern: '(?i)Response Message', direction: 'Response' },
-      { layer: 'WS', pattern: '(?i)request:', direction: 'Request' },
-      { layer: 'WS', pattern: '(?i)(RESPONSE from|Response:)', direction: 'Response' },
+      { layer: 'MS', pattern: '(?i)request:', direction: 'Request' },
+      { layer: 'MS', pattern: '(?i)(RESPONSE from|Response:)', direction: 'Response' },
     ],
     endpointRules: [
       // eComm: -/path - Request-, -/path - Response-, or -/path - then the payload
@@ -65,7 +65,7 @@
       // ([SPLHostMessage][VN]) or the elapsed time ([SPLHostMessage][11ms]).
       { layer: 'Enterprise', fields: 'sidSessionId, sidSessionIdentity, sidEnterprise' },
       { layer: 'Host', fields: 'sidSessionId, sidSessionIdentity, sidWls' },
-      { layer: 'WS', fields: 'sidSessionId, sidSessionIdentity, sidWls' },
+      { layer: 'MS', fields: 'sidSessionId, sidSessionIdentity, sidWls' },
     ],
     // The marker in sidEcomm and
     // sidEnterprise follows the source filter (renaming a marker there renames it here).
@@ -90,15 +90,15 @@
 | rex field=_raw max_match=0 "<SvcCode>(?<SvcCode>[^<]+)</SvcCode>"
 | where LayerName!="Host" OR mvcount(SvcCode)>=1
 | sort 0 _time SortKey
-| eval CurrentWsURL=if(LayerName="WS" AND isnotnull(URL),URL,null())
-| eval CurrentDGEEndpoint=if(LayerName="WS" AND isnotnull(DGEEndpoint),DGEEndpoint,null())
-| streamstats last(CurrentWsURL) as PreviousWsURL by sessionId
+| eval CurrentMsURL=if(LayerName="MS" AND isnotnull(URL),URL,null())
+| eval CurrentDGEEndpoint=if(LayerName="MS" AND isnotnull(DGEEndpoint),DGEEndpoint,null())
+| streamstats last(CurrentMsURL) as PreviousMsURL by sessionId
 | streamstats last(CurrentDGEEndpoint) as PreviousDGEEndpoint by sessionId
-| eval LastWsURL=coalesce(CurrentWsURL,PreviousWsURL)
+| eval LastMsURL=coalesce(CurrentMsURL,PreviousMsURL)
 | eval LastDGEEndpoint=coalesce(CurrentDGEEndpoint,PreviousDGEEndpoint)
 | eval pairIndex=if(LayerName="Host",mvrange(0,ceil(mvcount(SvcCode)/2)),null())
 | eval HostPairs=if(LayerName="Host",mvmap(pairIndex, mvindex(SvcCode,pairIndex*2) . " ~ ".coalesce(mvindex(SvcCode,pairIndex*2+1),mvindex(SvcCode,pairIndex*2))),null())
-| eval API=case(__API_RULES__LayerName="WS",coalesce(URL,LastWsURL,DGEEndpoint,LastDGEEndpoint,"N/A"),
+| eval API=case(__API_RULES__LayerName="MS",coalesce(URL,LastMsURL,DGEEndpoint,LastDGEEndpoint,"N/A"),
     LayerName="Host",coalesce(DGEEndpoint,"N/A"))
 | eval PairKey=case(LayerName="Host",printf("%s|%s|%s",LayerName,coalesce(DGEEndpoint,"N/A"),coalesce(mvjoin(HostPairs,"|"),"N/A")),
       true(),printf("%s|%s",LayerName,coalesce(API,"N/A")))
@@ -106,12 +106,12 @@
 | streamstats last(ReqTime) as LastReqTime by sessionId LayerName PairKey
 | eval ElapsedMs=if(Direction="Response" AND isnotnull(LastReqTime),round((_time-LastReqTime)*1000,0),null())
 __INDENT__
-| eval DisplayLayer=if(LayerName="WS","WS [Enterprise]",LayerName)
+| eval DisplayLayer=if(LayerName="MS","MS [Enterprise]",LayerName)
 | eval FlowHead=printf("%s%s: %s[%s]",Indent,DisplayLayer, coalesce(API,"N/A"),DirectionSymbol)
 | eval ServiceLines=if(LayerName="Host",mvmap(HostPairs,printf("- [%s][%s]",HostPairs,DirectionSymbol)),null())
-| eval WsDetails=if(LayerName="WS" AND isnotnull(LastDGEEndpoint),printf("Endpoint: %s",LastDGEEndpoint),null())
+| eval MsDetails=if(LayerName="MS" AND isnotnull(LastDGEEndpoint),printf("Endpoint: %s",LastDGEEndpoint),null())
 | eval Flow=case(LayerName="Host" AND isnotnull(ServiceLines),mvappend(FlowHead,ServiceLines),
-    LayerName="WS" AND isnotnull(WsDetails),mvappend(FlowHead,WsDetails),
+    LayerName="MS" AND isnotnull(MsDetails),mvappend(FlowHead,MsDetails),
     true(),FlowHead)
 | eval ServiceInfo=Flow`;
 
@@ -249,9 +249,9 @@ __INDENT__
     out.push('| where isnotnull(LayerName)');
     const byNumber = layers.slice().sort((a, b) => Number(a.layer) - Number(b.layer));
     out.push('| eval Layer=case(' + byNumber.map((l) => `LayerName="${l.name.trim()}",${l.layer}`).join(',\n    ') + ')');
-    // SubLayer marks processing inside a layer: WS is layer 2 like Enterprise, with SubLayer 1
+    // SubLayer marks processing inside a layer: MS is layer 2 like Enterprise, with SubLayer 1
     // because it runs inside Enterprise. A layer without a sub-layer number counts as 0, so
-    // one such layer reads if(LayerName="WS",1,0).
+    // one such layer reads if(LayerName="MS",1,0).
     const subs = byNumber.filter((l) => Number(l.subLayer));
     out.push('| eval SubLayer=' + (!subs.length ? '0'
       : subs.length === 1 ? `if(LayerName="${subs[0].name.trim()}",${Number(subs[0].subLayer)},0)`
@@ -294,7 +294,7 @@ __INDENT__
       ? '| eval sessionId=case(' + orders.map((o) => `LayerName="${o.layer}", coalesce(${o.fields.concat('"NA"').join(', ')})`).join(',\n    ') + ',\n    true(),"NA")'
       : '| eval sessionId=coalesce(' + sids.map((r) => r.field.trim()).concat('"NA"').join(', ') + ')');
 
-    // Indent is per layer name: layers can share a number (Enterprise and WS are both 2).
+    // Indent is per layer name: layers can share a number (Enterprise and MS are both 2).
     const indentLine = '| eval Indent=case('
       + layers.map((l) => `LayerName="${l.name.trim()}","${l.indent ?? ''}"`).join(',') + ')';
     out.push(...endpointRex);

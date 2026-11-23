@@ -165,7 +165,7 @@
     const prevEnt = [String.raw`(?:\s+-|\s+)(?<EnterpriseEndpoint>/\S+)\s*-\s*\[(?:Request|Response)\]`, ''];
     const ei = out.endpointRules.findIndex((r) => r && r.field === 'EnterpriseEndpoint' && prevEnt.includes(r.rex));
     if (ei >= 0) out.endpointRules.splice(ei, 1, ...clone(DEFAULT_CONFIG.endpointRules.filter((d) => d.layer === 'Enterprise')));
-    // The default Endpoint3 rule (endpoint: … in a payload) is gone: WS uses WSEndpoint (URL and [::…]).
+    // The default Endpoint3 rule (endpoint: … in a payload) is gone: WS (now MS) uses its URL and [::…].
     out.endpointRules = out.endpointRules.filter((r) => !(r && r.field === 'Endpoint3' && r.rex === String.raw`(?i)endpoint\"?\s*[:=]\s*\"?(?<Endpoint3>[^\",]+)`));
     // Direction saved as the earlier default (DirWord + first rule for eComm / Enterprise, rules for
     // Host and WS): the per-layer Request / Response rules now.
@@ -180,7 +180,7 @@
     }
     // WS condition saved as WSAppLog alone: also Aspect (and Apsect), as in the WS key filter.
     out.layers.forEach((l) => {
-      if (l && l.name === 'WS' && l.match === 'match(_raw,"WSAppLog")') l.match = DEFAULT_CONFIG.layers.find((d) => d.name === 'WS').match;
+      if (l && l.name === 'WS' && l.match === 'match(_raw,"WSAppLog")') l.match = DEFAULT_CONFIG.layers.find((d) => d.name === 'MS').match;
     });
     // Columns saved as the earlier default: Flow instead of ServiceInfo.
     if (JSON.stringify(out.columns) === JSON.stringify(['Step', 'EventTime', 'sessionId', 'ServiceInfo', 'Params', 'ElapsedMs'])) out.columns = clone(DEFAULT_CONFIG.columns);
@@ -225,7 +225,7 @@
     // WS key filter and condition saved with UFWApsect / UFWAspect: Apsect / Aspect now.
     out.sources.forEach((s) => { if (s && s.filter === '("*WSAppLog*" OR "*UFWApsect*" OR "*UFWAspect*")') s.filter = DEFAULT_CONFIG.sources.find((d) => d.filter.includes('WSAppLog')).filter; });
     out.layers.forEach((l) => {
-      if (l && l.name === 'WS' && l.match === 'match(_raw,"(?i)WSAppLog|UFWApsect|UFWAspect")') l.match = DEFAULT_CONFIG.layers.find((d) => d.name === 'WS').match;
+      if (l && l.name === 'WS' && l.match === 'match(_raw,"(?i)WSAppLog|UFWApsect|UFWAspect")') l.match = DEFAULT_CONFIG.layers.find((d) => d.name === 'MS').match;
     });
     // eComm / Enterprise saved with one marker (key filter, layer condition, session rule): also
     // [MightyMessage] / [MightyHostMessage]. Edited values are kept.
@@ -239,6 +239,12 @@
       out.layers.forEach((l) => { if (l && l.name === layer && l.match === match) l.match = DEFAULT_CONFIG.layers.find((d) => d.name === layer).match; });
       out.sessionRules.forEach((r) => { if (r && r.field === field && r.rex === rex) r.rex = DEFAULT_CONFIG.sessionRules.find((d) => d.field === field).rex; });
     });
+    // The WS layer is MS (MicroService) now: a saved layer named WS is renamed, with the
+    // Direction, Session order and Endpoint rows that name it (unless an MS layer exists already).
+    if (out.layers.some((l) => l && l.name === 'WS') && !out.layers.some((l) => l && l.name === 'MS')) {
+      out.layers.forEach((l) => { if (l && l.name === 'WS') l.name = 'MS'; });
+      [out.directions, out.sessionOrder, out.endpointRules].forEach((list) => (list || []).forEach((r) => { if (r && r.layer === 'WS') r.layer = 'MS'; }));
+    }
     return out;
   }
 

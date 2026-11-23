@@ -13,8 +13,8 @@ const models = flow.sequenceModel(flow.run(spl.DEFAULT_CONFIG, logs, []), spl.DE
 
 test('sequence model: one diagram per session, App first, layers in order', () => {
   assert.strictEqual(models.length, 3);
-  assert.deepStrictEqual(models[0].participants.map((p) => p.name), ['App', 'eComm', 'Enterprise', 'WS', 'Host']);
-  assert.deepStrictEqual(models[2].participants.map((p) => p.name), ['App', 'eComm', 'Enterprise', 'WS']);
+  assert.deepStrictEqual(models[0].participants.map((p) => p.name), ['App', 'eComm', 'Enterprise', 'MS', 'Host']);
+  assert.deepStrictEqual(models[2].participants.map((p) => p.name), ['App', 'eComm', 'Enterprise', 'MS']);
 });
 
 test('SVG: one arrow per message, boxes top and bottom, bars balanced', () => {

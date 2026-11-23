@@ -25,8 +25,8 @@ test('Layer=case() follows layer number order, LayerName=case() keeps list order
   const out = spl.generate(spl.DEFAULT_CONFIG);
   // one condition per line, then events with no layer are dropped
   assert.ok(out.includes('| eval LayerName=case(match(_raw,"\\[SPLMessage\\]|\\[MightyMessage\\]"),"eComm",\n    match(_raw,"\\[SPLHostMessage\\]|\\[MightyHostMessage\\]"),"Enterprise",\n'));
-  assert.ok(out.includes('"Host",\n    match(_raw,"(?i)WSAppLog|Apsect|Aspect"),"WS")\n| where isnotnull(LayerName)\n'));
-  assert.ok(out.includes('| eval Layer=case(LayerName="eComm",1,\n    LayerName="Enterprise",2,\n    LayerName="WS",2,\n    LayerName="Host",3)\n'));
+  assert.ok(out.includes('"Host",\n    match(_raw,"(?i)WSAppLog|Apsect|Aspect"),"MS")\n| where isnotnull(LayerName)\n'));
+  assert.ok(out.includes('| eval Layer=case(LayerName="eComm",1,\n    LayerName="Enterprise",2,\n    LayerName="MS",2,\n    LayerName="Host",3)\n'));
 });
 
 test('search terms are quoted, escaped and OR-joined; empty list drops the line', () => {
@@ -73,7 +73,7 @@ test('ungrouped sources and a Layer<=2 first rule are flagged', () => {
   const w = spl.validate(cfg);
   assert.strictEqual(w.length, 2);
   assert.ok(w.some((m) => /not grouped/.test(m)));
-  assert.ok(w.some((m) => /Layer<=2\) also matches eComm, Enterprise, WS/.test(m)));
+  assert.ok(w.some((m) => /Layer<=2\) also matches eComm, Enterprise, MS/.test(m)));
 });
 
 test('ungrouped sources share only the outer parentheses', () => {
@@ -112,7 +112,7 @@ test('endpoint rules: the API of their layer; several rules for a layer are coal
   // two rules for Enterprise: EnterpriseEndpoint=coalesce(...) after the rex lines, then used by API=case()
   assert.ok(out.includes('\n| eval EnterpriseEndpoint=coalesce(EnterpriseEndpoint2,EpX)\n'));
   assert.ok(out.includes('\n| eval API=case(LayerName="Enterprise",coalesce(EnterpriseEndpoint,"N/A"),\n'
-    + '    LayerName="WS",coalesce(URL,LastWsURL,DGEEndpoint,LastDGEEndpoint,"N/A"),\n'
+    + '    LayerName="MS",coalesce(URL,LastMsURL,DGEEndpoint,LastDGEEndpoint,"N/A"),\n'
     + '    LayerName="Host",coalesce(DGEEndpoint,"N/A"))\n'));
   assert.doesNotMatch(out, /eCommEndpoint|eval Endpoint=/);
   assert.ok(spl.validate(cfg).some((w) => /"EpY" has no layer/.test(w)));
@@ -183,7 +183,7 @@ test('session rules: five forms, sessionId is the first one found, else NA', () 
   assert.strictEqual(`INFO [SPLHostMessage][${uuid}]|[u] - /x - [Request]: {"a":1}`.match(ent).groups.sidEnterprise, uuid);
   assert.strictEqual(`INFO [SPLHostMessage] [${uuid}]|[<<USER_ID>>]`.match(ent), null, 'a space before [ is not read');
   assert.strictEqual('INFO [MightyHostMessage][H-0003]|[u]'.match(ent).groups.sidEnterprise, 'H-0003');
-  assert.strictEqual(`| CIF:<<CIF_NUM>> | WLS:${uuid} | WS`.match(wls).groups.sidWls, uuid);
+  assert.strictEqual(`| CIF:<<CIF_NUM>> | WLS:${uuid} | MS`.match(wls).groups.sidWls, uuid);
   // any value up to a space or |, not only a UUID; an empty WLS: is not a session
   assert.strictEqual('| WLS: S-0042 | SSO:'.match(wls).groups.sidWls, 'S-0042');
   assert.strictEqual('| WLS: | SSO:'.match(wls), null);
@@ -191,7 +191,7 @@ test('session rules: five forms, sessionId is the first one found, else NA', () 
   assert.ok(spl.generate(spl.DEFAULT_CONFIG).includes('\n| eval sessionId=case(LayerName="eComm", coalesce(sidSessionId, sidSessionIdentity, sidEcomm, "NA"),\n'
     + '    LayerName="Enterprise", coalesce(sidSessionId, sidSessionIdentity, sidEnterprise, "NA"),\n'
     + '    LayerName="Host", coalesce(sidSessionId, sidSessionIdentity, sidWls, "NA"),\n'
-    + '    LayerName="WS", coalesce(sidSessionId, sidSessionIdentity, sidWls, "NA"),\n'
+    + '    LayerName="MS", coalesce(sidSessionId, sidSessionIdentity, sidWls, "NA"),\n'
     + '    true(),"NA")\n'));
   // no Session order: one coalesce() of all rules in list order
   const flat = spl.clone(spl.DEFAULT_CONFIG);
@@ -204,12 +204,12 @@ test('session rules: five forms, sessionId is the first one found, else NA', () 
 
 test('Flow format: per-layer indent and [?]/[!] direction markers', () => {
   const out = spl.generate(spl.DEFAULT_CONFIG);
-  assert.match(out, /\| eval Indent=case\(LayerName="eComm","",LayerName="Enterprise","> ",LayerName="Host",">>> ",LayerName="WS",">> "\)/);
+  assert.match(out, /\| eval Indent=case\(LayerName="eComm","",LayerName="Enterprise","> ",LayerName="Host",">>> ",LayerName="MS",">> "\)/);
   assert.match(out, /\| eval DirectionSymbol=if\(Direction="Request","\?","!"\)/);
   // the head and the extra lines, without a space before [?] / [!]
   assert.ok(out.includes('\n| eval FlowHead=printf("%s%s: %s[%s]",Indent,DisplayLayer, coalesce(API,"N/A"),DirectionSymbol)\n'));
   assert.ok(out.includes('\n| eval ServiceLines=if(LayerName="Host",mvmap(HostPairs,printf("- [%s][%s]",HostPairs,DirectionSymbol)),null())\n'));
-  assert.ok(out.includes('\n| eval WsDetails=if(LayerName="WS" AND isnotnull(LastDGEEndpoint),printf("Endpoint: %s",LastDGEEndpoint),null())\n'));
+  assert.ok(out.includes('\n| eval MsDetails=if(LayerName="MS" AND isnotnull(LastDGEEndpoint),printf("Endpoint: %s",LastDGEEndpoint),null())\n'));
   assert.ok(out.includes('\n| eval ServiceInfo=Flow'), 'ServiceInfo stays for the table');
   assert.ok(out.includes('\n    LayerName="Host",coalesce(DGEEndpoint,"N/A"))\n| eval PairKey='), 'API for Host');
   assert.ok(out.includes('| eval PairKey=case(LayerName="Host",printf("%s|%s|%s",LayerName,coalesce(DGEEndpoint,"N/A"),coalesce(mvjoin(HostPairs,"|"),"N/A")),\n'
@@ -256,15 +256,15 @@ test('URL, eCommEndpoint (eComm) and EnterpriseEndpoint (Enterprise) read their 
   assert.strictEqual('[ENQWSAppLog] [t] - [::dge-enq:enq.a] - RestEndPointUFWAspect: | URL is /a request:'.match(ent), null);
 });
 
-test('SubLayer: WS is layer 2 with sub-layer 1; a layer without a sub-layer number counts as 0', () => {
+test('SubLayer: MS is layer 2 with sub-layer 1; a layer without a sub-layer number counts as 0', () => {
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
-  assert.ok(spl.generate(cfg).includes('\n| eval SubLayer=if(LayerName="WS",1,0)\n'));
+  assert.ok(spl.generate(cfg).includes('\n| eval SubLayer=if(LayerName="MS",1,0)\n'));
   // a layer without a sub-layer number counts as 0: it is not listed
   cfg.layers.push({ name: 'OPI', match: 'match(_raw,"OPIAppLog")', layer: 4, indent: '' });
-  assert.ok(spl.generate(cfg).includes('\n| eval SubLayer=if(LayerName="WS",1,0)\n'));
+  assert.ok(spl.generate(cfg).includes('\n| eval SubLayer=if(LayerName="MS",1,0)\n'));
   // two layers with a sub-layer: case() with 0 for the rest
   cfg.layers[cfg.layers.length - 1].subLayer = 2;
-  assert.ok(spl.generate(cfg).includes('\n| eval SubLayer=case(LayerName="WS",1,LayerName="OPI",2,true(),0)\n'));
+  assert.ok(spl.generate(cfg).includes('\n| eval SubLayer=case(LayerName="MS",1,LayerName="OPI",2,true(),0)\n'));
 });
 
 test('dropNoDirection adds | where isnotnull(Direction) right after Direction', () => {
@@ -316,8 +316,8 @@ test('renameMarker: a marker renamed in a source filter is renamed in the layer 
   assert.strictEqual(cfg.layers[1].match, String.raw`match(_raw,"\[SPLHostRenamed\]|\[MightyHostMessage\]")`);
   assert.ok(sid('sidEnterprise').startsWith(String.raw`(?i)(?:\[SPLHostRenamed\]|\[MightyHostMessage\])\[`), sid('sidEnterprise'));
   // wildcards are not copied into the regex
-  assert.deepStrictEqual(spl.renameMarker(cfg, '"*WSAppLog*" ("request:")', '"*OPIAppLog*" ("request:")'), ['Layer WS']);
-  assert.strictEqual(cfg.layers.find((l) => l.name === 'WS').match, 'match(_raw,"(?i)OPIAppLog|Apsect|Aspect")');
+  assert.deepStrictEqual(spl.renameMarker(cfg, '"*WSAppLog*" ("request:")', '"*OPIAppLog*" ("request:")'), ['Layer MS']);
+  assert.strictEqual(cfg.layers.find((l) => l.name === 'MS').match, 'match(_raw,"(?i)OPIAppLog|Apsect|Aspect")');
   // nothing when several terms change, or none
   assert.deepStrictEqual(spl.renameMarker(cfg, '"A" "B"', '"C" "D"'), []);
   assert.deepStrictEqual(spl.renameMarker(cfg, '"A"', '"A" OR "B"'), []);

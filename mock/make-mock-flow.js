@@ -1,7 +1,7 @@
 'use strict';
 // Writes mock-flow.csv and mock-flow.xlsx: the flow table of the mock logs laid out like a
 // Splunk export (Step, EventTime, sessionId, ServiceInfo, Params, ElapsedMs), with the extra
-// ServiceInfo lines (Host SvcCode pairs, WS service endpoint) on continuation rows.
+// ServiceInfo lines (Host SvcCode pairs, MS service endpoint) on continuation rows.
 // Run after make-mock.js: node mock/make-mock-flow.js
 const fs = require('fs');
 const path = require('path');

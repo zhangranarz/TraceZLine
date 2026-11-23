@@ -11,7 +11,7 @@
 ![Data stays local](https://img.shields.io/badge/data-stays%20in%20your%20browser-blue)
 
 A browser-only tool for tracing banking API call flows through Splunk logs:
-**Mobile App → eComm → Enterprise → WS → EAI/Host**.
+**Mobile App → eComm → Enterprise → MS (MicroService) → EAI/Host**.
 It generates a parameterised SPL query, runs the same logic over your log files or a
 Splunk Excel/CSV export in the browser, and shows the flow table, PlantUML and SVG
 sequence diagrams, and the processing rules it observes. Nothing is uploaded.
