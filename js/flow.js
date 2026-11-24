@@ -406,6 +406,31 @@
     return rows.filter((r) => set.some((g) => takes(g, r)));
   }
 
+  // The API pattern call of each session: the first request of that layer whose API has the
+  // pattern (any case), up to its response (the next response with the same PairKey that is not
+  // a nested call's), as step ranges for stepRanges(). No response: up to the last step.
+  function focusRanges(rows, layerName, pattern) {
+    const want = String(pattern ?? '').trim().toLowerCase();
+    if (!want) return [];
+    const out = [];
+    const bySession = new Map();
+    rows.forEach((r) => { if (!bySession.has(r.sessionId)) bySession.set(r.sessionId, []); bySession.get(r.sessionId).push(r); });
+    for (const [sid, rs] of bySession) {
+      const i = rs.findIndex((r) => r.LayerName === layerName && r.Direction === 'Request' && String(r.API ?? '').toLowerCase().includes(want));
+      if (i < 0 || rs[i].Step == null) continue;
+      const req = rs[i];
+      let depth = 0;
+      let res = null;
+      for (const r of rs.slice(i + 1)) {
+        if (r.LayerName !== req.LayerName || r.PairKey !== req.PairKey) continue;
+        if (r.Direction === 'Request') depth++;
+        else if (r.Direction === 'Response' && depth-- === 0) { res = r; break; }
+      }
+      out.push({ sessionId: sid, from: req.Step, to: res ? res.Step : '', found: !!res });
+    }
+    return out;
+  }
+
   // All sessions as one continuous diagram, in time order: the participants of every
   // session, and a divider ({ t: 'divider', text }) where each session starts.
   function combineDiagrams(diagrams) {
@@ -492,5 +517,5 @@
     return out.join('\n') + '\n';
   }
 
-  return { parseEvents, describeLog, matchesAnySource, run, summarize, sequenceModel, combineDiagrams, viewDiagram, stepRange, stepRanges, toPlantUml, plantUmlEncode64, format, parseSearch };
+  return { parseEvents, describeLog, matchesAnySource, run, summarize, sequenceModel, combineDiagrams, viewDiagram, stepRange, stepRanges, focusRanges, toPlantUml, plantUmlEncode64, format, parseSearch };
 });

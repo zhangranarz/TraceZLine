@@ -29,6 +29,9 @@
     terms: ['2576dfc8-495a-837a-8a2f291fd003d', '7f269c48-f03a-4fef-bc3007538ec1a2'],
     apiPattern: '/application/confirm',
     apiLayer: 'eComm',
+    // With termMode 'api': the diagrams and API Analysis keep only the first request with apiPattern
+    // (of apiLayer), its response and the steps in between.
+    focusApiCall: true,
     // Optional time window, "2026-11-18 15:28:25.554" (milliseconds optional); empty = no limit.
     startTime: '',
     endTime: '',

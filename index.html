@@ -51,6 +51,7 @@
         <div id="terms-api" hidden>
           <label class="field size-m"><span><b id="api-layer-name">eComm</b> API pattern</span><input type="text" id="api-pattern" placeholder="/application/confirm" spellcheck="false" autocomplete="off"></label>
           <p class="note">Finds the newest event of that layer (eComm or Enterprise) with this text, within Start / End time or the Run in Splunk time range: the <b>Session query</b> below. Run in Splunk runs it first; its sessionId is then the search term of the Flow and Log queries. No sessionId: they are not run.</p>
+          <label class="check" title="Flow Analysis (PlantUML, Sequence, Processing Rule) and API Analysis keep only the first request with this API pattern, its response and the steps in between; the Flow table keeps every step"><input type="checkbox" id="api-focus" autocomplete="off"> Focus on the API pattern call <span class="hint">first request with the pattern → its response, in the diagrams, Processing Rule and API Analysis</span></label>
         </div>
         <div class="row">
           <label class="field size-m"><span>Start time <em>optional</em></span><span class="time-box"><input type="text" id="start-time" placeholder="YYYY-MM-DD hh:mm:ss.mmm" spellcheck="false" autocomplete="off" title="Type a time (e.g. 2026-10-26 09:30, 2026/10/26 09:30:15.250 or 10/26/2026:09:30:00) or pick one with the calendar button"><button type="button" class="time-pick" data-for="start-time" title="Pick from a calendar" aria-label="Pick Start time from a calendar">📅</button><input type="datetime-local" class="time-picker" data-for="start-time" step="0.001" tabindex="-1" aria-hidden="true"></span></label>
@@ -126,6 +127,7 @@
           <span class="spacer"></span>
         </div>
         <p class="note" id="flow-status"></p>
+        <p class="note focus-note" id="flow-focus" hidden></p>
         <div id="flow-problem" class="problem" role="alert" hidden></div>
         <div id="flow-summary" class="summary"></div>
 

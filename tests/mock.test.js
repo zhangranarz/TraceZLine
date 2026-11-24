@@ -320,3 +320,23 @@ test('MS key: WSAppLog, Apsect or Aspect anywhere in the event', () => {
   const rows = flow.run(spl.DEFAULT_CONFIG, [{ name: 'spl-ms-x.log', text: log, anySource: true }], []);
   assert.deepStrictEqual(rows.map((r) => `${r.LayerName} ${r.API} ${r.Direction}`), ['MS /dge-a/a Request', 'MS /dge-b/b Response']);
 });
+
+test('focusRanges: the first request with the API pattern up to its own response, per session', () => {
+  const r = (Step, sessionId, LayerName, API, Direction) => ({ Step, sessionId, LayerName, API, Direction, PairKey: `${LayerName}|${API}` });
+  const rows = [
+    r(1, 's1', 'eComm', '/x/preLogin', 'Request'), r(2, 's1', 'eComm', '/x/preLogin', 'Response'),
+    r(3, 's1', 'eComm', '/x/application/confirm', 'Request'), r(4, 's1', 'Enterprise', '/e/a', 'Request'),
+    r(5, 's1', 'eComm', '/x/application/confirm', 'Request'), r(6, 's1', 'eComm', '/x/application/confirm', 'Response'),
+    r(7, 's1', 'Enterprise', '/e/a', 'Response'), r(8, 's1', 'eComm', '/x/application/confirm', 'Response'),
+    r(9, 's1', 'eComm', '/x/application/confirm', 'Request'),
+    r(1, 's2', 'eComm', '/x/Application/Confirm', 'Request'), r(2, 's2', 'MS', '/m', 'Request'),
+    r(1, 's3', 'Enterprise', '/application/confirm', 'Request'),
+  ];
+  const f = flow.focusRanges(rows, 'eComm', '/application/confirm');
+  assert.deepStrictEqual(f, [
+    { sessionId: 's1', from: 3, to: 8, found: true },
+    { sessionId: 's2', from: 1, to: '', found: false },
+  ]);
+  assert.deepStrictEqual(flow.stepRanges(rows, f).map((x) => `${x.sessionId}:${x.Step}`), ['s1:3', 's1:4', 's1:5', 's1:6', 's1:7', 's1:8', 's2:1', 's2:2']);
+  assert.deepStrictEqual(flow.focusRanges(rows, 'eComm', ' '), []);
+});

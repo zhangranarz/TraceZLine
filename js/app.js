@@ -346,6 +346,7 @@
     Object.keys(SECTIONS).forEach(renderList);
     document.getElementById('terms').value = state.terms.join('\n');
     document.getElementById('api-pattern').value = state.apiPattern;
+    document.getElementById('api-focus').checked = state.focusApiCall;
     document.querySelectorAll('input[name="term-mode"]').forEach((r) => { r.checked = r.value === (state.termMode === 'api' ? `api:${state.apiLayer}` : 'session'); });
     document.getElementById('group-sources').checked = state.groupSources;
     document.getElementById('drop-no-direction').checked = state.dropNoDirection;
@@ -410,6 +411,10 @@
   }));
   document.getElementById('api-pattern').addEventListener('input', (e) => {
     state.apiPattern = e.target.value;
+    update();
+  });
+  document.getElementById('api-focus').addEventListener('change', (e) => {
+    state.focusApiCall = e.target.checked;
     update();
   });
 
@@ -903,9 +908,27 @@
     renderDiagram(diagramRows);
   });
 
+  // Focus on the API pattern call (Search terms by API): rows -> { rows, text } with only the
+  // first pattern request, its response and the steps between, per session; null when off.
+  function focusRows(rows) {
+    if (state.termMode !== 'api' || !state.focusApiCall || !rows.length) return null;
+    const pattern = state.apiPattern.trim();
+    const layer = window.TraceSpl.apiLayer(state);
+    const ranges = window.TraceFlow.focusRanges(rows, layer, pattern);
+    if (!ranges.length) return { rows, text: `Focus on the API pattern call: no ${layer} request with "${pattern}" in these steps, so all steps are shown.`, problem: true };
+    const steps = ranges.map((g) => `steps ${g.from}–${g.to || 'last'}${g.found ? '' : ' (no response)'}${ranges.length > 1 ? ` of ${g.sessionId}` : ''}`).join(', ');
+    return { rows: window.TraceFlow.stepRanges(rows, ranges), text: `Focus on the ${layer} "${pattern}" call: ${steps}.` };
+  }
+
   function renderDiagram(rows) {
     diagramRows = rows;
-    // the diagrams show the chosen steps; Processing Rule below keeps all of them
+    const focus = focusRows(rows);
+    const note = document.getElementById('flow-focus');
+    note.hidden = !focus;
+    note.textContent = focus ? focus.text + (focus.problem ? '' : ' The Flow table keeps every step.') : '';
+    note.classList.toggle('problem', !!focus?.problem);
+    if (focus) rows = focus.rows;
+    // the diagrams show the chosen steps; Processing Rule below keeps all of them (of the focus)
     const all = rows;
     rows = window.TraceFlow.stepRanges(rows, stepRangeRows);
     pumlText = window.TraceFlow.toPlantUml(rows, state, diagramOpts);
@@ -1286,14 +1309,16 @@
       return;
     }
     const toleranceMs = Math.max(0, Number(document.getElementById('cmp-tolerance').value) || 0);
-    cmpResult = window.TraceCompare.compare(cmp.excel.rows, events, { toleranceMs, offsetMs: cmpOffsetMs() });
+    const focus = focusRows(cmp.excel.rows);
+    const xrows = focus ? focus.rows : cmp.excel.rows;
+    cmpResult = window.TraceCompare.compare(xrows, events, { toleranceMs, offsetMs: cmpOffsetMs() });
     const r = cmpResult;
     const total = r.rows.length;
     const notMapped = r.rows.filter((x) => !x.l).length;
     document.getElementById('count-compare').textContent = `${r.mapped}/${total} mapped`;
-    status.textContent = `${cmp.excel.name} (${total} lines) mapped by timestamp to ${cmp.logs.map((l) => l.name).join(', ')} (${events.length} log events), tolerance ${toleranceMs} ms.`;
+    status.textContent = `${cmp.excel.name} (${total} lines) mapped by timestamp to ${cmp.logs.map((l) => l.name).join(', ')} (${events.length} log events), tolerance ${toleranceMs} ms.` + (focus ? ` ${focus.text}` : '');
     const card = (title, lines, cls) => el('div', { class: 'sum-card' + (cls ? ' ' + cls : '') }, [el('div', { class: 'sum-id' }, [title]), ...lines.map((t) => el('div', {}, [t]))]);
-    const sidsX = new Set(cmp.excel.rows.map((x) => x.sessionId).filter(Boolean));
+    const sidsX = new Set(xrows.map((x) => x.sessionId).filter(Boolean));
     const sidsL = new Set(events.map((l) => l.sessionId).filter(Boolean));
     document.getElementById('cmp-summary').replaceChildren(
       card('Excel', [`${total} lines, ${sidsX.size} sessions`]),
