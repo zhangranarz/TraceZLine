@@ -608,6 +608,7 @@
       sourceMap = { name: file.name, ...t, country: '', module: '' };
       saveSourceMap();
       renderSourceMap();
+      renderMining();
       toast(`${file.name}: ${t.entries.length} rows. Choose a Country and Module.`);
     } catch (err) {
       toast(`${file.name}: could not be read as a source table (${err.message})`);
@@ -1885,29 +1886,199 @@
     showView(b.dataset.view);
   }));
 
+  // ---------- API Trace ----------
+  // For one Module of the Source table, the last session of an eComm or Enterprise API in each chosen
+  // Country: one Splunk search over those countries' sources of that layer (TraceSpl.generateMining).
+  const MINING_KEY = 'tracezline.mining';
+  const minEls = Object.fromEntries(['note', 'module', 'layer', 'pattern', 'countries', 'mode', 'url', 'user', 'pass', 'range', 'insecure', 'run', 'copy', 'csv', 'status', 'table'].map((k) => [k, document.getElementById('mining-' + k)]));
+  const MINING_NOTE = minEls.note.textContent;
+  let mining = { module: '', countries: [], pattern: 'application/submission', layer: 'eComm' };
+  try { mining = { ...mining, ...JSON.parse(localStorage.getItem(MINING_KEY) || '{}') }; } catch (e) { /* ignore */ }
+  const saveMining = () => { try { localStorage.setItem(MINING_KEY, JSON.stringify(mining)); } catch (e) { /* ignore */ } };
+  let miningResult = null; // { rows: [[Country, EventTime, sessionId, Endpoint]], missing: [country] }
+  const MINING_COLS = ['Country', 'EventTime', 'sessionId', 'Endpoint'];
+  // the layer searched (eComm or Enterprise): its Source table column gives each country's path
+  const miningLayer = () => (state.layers.some((l) => l.name.trim() === mining.layer) ? mining.layer : window.TraceSpl.topLayer(state));
+  // The chosen Module's countries: { country, path } (path '' when the table has none or N/A)
+  const miningEntries = () => (sourceMap?.entries || []).filter((e) => e.module === mining.module)
+    .map((e) => ({ country: e.country, path: /^N\/?A$/i.test(e.paths[miningLayer()] || '') ? '' : (e.paths[miningLayer()] || '') }));
+  const miningChosen = () => miningEntries().filter((e) => e.path && mining.countries.includes(e.country));
+
+  function renderMining() {
+    const modules = [...new Set((sourceMap?.entries || []).map((e) => e.module))];
+    options(minEls.module, modules, mining.module);
+    if (!modules.includes(mining.module) && modules.length === 1) minEls.module.value = mining.module = modules[0];
+    minEls.pattern.value = mining.pattern;
+    minEls.layer.value = mining.layer;
+    document.getElementById('mining-layer-name').textContent = miningLayer();
+    const entries = miningEntries();
+    minEls.countries.replaceChildren(...(entries.length ? entries.map((e) => {
+      const box = el('input', { type: 'checkbox', value: e.country });
+      box.checked = !!e.path && mining.countries.includes(e.country);
+      box.disabled = !e.path;
+      box.addEventListener('change', () => {
+        mining.countries = box.checked ? [...new Set([...mining.countries, e.country])] : mining.countries.filter((c) => c !== e.country);
+        saveMining();
+        renderMiningQuery();
+      });
+      return el('label', { class: 'check' + (e.path ? '' : ' na'), title: e.path || `No ${miningLayer()} path (N/A) for ${e.country} / ${mining.module}` }, [box, ` ${e.country}${e.path ? '' : ' (N/A)'}`]);
+    }) : [el('span', { class: 'hint' }, [sourceMap?.entries?.length ? 'Choose a Module.' : 'Upload a Source table first (Sources › Source table, in the settings on the left).'])]));
+    renderMiningQuery();
+  }
+  function renderMiningQuery() {
+    const chosen = miningChosen();
+    document.getElementById('spl-mining').textContent = chosen.length
+      ? window.TraceSpl.generateMining(state, chosen, mining.pattern, miningLayer()) : '(choose a Module and at least one Country)';
+    // the same source path for two countries: like() gives both events to the first
+    const paths = chosen.map((c) => c.path);
+    const shared = chosen.filter((c, i) => paths.indexOf(c.path) !== i).map((c) => c.country);
+    minEls.note.classList.toggle('problem', shared.length > 0);
+    if (shared.length) minEls.note.textContent = `${shared.join(', ')} share(s) a source path with another chosen country: their events are counted for the first one.`;
+    else minEls.note.textContent = MINING_NOTE;
+  }
+  minEls.layer.addEventListener('change', () => { mining.layer = minEls.layer.value; saveMining(); renderMining(); });
+  minEls.module.addEventListener('change', () => { mining.module = minEls.module.value; saveMining(); renderMining(); });
+  minEls.pattern.addEventListener('input', () => { mining.pattern = minEls.pattern.value; saveMining(); renderMiningQuery(); });
+  document.getElementById('mining-all').addEventListener('click', () => {
+    mining.countries = miningEntries().filter((e) => e.path).map((e) => e.country); saveMining(); renderMining();
+  });
+  document.getElementById('mining-none').addEventListener('click', () => { mining.countries = []; saveMining(); renderMining(); });
+  document.getElementById('btn-copy-mining').addEventListener('click', () => copyQuery(document.getElementById('spl-mining').textContent, 'spl-mining'));
+  // Run in Splunk settings (not the password) are shared with Session Trace › Query: a change in
+  // either panel is copied to the other and saved
+  const SHARED = ['mode', 'url', 'user', 'range', 'insecure'];
+  const copySplunk = (from, to) => SHARED.forEach((k) => {
+    if (k === 'insecure') to[k].checked = from[k].checked; else to[k].value = from[k].value;
+  });
+  const miningPlaceholder = () => { minEls.url.placeholder = minEls.mode.value === 'web' ? 'https://splunk-host:8000' : 'https://splunk-host:8089'; };
+  SHARED.forEach((k) => {
+    minEls[k].addEventListener('change', () => { copySplunk(minEls, splunkEls); splunkPlaceholder(); miningPlaceholder(); saveSplunk(); });
+    splunkEls[k].addEventListener('change', () => { copySplunk(splunkEls, minEls); miningPlaceholder(); });
+  });
+  copySplunk(splunkEls, minEls);
+  miningPlaceholder();
+  // the Source table, Splunk settings and Start / End time can change on other tabs
+  document.getElementById('tab-mining').addEventListener('click', renderMining);
+  window.TraceSplunk.available().then((ok) => {
+    if (ok) return;
+    minEls.run.disabled = true;
+    minEls.status.replaceChildren(el('li', { class: 'problem' }, ['Not available here: Splunk only answers this page through the local server. Run python tools/serve.py and open http://localhost:8765/.']));
+  });
+
+  function renderMiningTable() {
+    const t = minEls.table;
+    if (!miningResult) { t.replaceChildren(); return; }
+    const useBtn = (sid) => {
+      const b = el('button', { type: 'button', title: 'Search this session: Search terms › Session IDs, then Session Trace › Query' }, ['Search terms']);
+      b.addEventListener('click', () => {
+        state.termMode = 'session';
+        state.terms = [sid];
+        renderAll();
+        showTab('spl');
+        toast(`Search terms: ${sid}`);
+      });
+      return b;
+    };
+    t.replaceChildren(
+      el('thead', {}, [el('tr', {}, [...MINING_COLS, ''].map((c) => el('th', {}, [c])))]),
+      el('tbody', {}, [
+        ...miningResult.rows.map((r) => el('tr', {}, [...r.map((v) => el('td', {}, [v])), el('td', {}, [useBtn(r[2])])])),
+        ...miningResult.missing.map((c) => el('tr', { class: 'none' }, [el('td', {}, [c]), el('td', { colspan: '4' }, ['no session found'])])),
+      ]));
+  }
+  const miningDelimited = (sep) => {
+    const cell = (s) => (/[",\n\t]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s);
+    return [MINING_COLS, ...miningResult.rows].map((r) => r.map((v) => cell(String(v ?? ''))).join(sep)).join('\r\n') + '\r\n';
+  };
+  minEls.copy.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(miningDelimited('\t')); toast('Result copied: paste into Excel'); } catch (e) { toast('Clipboard blocked: use Download CSV'); }
+  });
+  minEls.csv.addEventListener('click', () => download(`api-trace-${mining.module || 'module'}.csv`, miningDelimited(','), 'text/csv'));
+
+  minEls.run.addEventListener('click', async () => {
+    const chosen = miningChosen();
+    const lines = [];
+    let key = '';
+    const show = (busy) => minEls.status.replaceChildren(...[
+      ...(key ? [['ok', `Logged in (${minEls.mode.value === 'web' ? 'Splunk Web session, token' : 'session key'} ${window.TraceSplunk.maskKey(key)})`]] : []),
+      ...lines, ...(busy ? [['busy', busy]] : []),
+    ].map(([cls, text]) => el('li', { class: cls }, [text])));
+    if (!chosen.length) { lines.push(['problem', 'Choose a Module and at least one Country.']); show(); return; }
+    if (!mining.pattern.trim()) { lines.push(['problem', `Enter the ${miningLayer()} API pattern.`]); show(); return; }
+    const range = window.TraceSpl.timeRange(state);
+    lines.push(['ok', `${mining.module}: ${chosen.map((c) => c.country).join(', ')} · ${miningLayer()} ${mining.pattern.trim()} · time ${range ? `Start time / End time (${state.startTime || 'open'} … ${state.endTime || 'open'})` : minEls.range.selectedOptions[0].textContent}`]);
+    const steps = { login: 'Logging in…', job: 'Creating the search job…', wait: 'Search running…', results: 'Fetching the results…' };
+    minEls.run.disabled = true;
+    minEls.copy.disabled = true;
+    minEls.csv.disabled = true;
+    miningResult = null;
+    renderMiningTable();
+    try {
+      let sid = '';
+      const res = await window.TraceSplunk.run({
+        base: minEls.url.value, mode: minEls.mode.value, username: minEls.user.value.trim(), password: minEls.pass.value,
+        insecure: minEls.insecure.checked, earliest: range ? '' : minEls.range.value,
+        query: window.TraceSpl.generateMining(state, chosen, mining.pattern, miningLayer()),
+        onStatus: (s) => {
+          if (s.sessionKey) key = s.sessionKey;
+          if (s.sid && s.sid !== sid) { sid = s.sid; lines.push(['ok', `Search job (access id) ${sid}`]); }
+          show(s.step === 'wait' ? `Search running… ${Math.round(s.progress * 100)}%, ${s.results} results` : steps[s.step]);
+        },
+      });
+      const [head = [], ...rows] = window.TraceImport.parseCsv(res.csv);
+      const at = MINING_COLS.map((c) => head.indexOf(c));
+      if (at[0] < 0 || at[2] < 0) throw new Error(`the results have no Country / sessionId column (got: ${head.join(', ') || 'nothing'})`);
+      const names = new Set(chosen.map((c) => c.country));
+      const got = rows.map((r) => at.map((i) => (i < 0 ? '' : String(r[i] ?? '')))).filter((r) => names.has(r[0]));
+      const found = new Set(got.map((r) => r[0]));
+      miningResult = { rows: got, missing: chosen.map((c) => c.country).filter((c) => !found.has(c)) };
+      lines.push([miningResult.missing.length ? 'problem' : 'ok', `Last session found for ${got.length} of ${chosen.length} countries`
+        + (miningResult.missing.length ? `; none for ${miningResult.missing.join(', ')}` : '')]);
+      document.getElementById('count-mining').textContent = `${got.length}/${chosen.length}`;
+      minEls.copy.disabled = !got.length;
+      minEls.csv.disabled = !got.length;
+      renderMiningTable();
+      show();
+    } catch (err) {
+      lines.push(['problem', err.message]);
+      show();
+    } finally {
+      minEls.pass.value = '';
+      minEls.run.disabled = false;
+    }
+  });
+  renderMining();
+
   const TAB_KEY = 'tracezline.tab';
 
-  // Tabs: spl, file, mock. file and mock share #pane-flow, so panes are shown by the selected tab only.
+  // Two rows of tabs: Session Trace and API Trace; under Session Trace its own tabs spl (Query), file
+  // (Flow Analysis), compare (API Analysis) and mask (Data Masking). A pane is shown for the selected
+  // tab only; Session Trace reopens the last of its tabs.
+  const subTabs = document.getElementById('source-tabs');
+  let lastSourceTab = 'spl';
   function showTab(name) {
-    const tabs = [...document.querySelectorAll('.tab')];
-    const selected = tabs.find((t) => t.dataset.tab === name) || tabs[0];
-    tabs.forEach((t) => {
-      const on = t === selected;
-      t.setAttribute('aria-selected', String(on));
-      t.tabIndex = on ? 0 : -1;
-    });
+    const tabs = [...document.querySelectorAll('.tab[data-tab]')];
+    const selected = tabs.find((t) => t.dataset.tab === name) || tabs.find((t) => t.dataset.tab === 'spl');
+    const inSource = subTabs.contains(selected);
+    if (inSource) lastSourceTab = selected.dataset.tab;
+    const mainOn = (t) => (t.dataset.main === 'source' ? inSource : t === selected);
+    document.querySelectorAll('.main-tabs .tab').forEach((t) => { t.setAttribute('aria-selected', String(mainOn(t))); t.tabIndex = mainOn(t) ? 0 : -1; });
+    // Session Trace's tabs keep their choice while API Trace is shown
+    subTabs.querySelectorAll('.tab').forEach((t) => { const on = t.dataset.tab === lastSourceTab; t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1; });
+    subTabs.hidden = !inSource;
     document.querySelectorAll('.pane').forEach((p) => { p.hidden = p.id !== selected.getAttribute('aria-controls'); });
     if (selected.dataset.tab === 'file' && mode !== 'file') switchMode('file');
     try { localStorage.setItem(TAB_KEY, selected.dataset.tab); } catch (e) { /* ignore */ }
   }
 
+  const tabName = (t) => (t.dataset.main === 'source' ? lastSourceTab : t.dataset.tab);
   document.querySelectorAll('.tab').forEach((t) => {
-    t.addEventListener('click', () => showTab(t.dataset.tab));
+    t.addEventListener('click', () => showTab(tabName(t)));
     t.addEventListener('keydown', (e) => {
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-      const tabs = [...document.querySelectorAll('.tab')];
+      const tabs = [...t.parentElement.querySelectorAll('.tab')]; // within its own row
       const next = tabs[(tabs.indexOf(t) + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
-      showTab(next.dataset.tab);
+      showTab(tabName(next));
       next.focus();
     });
   });
@@ -1929,6 +2100,6 @@
     showTab('compare');
     document.getElementById('cmp-mock').click();
   } else {
-    showTab({ flow: 'file', file: 'file', mock: 'file', compare: 'compare', mask: 'mask' }[savedTab] || 'spl');
+    showTab({ flow: 'file', file: 'file', mock: 'file', compare: 'compare', mask: 'mask', mining: 'mining' }[savedTab] || 'spl');
   }
 })();

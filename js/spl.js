@@ -340,6 +340,33 @@ __INDENT__
     return out.join('\n') + '\n';
   }
 
+  // API Trace: per country, the newest event of a layer (eComm) with the API pattern, its session ID
+  // and its endpoint. countries: [{ country, path }], the layer's source= path of each country (from
+  // the Source table). One search over all their sources; Country comes from the source path, and
+  // dedup Country after the newest-first sort keeps each country's last event.
+  function generateMining(cfg, countries, pattern, layerName) {
+    const layer = String(layerName ?? '').trim() || topLayer(cfg);
+    const src = cfg.sources.find((s) => sourceLayer(cfg, s) === layer) || { filter: '', dirFilter: '' };
+    const filters = [src.filter, src.dirFilter].map((f) => String(f ?? '').trim()).filter(Boolean).map(wrapFilter);
+    const quote = (v) => String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    const out = ['(\n' + countries.map((c) => ['\t(', `\t\tsource="${quote(c.path)}"`, ...filters.map((f) => '\t\t' + f), '\t)'].join('\n')).join('\n\tOR\n') + '\n)'];
+    if (String(pattern ?? '').trim()) out.push(quoteTerm(String(pattern).trim()));
+    out.push(...timeWindow(cfg));
+    // source= wildcards (*) are % in like()
+    out.push('| eval Country=case(' + countries.map((c) => `like(source,"${quote(c.path).replace(/\*/g, '%')}"),"${quote(c.country)}"`).join(',\n    ') + ')');
+    const rules = cfg.sessionRules.filter((r) => r.field.trim() && r.rex.trim());
+    const order = sessionOrders(cfg).find((o) => o.layer === layer);
+    const fields = order ? order.fields : rules.map((r) => r.field.trim());
+    rules.filter((r) => fields.includes(r.field.trim())).forEach((r) => out.push(`| rex field=_raw "${r.rex.trim()}"`));
+    out.push(`| eval sessionId=coalesce(${fields.join(', ')})`, '| where isnotnull(sessionId) AND isnotnull(Country)');
+    // Endpoint: the layer's endpoint rules (coalesce when there are several), else N/A
+    const eps = cfg.endpointRules.filter((r) => r.field.trim() && r.rex.trim() && String(r.layer ?? '').trim() === layer);
+    eps.forEach((r) => out.push(`| rex field=_raw "${r.rex.trim()}"`));
+    out.push(`| eval Endpoint=coalesce(${eps.map((r) => r.field.trim()).concat('"N/A"').join(',')})`);
+    out.push('| sort 0 - _time', '| dedup Country', '| eval EventTime=strftime(_time,"%Y-%m-%d %H:%M:%S.%3N")', '| sort 0 Country', '| table Country EventTime sessionId Endpoint');
+    return out.join('\n') + '\n';
+  }
+
   // Log query: the raw events of the sources and search terms, oldest first
   // (sort 0 lifts Splunk's default 10,000-row limit on sort).
   function generateLogs(cfg) {
@@ -532,5 +559,5 @@ __INDENT__
     return changed;
   }
 
-  return { DEFAULT_CONFIG, clone, generate, generateLogs, generateSession, SESSION_PLACEHOLDER, topLayer, apiLayer, validate, parseTerms, quoteTerm, renameMarker, parseTime, normaliseTime, timeRange, sessionOrders, sourceLayer, sourceTable, applySourcePaths };
+  return { DEFAULT_CONFIG, clone, generate, generateLogs, generateSession, generateMining, SESSION_PLACEHOLDER, topLayer, apiLayer, validate, parseTerms, quoteTerm, renameMarker, parseTime, normaliseTime, timeRange, sessionOrders, sourceLayer, sourceTable, applySourcePaths };
 });

@@ -461,3 +461,33 @@ test('Session query (Enterprise API): Enterprise source and session order; an un
   cfg.apiLayer = 'Nope';
   assert.strictEqual(spl.apiLayer(cfg), 'eComm');
 });
+
+test('API Trace: one search over the chosen countries\' eComm sources, the newest event per Country', () => {
+  const cfg = spl.clone(spl.DEFAULT_CONFIG);
+  const q = spl.generateMining(cfg, [
+    { country: 'ID', path: '/var/log/pods/IDAAA/spl-banking-*log' },
+    { country: 'MY', path: '/var/log/pods/MYAAA/spl-banking-*log' },
+  ], 'application/submission');
+  // each country's source with the eComm filters, joined with OR, then the API
+  assert.ok(q.startsWith('(\n\t(\n\t\tsource="/var/log/pods/IDAAA/spl-banking-*log"\n\t\t("[SPLMessage]" OR "[MightyMessage]")\n\t\t("- Request -" OR "- Response -")\n\t)\n\tOR\n\t(\n\t\tsource="/var/log/pods/MYAAA/spl-banking-*log"\n'));
+  assert.ok(q.includes('\n)\n"application/submission"\n'));
+  assert.ok(!q.includes('[SPLHostMessage]'), 'only the eComm layer');
+  // Country from the source path (* is % in like())
+  assert.ok(q.includes('| eval Country=case(like(source,"/var/log/pods/IDAAA/spl-banking-%log"),"ID",\n    like(source,"/var/log/pods/MYAAA/spl-banking-%log"),"MY")'));
+  assert.ok(q.includes('| eval sessionId=coalesce(sidSessionId, sidSessionIdentity, sidEcomm)\n| where isnotnull(sessionId) AND isnotnull(Country)'));
+  assert.ok(q.includes('(?<eCommEndpoint>') && q.includes('| eval Endpoint=coalesce(eCommEndpoint,"N/A")'));
+  assert.ok(q.endsWith('| sort 0 - _time\n| dedup Country\n| eval EventTime=strftime(_time,"%Y-%m-%d %H:%M:%S.%3N")\n| sort 0 Country\n| table Country EventTime sessionId Endpoint\n'));
+  // the Start / End time applies
+  cfg.startTime = '2026-11-18 10:00:00';
+  assert.ok(spl.generateMining(cfg, [{ country: 'SG', path: '/p/*log' }], 'x').includes('\n"x"\nearliest="11/18/2026:10:00:00"\n'));
+});
+
+test('API Trace (Enterprise API): Enterprise filters, session order and endpoint rules', () => {
+  const cfg = spl.clone(spl.DEFAULT_CONFIG);
+  const q = spl.generateMining(cfg, [{ country: 'ID', path: '/var/log/pods/IDAAA/spl-banking-*log' }], '/application/confirm', 'Enterprise');
+  assert.ok(q.startsWith('(\n\t(\n\t\tsource="/var/log/pods/IDAAA/spl-banking-*log"\n\t\t("[SPLHostMessage]" OR "[MightyHostMessage]")\n\t\t("[Request]" OR "[Response]")\n\t)\n)\n"/application/confirm"\n'));
+  assert.ok(!q.includes('[SPLMessage]') && !q.includes('eCommEndpoint'));
+  assert.ok(q.includes('| eval sessionId=coalesce(sidSessionId, sidSessionIdentity, sidEnterprise)'));
+  assert.ok(q.includes('(?<EnterpriseEndpoint1>') && q.includes('(?<EnterpriseEndpoint2>'));
+  assert.ok(q.includes('| eval Endpoint=coalesce(EnterpriseEndpoint1,EnterpriseEndpoint2,"N/A")'));
+});
