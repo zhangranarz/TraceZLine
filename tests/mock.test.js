@@ -63,8 +63,8 @@ test('PlantUML: one diagram per session with nested calls and elapsed times', ()
   assert.match(s1, /^actor App as P_App$/m);
   assert.match(s1, /^participant "Host" as P_Host$/m);
   // a MS call shows its Endpoint: the URL, then the service endpoint
-  assert.match(s1, /^P_Enterprise -> P_MS : \/dge-idm\/idm\/user\/profile\/get\\ndge-idm:idm\.user\.profile\.get\.VN\.V7\.6\\n<size:10>TxnCode=SEC02<\/size>$/m);
-  assert.match(s1, /^P_Host --> P_MS : dge-enq:enq\.customer\.portfolio\.VN\.V2\.3 \(1100 ms\)\\nAC_ACCT_SUM_X ~ AC_RBK_SUMM_N\\nAC_VSA_SUMM_N ~ AC_VSA_SUMM_N$/m);
+  assert.match(s1, /^P_Enterprise -> P_MS : \/dge-idm\/idm\/user\/profile\/get\\nidm.user\.profile\.get\.VN\.V7\.6\\n<size:10>TxnCode=SEC02<\/size>$/m);
+  assert.match(s1, /^P_Host --> P_MS : enq\.customer\.portfolio\.VN\.V2\.3 \(1100 ms\)\\nAC_ACCT_SUM_X ~ AC_RBK_SUMM_N\\nAC_VSA_SUMM_N ~ AC_VSA_SUMM_N$/m);
   assert.match(s1, /^P_eComm --> P_App : \/spl-banking\/services\/vn\/security\/auth\/v2\/login \(2110 ms\)$/m);
   // every activate has a matching deactivate
   for (const b of blocks) assert.strictEqual((b.match(/^activate /gm) || []).length, (b.match(/^deactivate /gm) || []).length);
@@ -102,27 +102,27 @@ test('same millisecond: requests eComm > Enterprise > MS > Host, responses Host 
   const sid = 'aaaaaaaa-0000-4000-8000-000000000007';
   const ev = (line) => `2026-10-26 09:30:00.000 [x] INFO\n${line}\n`;
   // written to the file in the wrong order on purpose
-  const req = ev(`<EAI> <SvcCode>A_X</SvcCode> Request Message - [::dge-enq:enq.a.VN.V1] WLS:${sid} |`)
+  const req = ev(`<EAI> <SvcCode>A_X</SvcCode> Request Message - [:dge-enq:enq.a.VN.V1] WLS:${sid} |`)
     + ev(`WSAppLog | WLS:${sid} | request: URL:/dge-enq/a |`)
     + ev(`[SPLHostMessage][${sid}][U][VN][9.14][t][A][] -/enq/a - [Request]:`)
     + ev(`[SPLMessage][${sid}][U][VN][9.14][t][A][][] -/spl-banking/a - Request -`);
   const res = ev(`[SPLMessage][${sid}][U][VN][9.14][t][A][][1ms] -/spl-banking/a - Response -`)
     + ev(`[SPLHostMessage][${sid}][U][VN][9.14][t][A][1ms] -/enq/a - [Response]:`)
     + ev(`WSAppLog | WLS:${sid} | Response: URL:/dge-enq/a |`)
-    + ev(`<EAI> <SvcCode>A_X</SvcCode> Response Message - [::dge-enq:enq.a.VN.V1] WLS:${sid} |`);
+    + ev(`<EAI> <SvcCode>A_X</SvcCode> Response Message - [:dge-enq:enq.a.VN.V1] WLS:${sid} |`);
   const order = (text) => flow.run(spl.DEFAULT_CONFIG, [{ name: 'a.log', text, anySource: true }], [])
     .map((r) => `${r.LayerName} ${r.Direction} ${r.SortKey}`);
   assert.deepStrictEqual(order(req), ['eComm Request 10', 'Enterprise Request 20', 'MS Request 21', 'Host Request 30']);
   assert.deepStrictEqual(order(res), ['Host Response -30', 'MS Response -21', 'Enterprise Response -20', 'eComm Response -10']);
 });
 
-test('a Host event without its own [::dge-…] shows API N/A; a MS response without a URL takes LastMsURL', () => {
+test('a Host event without its own [:dge-…] shows API N/A; a MS response without a URL takes LastMsURL', () => {
   const sid = 'aaaaaaaa-0000-4000-8000-000000000008';
   const at = (ms, line) => `2026-10-26 09:30:00.${ms} [x] INFO\n${line}\n`;
-  const log = at('100', `WSAppLog | WLS:${sid} | request: URL:/dge-enq/a | [::dge-enq:enq.a.VN.V1]`)
+  const log = at('100', `WSAppLog | WLS:${sid} | request: URL:/dge-enq/a | [:dge-enq:enq.a.VN.V1]`)
     + at('200', `<EAI> <SvcCode>A_X</SvcCode> Request Message WLS:${sid} |`)
     + at('300', `<EAI> <SvcCode>A_X</SvcCode> Response Message WLS:${sid} |`)
-    + at('400', `WSAppLog | WLS:${sid} | Response: | [::dge-enq:enq.a.VN.V1]`);
+    + at('400', `WSAppLog | WLS:${sid} | Response: | [:dge-enq:enq.a.VN.V1]`);
   const rows = flow.run(spl.DEFAULT_CONFIG, [{ name: 'a.log', text: log, anySource: true }], []);
   assert.deepStrictEqual(rows.map((r) => [r.LayerName, r.Direction, r.API]), [
     ['MS', 'Request', '/dge-enq/a'],
@@ -153,7 +153,7 @@ test('pairing is by layer name: an Enterprise request and a MS response with the
 });
 
 test('a * in a search term is a wildcard: "*WSAppLog*" finds [ENQWSAppLog] lines', () => {
-  const log = '2026-10-26 09:30:00.000 [x] [INFO ] [ENQWSAppLog] [t] - [::dge-enq:enq.a.VN.V1] - X: | WLS:aaaaaaaa-0000-4000-8000-000000000004 | URL is /dge-enq/a request:\n';
+  const log = '2026-10-26 09:30:00.000 [x] [INFO ] [ENQWSAppLog] [t] - [:dge-enq:enq.a.VN.V1] - X: | WLS:aaaaaaaa-0000-4000-8000-000000000004 | URL is /dge-enq/a request:\n';
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
   const found = (filter) => { cfg.sources[2].filter = filter; return flow.run(cfg, [{ name: 'spl-ms-x.log', text: log }], []).length; };
   assert.strictEqual(found('("*WSAppLog*" ("request:"))'), 1);
@@ -217,13 +217,13 @@ test('Start time / End time keep only the events in the window', () => {
 test('MS rows: API (else the previous MS URL) and "Endpoint: <LastDGEEndpoint>"; pairing uses the API', () => {
   const sid = 'aaaaaaaa-0000-4000-8000-000000000003';
   const at = (ms, line) => `2026-10-26 09:30:00.${ms} [x] INFO\n${line}\n`;
-  const log = at('100', `[ENQWSAppLog] [t] - [::dge-enq:enq.a.VN.V1] - X: | WLS:${sid} | URL is /dge-enq/a request:`)
+  const log = at('100', `[ENQWSAppLog] [t] - [:dge-enq:enq.a.VN.V1] - X: | WLS:${sid} | URL is /dge-enq/a request:`)
     + at('300', `[ENQWSAppLog] [t] - Y: | WLS:${sid} | Response: {}`);
   const rows = flow.run(spl.DEFAULT_CONFIG, [{ name: 'a.log', text: log, anySource: true }], []);
   // the response has no URL and no [::…] of its own: both are carried over from the request
   assert.deepStrictEqual(rows.map((r) => r.ServiceInfo), [
-    ['>> MS [Enterprise]: /dge-enq/a[?]', 'Endpoint: dge-enq:enq.a.VN.V1'],
-    ['>> MS [Enterprise]: /dge-enq/a[!]', 'Endpoint: dge-enq:enq.a.VN.V1'],
+    ['>> MS [Enterprise]: /dge-enq/a[?]', 'Endpoint: enq.a.VN.V1'],
+    ['>> MS [Enterprise]: /dge-enq/a[!]', 'Endpoint: enq.a.VN.V1'],
   ]);
   assert.strictEqual(rows[1].API, '/dge-enq/a', 'API keeps the previous MS URL for pairing');
   assert.strictEqual(rows[1].ElapsedMs, 200);
@@ -231,7 +231,7 @@ test('MS rows: API (else the previous MS URL) and "Endpoint: <LastDGEEndpoint>";
 
 test('an event with none of the session forms gets sessionId NA', () => {
   // a MS request line with no WLS: and no "sessionId" / "sessionIdentity"
-  const log = '2026-10-26 09:30:00.000 [x] [INFO ] [ENQWSAppLog] [t] - [::dge-enq:enq.a.VN.V1] - X: | URL is /dge-enq/a request:\n';
+  const log = '2026-10-26 09:30:00.000 [x] [INFO ] [ENQWSAppLog] [t] - [:dge-enq:enq.a.VN.V1] - X: | URL is /dge-enq/a request:\n';
   const rows = flow.run(spl.DEFAULT_CONFIG, [{ name: 'a.log', text: log, anySource: true }], []);
   assert.deepStrictEqual(rows.map((r) => [r.LayerName, r.sessionId]), [['MS', 'NA']]);
 });
@@ -239,11 +239,11 @@ test('an event with none of the session forms gets sessionId NA', () => {
 test('Host PairKey includes the SvcCode pairs: a response with other pairs does not pair', () => {
   const sid = 'aaaaaaaa-0000-4000-8000-000000000002';
   const at = (ms, line) => `2026-10-26 09:30:00.${ms} [x] INFO\n${line}\n`;
-  const host = (ms, dir, codes) => at(ms, `<EAI> ${codes.map((c) => `<SvcCode>${c}</SvcCode>`).join(' ')} ${dir} Message [::dge-enq:enq.a.VN.V1] WLS:${sid} |`);
+  const host = (ms, dir, codes) => at(ms, `<EAI> ${codes.map((c) => `<SvcCode>${c}</SvcCode>`).join(' ')} ${dir} Message [:dge-enq:enq.a.VN.V1] WLS:${sid} |`);
   const run = (log) => flow.run(spl.DEFAULT_CONFIG, [{ name: 'a.log', text: log, anySource: true }], []);
   const same = run(host('100', 'Request', ['A_X', 'A_Y']) + host('300', 'Response', ['A_X', 'A_Y']));
   assert.deepStrictEqual(same.map((r) => r.ElapsedMs ?? null), [null, 200]);
-  assert.strictEqual(same[0].PairKey, 'Host|dge-enq:enq.a.VN.V1|A_X ~ A_Y');
+  assert.strictEqual(same[0].PairKey, 'Host|enq.a.VN.V1|A_X ~ A_Y');
   const other = run(host('100', 'Request', ['A_X', 'A_Y', 'B_X']) + host('300', 'Response', ['A_X', 'A_Y']));
   assert.deepStrictEqual(other.map((r) => r.ElapsedMs ?? null), [null, null]);
 });
@@ -303,20 +303,20 @@ test('[MightyHostMessage] is an Enterprise marker like [SPLHostMessage]: key fil
   ]);
 });
 
-test('DGEEndpoint: [::endpoint], else the part after two colons in [a:b:endpoint]', () => {
+test('DGEEndpoint: the part after the second colon in [:a:endpoint], else in [a:b:endpoint]', () => {
   const sid = 'aaaaaaaa-0000-4000-8000-000000000011';
   const at = (ms, line) => `2026-10-26 09:30:00.${ms} [x] INFO\n${line}\n`;
-  const log = at('100', `<EAI> <SvcCode>A_X</SvcCode> Request Message - [::dge-enq:enq.a.VN.V1] WLS:${sid} |`)
+  const log = at('100', `<EAI> <SvcCode>A_X</SvcCode> Request Message - [:dge-enq:enq.a.VN.V1] WLS:${sid} |`)
     + at('200', `<EAI> <SvcCode>B_Y</SvcCode> Request Message - [ESB:dge-bfs:bfs.b.VN.V1] WLS:${sid} |`);
   const rows = flow.run(spl.DEFAULT_CONFIG, [{ name: 'spl-ms-x.log', text: log, anySource: true }], []);
-  assert.deepStrictEqual(rows.map((r) => r.API), ['dge-enq:enq.a.VN.V1', 'bfs.b.VN.V1']);
+  assert.deepStrictEqual(rows.map((r) => r.API), ['enq.a.VN.V1', 'bfs.b.VN.V1']);
 });
 
 test('MS key: WSAppLog, Apsect or Aspect anywhere in the event', () => {
   const sid = 'aaaaaaaa-0000-4000-8000-000000000012';
   const at = (ms, line) => `2026-10-26 09:30:00.${ms} [x] INFO\n${line}\n`;
-  const log = at('100', `[t] - [::dge-a:a.VN.V1] - RestEndPointAspect: | WLS:${sid} | URL is /dge-a/a request:`)
-    + at('200', `[t] - [::dge-b:b.VN.V1] - WebLogApsect: | WLS:${sid} | URL:/dge-b/b | Response:{}`);
+  const log = at('100', `[t] - [:dge-a:a.VN.V1] - RestEndPointAspect: | WLS:${sid} | URL is /dge-a/a request:`)
+    + at('200', `[t] - [:dge-b:b.VN.V1] - WebLogApsect: | WLS:${sid} | URL:/dge-b/b | Response:{}`);
   const rows = flow.run(spl.DEFAULT_CONFIG, [{ name: 'spl-ms-x.log', text: log, anySource: true }], []);
   assert.deepStrictEqual(rows.map((r) => `${r.LayerName} ${r.API} ${r.Direction}`), ['MS /dge-a/a Request', 'MS /dge-b/b Response']);
 });

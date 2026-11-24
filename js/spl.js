@@ -88,7 +88,7 @@
     columns: ['Step', 'EventTime', 'sessionId', 'Flow', 'Params', 'ElapsedMs'],
   };
 
-  const FLOW_BLOCK = String.raw`| rex field=_raw "\[::(?<DGEEndpoint1>[^]]+)\]"
+  const FLOW_BLOCK = String.raw`| rex field=_raw "\[:[^:\]]+:(?<DGEEndpoint1>[^\]]+)\]"
 | rex field=_raw "\[(?:[^:\]]+:){2}(?<DGEEndpoint2>[^]]+)\]"
 | eval DGEEndpoint=coalesce(DGEEndpoint1,DGEEndpoint2)
 | rex field=_raw "\bURL(?:\s+is\s+|\s*:\s*)(?<URL>/[^\s:|]+)"

@@ -10,27 +10,35 @@
   <header class="top">
     <div>
       <h1>TraceZLine</h1>
-      <p class="sub">Parameterised Splunk flow query: edit the values, the query structure stays fixed.</p>
     </div>
   </header>
 
   <main class="layout">
-    <section class="config">
-      <details open>
-        <summary>Sources <span class="hint">source="…" blocks joined with OR</span></summary>
-        <label class="check"><input type="checkbox" id="group-sources"> Group each source in its own ( )</label>
-        <div class="source-map">
-          <label class="btn" title="An Excel (.xlsx) or CSV table: Country, Module, then one column per layer (eComm, Enterprise, MS, Host) with its source= path">Source table<input type="file" id="source-table" accept=".xlsx,.csv,.txt" hidden></label>
-          <label class="field size-s"><span>Country</span><select id="source-country" disabled><option value="">—</option></select></label>
-          <label class="field size-s"><span>Module</span><select id="source-module" disabled><option value="">—</option></select></label>
-          <span class="hint" id="source-map-info">Upload a table to pick Country and Module; each source gets its layer's path.</span>
-        </div>
-        <div id="list-sources"></div>
-        <button type="button" class="add" data-add="sources">+ Add source</button>
-      </details>
+    <section class="preview">
+      <div class="tabs main-tabs" role="tablist" aria-label="Main">
+        <button type="button" role="tab" class="tab" id="tab-source" aria-controls="source-tabs" data-main="source">Session Trace</button>
+        <button type="button" role="tab" class="tab" id="tab-api-trace" aria-controls="mining-tabs" data-main="mining">API Trace <span id="count-mining" class="hint"></span></button>
+        <button type="button" role="tab" class="tab" id="tab-settings" aria-controls="pane-settings" data-tab="settings" title="Settings: Sources, Layers, rules, params and output columns"><span class="tab-icon" aria-hidden="true">⚙</span> Settings</button>
+      </div>
+      <div class="tabs sub-tabs" role="tablist" id="source-tabs" aria-label="Session Trace">
+        <button type="button" role="tab" class="tab" id="tab-spl" aria-controls="pane-spl" data-tab="spl">Query <span id="line-count" class="hint"></span></button>
+        <button type="button" role="tab" class="tab" id="tab-file" aria-controls="pane-flow" data-tab="file">Flow Analysis <span id="count-file" class="hint"></span></button>
+        <button type="button" role="tab" class="tab" id="tab-compare" aria-controls="pane-compare" data-tab="compare">API Analysis <span id="count-compare" class="hint"></span></button>
+        <button type="button" role="tab" class="tab" id="tab-mask" aria-controls="pane-mask" data-tab="mask">Data Masking <span id="count-mask" class="hint"></span></button>
+      </div>
 
-      <details open>
+      <div class="tabs sub-tabs" role="tablist" id="mining-tabs" aria-label="API Trace" hidden>
+        <button type="button" role="tab" class="tab" id="tab-mining" aria-controls="pane-mining" data-tab="mining">Query</button>
+      </div>
+
+      <div class="pane" id="pane-spl" role="tabpanel" aria-labelledby="tab-spl">
+      <details class="query-section search-terms" id="search-terms" open>
         <summary>Search terms <span class="hint" id="terms-count"></span></summary>
+        <div class="row source-pick">
+            <label class="field size-s"><span>Country</span><select id="source-country" disabled><option value="">—</option></select></label>
+            <label class="field size-s"><span>Module</span><select id="source-module" disabled><option value="">—</option></select></label>
+          <span class="hint">from the Source table (Settings › Sources): sets each source's path</span>
+        </div>
         <div class="row term-mode" role="radiogroup" aria-label="Search by">
           <label class="check"><input type="radio" name="term-mode" value="session"> 1) Session IDs</label>
           <label class="check"><input type="radio" name="term-mode" value="api:eComm"> 2) Last session of an eComm API</label>
@@ -42,7 +50,7 @@
         </div>
         <div id="terms-api" hidden>
           <label class="field size-m"><span><b id="api-layer-name">eComm</b> API pattern</span><input type="text" id="api-pattern" placeholder="/application/confirm" spellcheck="false" autocomplete="off"></label>
-          <p class="note">Finds the newest event of that layer (eComm or Enterprise) with this text, within Start / End time or the Run in Splunk time range: the <b>Session query</b> (Session Trace › Query). Run in Splunk runs it first; its sessionId is then the search term of the Flow and Log queries. No sessionId: they are not run.</p>
+          <p class="note">Finds the newest event of that layer (eComm or Enterprise) with this text, within Start / End time or the Run in Splunk time range: the <b>Session query</b> below. Run in Splunk runs it first; its sessionId is then the search term of the Flow and Log queries. No sessionId: they are not run.</p>
         </div>
         <div class="row">
           <label class="field size-m"><span>Start time <em>optional</em></span><span class="time-box"><input type="text" id="start-time" placeholder="YYYY-MM-DD hh:mm:ss.mmm" spellcheck="false" autocomplete="off" title="Type a time (e.g. 2026-10-26 09:30, 2026/10/26 09:30:15.250 or 10/26/2026:09:30:00) or pick one with the calendar button"><button type="button" class="time-pick" data-for="start-time" title="Pick from a calendar" aria-label="Pick Start time from a calendar">📅</button><input type="datetime-local" class="time-picker" data-for="start-time" step="0.001" tabindex="-1" aria-hidden="true"></span></label>
@@ -50,73 +58,6 @@
         </div>
         <p class="note">Pick a date and time (calendar and clock), to the millisecond. Only events from Start time to End time (both included). Adds earliest/latest to the search and a | where on _time for the milliseconds. Leave empty for no limit.</p>
       </details>
-
-      <details open>
-        <summary>Layers <span class="hint">LayerName=case(), Layer=case() and SubLayer=case()</span></summary>
-        <p class="note">Condition is an SPL eval expression, inserted as typed. Order matters: the first match wins.</p>
-        <div id="list-layers"></div>
-        <button type="button" class="add" data-add="layers">+ Add layer</button>
-      </details>
-
-      <details open>
-        <summary>Direction Rule <span class="hint">Direction=case()</span></summary>
-        <div class="row single">
-          <label class="field size-l"><span>DirWord rex <em>| rex field=_raw "…"</em></span><input type="text" id="dir-word-rex" spellcheck="false" placeholder="(?i)\b(?&lt;DirWord&gt;Request|Response)\b"></label>
-          <label class="field size-m"><span>First rule <em>raw condition,value</em></span><input type="text" id="dir-first" spellcheck="false" placeholder="Layer&lt;=2,DirWord"></label>
-        </div>
-        <p class="note">Rules below: regex is inserted into match(_raw,"…") as typed. case() uses the first rule that matches.</p>
-        <div id="list-directions"></div>
-        <button type="button" class="add" data-add="directions">+ Add rule</button>
-        <label class="check"><input type="checkbox" id="drop-no-direction"> Drop events without a Direction <span class="hint">| where isnotnull(Direction)</span></label>
-      </details>
-
-      <details open>
-        <summary>Endpoint Rule <span class="hint">rex → API=case()</span></summary>
-        <p class="note">Each rule's field is the API of its Layer (several rules for one layer: &lt;Layer&gt;Endpoint=coalesce(), else N/A). MS (URL, else the previous MS URL; "Endpoint:" line from [::…]) and Host ([::…]) are built in. A rule with an empty rex only adds its field.</p>
-        <div id="list-endpointRules"></div>
-        <button type="button" class="add" data-add="endpointRules">+ Add rule</button>
-      </details>
-
-      <details open>
-        <summary>Session Rule <span class="hint">rex + coalesce()</span></summary>
-        <p class="note">Field order is coalesce() order. A rule with an empty rex is only added to coalesce().</p>
-        <div id="list-sessionRules"></div>
-        <button type="button" class="add" data-add="sessionRules">+ Add rule</button>
-        <p class="note"><b>Session order per layer</b>: sessionId=case() takes, for each layer, the first of these rules that is found, else NA. Leave it empty to use all rules in list order for every layer.</p>
-        <div id="list-sessionOrder"></div>
-        <button type="button" class="add" data-add="sessionOrder">+ Add layer</button>
-      </details>
-
-      <details open>
-        <summary>Params <span class="hint">rex + Params=mvappend()</span></summary>
-        <p class="note">Each param becomes "Label=value" in the Params column when present.</p>
-        <div id="list-params"></div>
-        <button type="button" class="add" data-add="params">+ Add param</button>
-      </details>
-
-      <details open>
-        <summary>Output columns <span class="hint">| table …</span></summary>
-        <div id="list-columns"></div>
-        <button type="button" class="add" data-add="columns">+ Add column</button>
-      </details>
-
-      <datalist id="dl-layers"></datalist>
-      <datalist id="dl-columns"></datalist>
-    </section>
-
-    <section class="preview">
-      <div class="tabs main-tabs" role="tablist" aria-label="Main">
-        <button type="button" role="tab" class="tab" id="tab-source" aria-controls="source-tabs" data-main="source">Session Trace</button>
-        <button type="button" role="tab" class="tab" id="tab-mining" aria-controls="pane-mining" data-tab="mining">API Trace <span id="count-mining" class="hint"></span></button>
-      </div>
-      <div class="tabs sub-tabs" role="tablist" id="source-tabs" aria-label="Session Trace">
-        <button type="button" role="tab" class="tab" id="tab-spl" aria-controls="pane-spl" data-tab="spl">Query <span id="line-count" class="hint"></span></button>
-        <button type="button" role="tab" class="tab" id="tab-file" aria-controls="pane-flow" data-tab="file">Flow Analysis <span id="count-file" class="hint"></span></button>
-        <button type="button" role="tab" class="tab" id="tab-compare" aria-controls="pane-compare" data-tab="compare">API Analysis <span id="count-compare" class="hint"></span></button>
-        <button type="button" role="tab" class="tab" id="tab-mask" aria-controls="pane-mask" data-tab="mask">Data Masking <span id="count-mask" class="hint"></span></button>
-      </div>
-
-      <div class="pane" id="pane-spl" role="tabpanel" aria-labelledby="tab-spl">
         <details class="splunk-run" id="splunk-run">
           <summary>Run in Splunk <span class="hint" id="splunk-hint">flow query → CSV · log query → log → Mask → API Analysis</span></summary>
           <p class="note" id="splunk-note">Runs both queries below in Splunk through this local server (<code>python tools/serve.py</code>), which forwards the calls to Splunk: the REST API (management port, usually 8089) or Splunk Web (the browser UI, e.g. port 8000). The password is only sent to log in and is not saved. The flow query's CSV goes into Flow Analysis; the log query's raw events are masked with the Mask rules, then API Analysis maps the CSV lines to the masked log. With Include API Analysis off, only the flow query runs.</p>
@@ -183,7 +124,6 @@
           <label class="check"><input type="checkbox" id="use-terms" autocomplete="off"> Only sessions in Search terms</label>
           <select id="session-filter" aria-label="Session"></select>
           <span class="spacer"></span>
-          <button type="button" id="btn-wide" class="wide-toggle" aria-pressed="false" title="Hide the settings and use the full page width">Expand</button>
         </div>
         <p class="note" id="flow-status"></p>
         <div id="flow-problem" class="problem" role="alert" hidden></div>
@@ -274,7 +214,6 @@
           <label class="check" title="Hours to subtract from the Splunk EventTime to get the log time, e.g. 1 or -7. Leave empty to detect it.">Offset
             <input type="number" id="cmp-offset" step="0.5" placeholder="auto" autocomplete="off" class="num"> h</label>
           <span class="spacer"></span>
-          <button type="button" class="wide-toggle" aria-pressed="false" title="Hide the settings and use the full page width">Expand</button>
           <button type="button" id="cmp-copy" disabled title="Copy the mapping table (paste into Excel)">Copy</button>
           <button type="button" id="cmp-csv" disabled title="Save the mapping table as CSV">Download</button>
         </div>
@@ -289,18 +228,21 @@
       </div>
 
       <div class="pane" id="pane-mining" role="tabpanel" aria-labelledby="tab-mining" hidden>
-        <p class="note" id="mining-note">For one Module of the Source table (Sources, in the settings on the left), the last session of an eComm or Enterprise API in each chosen Country: one Splunk search over those countries' sources of that layer, newest event per Country. Time: Start / End time (Search terms), else the Time range below.</p>
-        <div class="row mining-row">
-          <label class="field size-s"><span>Module</span><select id="mining-module"></select></label>
-          <label class="field size-s"><span>API of</span><select id="mining-layer"><option value="eComm">eComm</option><option value="Enterprise">Enterprise</option></select></label>
-          <label class="field size-m"><span><b id="mining-layer-name">eComm</b> API pattern</span><input type="text" id="mining-pattern" placeholder="application/submission" spellcheck="false" autocomplete="off"></label>
-        </div>
-        <div class="mining-countries-bar">
-          <span class="field-label">Country</span>
-          <button type="button" id="mining-all">All</button>
-          <button type="button" id="mining-none">None</button>
-        </div>
-        <div id="mining-countries" class="mining-countries"></div>
+        <p class="note" id="mining-note" hidden></p>
+        <details class="query-section search-terms" id="mining-terms" open>
+          <summary>Search terms <span class="hint" id="mining-terms-hint"></span></summary>
+          <div class="row mining-row">
+            <label class="field size-s"><span>Module</span><select id="mining-module"></select></label>
+            <label class="field size-s"><span>API of</span><select id="mining-layer"><option value="eComm">eComm</option><option value="Enterprise">Enterprise</option></select></label>
+            <label class="field size-m"><span><b id="mining-layer-name">eComm</b> API pattern</span><input type="text" id="mining-pattern" placeholder="application/submission" spellcheck="false" autocomplete="off"></label>
+          </div>
+          <div class="mining-countries-bar">
+            <span class="field-label">Country</span>
+            <button type="button" id="mining-all">All</button>
+            <button type="button" id="mining-none">None</button>
+          </div>
+          <div id="mining-countries" class="mining-countries"></div>
+        </details>
         <details class="splunk-run" id="mining-splunk" open>
           <summary>Run in Splunk <span class="hint">API Trace query → last session per Country</span></summary>
           <p class="note" id="mining-splunk-note">Runs the API Trace query below in Splunk through this local server (<code>python tools/serve.py</code>), which forwards the calls to Splunk: the REST API (management port, usually 8089) or Splunk Web (the browser UI, e.g. port 8000). The password is only sent to log in and is not saved. Mode, URL, user, time range and certificate are shared with Run in Splunk in Session Trace › Query.</p>
@@ -343,7 +285,6 @@
           <button type="button" id="mask-newkey" title="Make a new random key (fake values change)">New key</button>
           <button type="button" id="mask-reset" class="danger" title="Replace the rules with the defaults">Reset rules</button>
           <span class="spacer"></span>
-          <button type="button" class="wide-toggle" aria-pressed="false" title="Hide the settings and use the full page width">Expand</button>
         </div>
         <p class="note" id="mask-status">Upload log or text files. Each rule finds a value by JSON key (userId), XML tag (UserId), exact text (ABC Company) or the text between Pre and Post. Replace puts the Mask text in its place (empty: &lt;&lt;MASK_USERID&gt;&gt; for a key or tag), Digits → * stars every digit, Keep last 4 leaves only the last four characters, Consistent gives the same value the same fake value of the same shape (so masked session IDs still link up). Files never leave this browser.</p>
 
@@ -359,6 +300,70 @@
           <span class="hint" id="mask-file-info"></span>
         </div>
         <div class="log-preview-wrap"><pre id="mask-preview" class="log-preview" tabindex="0"></pre></div>
+      </div>
+      <div class="pane settings-pane" id="pane-settings" role="tabpanel" aria-labelledby="tab-settings" hidden>
+          <details open>
+            <summary>Sources <span class="hint">source="…" blocks joined with OR</span></summary>
+            <label class="check"><input type="checkbox" id="group-sources"> Group each source in its own ( )</label>
+            <div class="source-map">
+              <label class="btn" title="An Excel (.xlsx) or CSV table: Country, Module, then one column per layer (eComm, Enterprise, MS, Host) with its source= path">Source table<input type="file" id="source-table" accept=".xlsx,.csv,.txt" hidden></label>
+              <span class="hint" id="source-map-info">Upload a table, then pick Country and Module in Session Trace › Query › Search terms; each source gets its layer's path.</span>
+            </div>
+            <div id="list-sources"></div>
+            <button type="button" class="add" data-add="sources">+ Add source</button>
+          </details>
+
+          <details open>
+            <summary>Layers <span class="hint">LayerName=case(), Layer=case() and SubLayer=case()</span></summary>
+            <p class="note">Condition is an SPL eval expression, inserted as typed. Order matters: the first match wins.</p>
+            <div id="list-layers"></div>
+            <button type="button" class="add" data-add="layers">+ Add layer</button>
+          </details>
+
+          <details open>
+            <summary>Direction Rule <span class="hint">Direction=case()</span></summary>
+            <div class="row single">
+              <label class="field size-l"><span>DirWord rex <em>| rex field=_raw "…"</em></span><input type="text" id="dir-word-rex" spellcheck="false" placeholder="(?i)\b(?&lt;DirWord&gt;Request|Response)\b"></label>
+              <label class="field size-m"><span>First rule <em>raw condition,value</em></span><input type="text" id="dir-first" spellcheck="false" placeholder="Layer&lt;=2,DirWord"></label>
+            </div>
+            <p class="note">Rules below: regex is inserted into match(_raw,"…") as typed. case() uses the first rule that matches.</p>
+            <div id="list-directions"></div>
+            <button type="button" class="add" data-add="directions">+ Add rule</button>
+            <label class="check"><input type="checkbox" id="drop-no-direction"> Drop events without a Direction <span class="hint">| where isnotnull(Direction)</span></label>
+          </details>
+
+          <details open>
+            <summary>Endpoint Rule <span class="hint">rex → API=case()</span></summary>
+            <p class="note">Each rule's field is the API of its Layer (several rules for one layer: &lt;Layer&gt;Endpoint=coalesce(), else N/A). MS (URL, else the previous MS URL; "Endpoint:" line from [:…:…]) and Host ([:…:…]) are built in. A rule with an empty rex only adds its field.</p>
+            <div id="list-endpointRules"></div>
+            <button type="button" class="add" data-add="endpointRules">+ Add rule</button>
+          </details>
+
+          <details open>
+            <summary>Session Rule <span class="hint">rex + coalesce()</span></summary>
+            <p class="note">Field order is coalesce() order. A rule with an empty rex is only added to coalesce().</p>
+            <div id="list-sessionRules"></div>
+            <button type="button" class="add" data-add="sessionRules">+ Add rule</button>
+            <p class="note"><b>Session order per layer</b>: sessionId=case() takes, for each layer, the first of these rules that is found, else NA. Leave it empty to use all rules in list order for every layer.</p>
+            <div id="list-sessionOrder"></div>
+            <button type="button" class="add" data-add="sessionOrder">+ Add layer</button>
+          </details>
+
+          <details open>
+            <summary>Params <span class="hint">rex + Params=mvappend()</span></summary>
+            <p class="note">Each param becomes "Label=value" in the Params column when present.</p>
+            <div id="list-params"></div>
+            <button type="button" class="add" data-add="params">+ Add param</button>
+          </details>
+
+          <details open>
+            <summary>Output columns <span class="hint">| table …</span></summary>
+            <div id="list-columns"></div>
+            <button type="button" class="add" data-add="columns">+ Add column</button>
+          </details>
+
+          <datalist id="dl-layers"></datalist>
+          <datalist id="dl-columns"></datalist>
       </div>
     </section>
   </main>

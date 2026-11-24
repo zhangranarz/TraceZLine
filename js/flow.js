@@ -149,8 +149,8 @@
     const layers = cfg.layers.filter((l) => l.name.trim());
     const dirWordRe = cfg.dirWordRex.trim() ? rx(cfg.dirWordRex) : null;
     const URL_RE = lineRex('| rex field=_raw "\\bURL');
-    // [::endpoint], else [a:b:endpoint]: DGEEndpoint=coalesce(DGEEndpoint1,DGEEndpoint2)
-    const DGE1_RE = lineRex('| rex field=_raw "\\[::');
+    // [:a:endpoint], else [a:b:endpoint]: DGEEndpoint=coalesce(DGEEndpoint1,DGEEndpoint2)
+    const DGE1_RE = lineRex('| rex field=_raw "\\[:[');
     const DGE2_RE = lineRex('| rex field=_raw "\\[(?:');
     const SVC_RE = /<SvcCode>([^<]+)<\/SvcCode>/g;
 
@@ -327,7 +327,13 @@
       const rank = Object.fromEntries(order.map((l, i) => [l.name, i]));
       const rankOf = (name) => rank[name] ?? order.length;
       const norm = (api) => String(api ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '/').replace(/^\/|\/$/g, '');
-      const related = (a, b) => a.length > 3 && b.length > 3 && (a.includes(b) || b.includes(a));
+      // related: one API inside the other, or both sharing 3 path parts in a row
+      // (MS /dge-enq/enq/customer/portfolio and Host enq.customer.portfolio.VN.V2.3)
+      const shareRun = (a, b) => {
+        const p = a.split('/');
+        return p.slice(0, -2).some((_, i) => `/${b}/`.includes(`/${p.slice(i, i + 3).join('/')}/`));
+      };
+      const related = (a, b) => a.length > 3 && b.length > 3 && (a.includes(b) || b.includes(a) || shareRun(a, b));
       // calls: the call tree behind the diagram, one entry per request (and per orphan row),
       // { layer, api, parent (call or null for App), req, res, orphan: 'response' | 'direction' }.
       const calls = [];

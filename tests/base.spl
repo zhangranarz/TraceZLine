@@ -60,7 +60,7 @@
 | rex field=_raw ",\s*(?<EnterpriseEndpoint1>/\S+)\s*-\s*\[(?:Request|Response)\]"
 | rex field=_raw "\s-\s*(?<EnterpriseEndpoint2>/\S+)\s*-\s*\[(?:Request|Response)\]"
 | eval EnterpriseEndpoint=coalesce(EnterpriseEndpoint1,EnterpriseEndpoint2)
-| rex field=_raw "\[::(?<DGEEndpoint1>[^]]+)\]"
+| rex field=_raw "\[:[^:\]]+:(?<DGEEndpoint1>[^\]]+)\]"
 | rex field=_raw "\[(?:[^:\]]+:){2}(?<DGEEndpoint2>[^]]+)\]"
 | eval DGEEndpoint=coalesce(DGEEndpoint1,DGEEndpoint2)
 | rex field=_raw "\bURL(?:\s+is\s+|\s*:\s*)(?<URL>/[^\s:|]+)"

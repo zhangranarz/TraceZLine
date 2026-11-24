@@ -635,7 +635,7 @@
   let mode = 'file';
   const ctx = { file: { logs: [], imported: null }, mock: { logs: [], imported: null } };
   const IDLE_STATUS = {
-    file: 'Local File loads raw log files (or a Splunk EventTime/PopulatedLog export) and runs this query\'s logic on them; Upload in the Flow view loads the flow table exported from Splunk. Files are read in this browser only and never uploaded. The result updates as you edit the settings on the left.',
+    file: 'Local File loads raw log files (or a Splunk EventTime/PopulatedLog export) and runs this query\'s logic on them; Upload in the Flow view loads the flow table exported from Splunk. Files are read in this browser only and never uploaded. The result updates as you edit the Settings.',
     mock: 'Loading the bundled mock logs (fake data)…',
   };
 
@@ -746,7 +746,7 @@
       return;
     }
     if (!useTerms) {
-      show(el('p', {}, [`${parsed.reduce((t, p) => t + p.events, 0)} events were read, but none matched the sources and layer rules on the left. Check Sources (file names are matched against source=) and Layers.`]));
+      show(el('p', {}, [`${parsed.reduce((t, p) => t + p.events, 0)} events were read, but none matched the sources and layer rules in Settings. Check Sources (file names are matched against source=) and Layers.`]));
       return;
     }
     const all = window.TraceFlow.summarize(window.TraceFlow.run(state, logs, []));
@@ -1232,16 +1232,6 @@
     if (logs.length || imported) refreshFlow();
     else clearFlow();
   }
-
-  // Expand / Collapse buttons (flow pane and Compare) share one page-wide setting.
-  document.querySelectorAll('.wide-toggle').forEach((btn) => btn.addEventListener('click', () => {
-    const wide = document.body.classList.toggle('flow-wide');
-    document.querySelectorAll('.wide-toggle').forEach((b) => {
-      b.setAttribute('aria-pressed', String(wide));
-      b.textContent = wide ? 'Collapse' : 'Expand';
-      b.title = wide ? 'Show the settings again' : 'Hide the settings and use the full page width';
-    });
-  }));
 
   document.getElementById('use-terms').addEventListener('change', refreshFlow);
   document.getElementById('session-filter').addEventListener('change', refreshFlow);
@@ -1891,7 +1881,6 @@
   // Country: one Splunk search over those countries' sources of that layer (TraceSpl.generateMining).
   const MINING_KEY = 'tracezline.mining';
   const minEls = Object.fromEntries(['note', 'module', 'layer', 'pattern', 'countries', 'mode', 'url', 'user', 'pass', 'range', 'insecure', 'run', 'copy', 'csv', 'status', 'table'].map((k) => [k, document.getElementById('mining-' + k)]));
-  const MINING_NOTE = minEls.note.textContent;
   let mining = { module: '', countries: [], pattern: 'application/submission', layer: 'eComm' };
   try { mining = { ...mining, ...JSON.parse(localStorage.getItem(MINING_KEY) || '{}') }; } catch (e) { /* ignore */ }
   const saveMining = () => { try { localStorage.setItem(MINING_KEY, JSON.stringify(mining)); } catch (e) { /* ignore */ } };
@@ -1922,7 +1911,7 @@
         renderMiningQuery();
       });
       return el('label', { class: 'check' + (e.path ? '' : ' na'), title: e.path || `No ${miningLayer()} path (N/A) for ${e.country} / ${mining.module}` }, [box, ` ${e.country}${e.path ? '' : ' (N/A)'}`]);
-    }) : [el('span', { class: 'hint' }, [sourceMap?.entries?.length ? 'Choose a Module.' : 'Upload a Source table first (Sources › Source table, in the settings on the left).'])]));
+    }) : [el('span', { class: 'hint' }, [sourceMap?.entries?.length ? 'Choose a Module.' : 'Upload a Source table first (Settings › Sources › Source table).'])]));
     renderMiningQuery();
   }
   function renderMiningQuery() {
@@ -1932,9 +1921,14 @@
     // the same source path for two countries: like() gives both events to the first
     const paths = chosen.map((c) => c.path);
     const shared = chosen.filter((c, i) => paths.indexOf(c.path) !== i).map((c) => c.country);
+    // collapsed Search terms still show what is chosen
+    document.getElementById('mining-terms-hint').textContent = [mining.module || 'no Module',
+      `${miningLayer()} ${mining.pattern ? `"${mining.pattern}"` : '(no API pattern)'}`,
+      `${chosen.length} ${chosen.length === 1 ? 'country' : 'countries'}`].join(' · ');
+    // shown only for this warning
     minEls.note.classList.toggle('problem', shared.length > 0);
-    if (shared.length) minEls.note.textContent = `${shared.join(', ')} share(s) a source path with another chosen country: their events are counted for the first one.`;
-    else minEls.note.textContent = MINING_NOTE;
+    minEls.note.hidden = !shared.length;
+    minEls.note.textContent = shared.length ? `${shared.join(', ')} share(s) a source path with another chosen country: their events are counted for the first one.` : '';
   }
   minEls.layer.addEventListener('change', () => { mining.layer = minEls.layer.value; saveMining(); renderMining(); });
   minEls.module.addEventListener('change', () => { mining.module = minEls.module.value; saveMining(); renderMining(); });
@@ -1958,7 +1952,7 @@
   copySplunk(splunkEls, minEls);
   miningPlaceholder();
   // the Source table, Splunk settings and Start / End time can change on other tabs
-  document.getElementById('tab-mining').addEventListener('click', renderMining);
+  ['tab-api-trace', 'tab-mining'].forEach((id) => document.getElementById(id).addEventListener('click', renderMining));
   window.TraceSplunk.available().then((ok) => {
     if (ok) return;
     minEls.run.disabled = true;
@@ -2054,24 +2048,29 @@
   // Two rows of tabs: Session Trace and API Trace; under Session Trace its own tabs spl (Query), file
   // (Flow Analysis), compare (API Analysis) and mask (Data Masking). A pane is shown for the selected
   // tab only; Session Trace reopens the last of its tabs.
-  const subTabs = document.getElementById('source-tabs');
-  let lastSourceTab = 'spl';
+  // Main tabs with their own tab row (Session Trace, API Trace) reopen the sub-tab last shown in them
+  const groups = {
+    source: { row: document.getElementById('source-tabs'), last: 'spl' },
+    mining: { row: document.getElementById('mining-tabs'), last: 'mining' },
+  };
   function showTab(name) {
     const tabs = [...document.querySelectorAll('.tab[data-tab]')];
     const selected = tabs.find((t) => t.dataset.tab === name) || tabs.find((t) => t.dataset.tab === 'spl');
-    const inSource = subTabs.contains(selected);
-    if (inSource) lastSourceTab = selected.dataset.tab;
-    const mainOn = (t) => (t.dataset.main === 'source' ? inSource : t === selected);
+    const inGroup = Object.keys(groups).find((g) => groups[g].row.contains(selected));
+    if (inGroup) groups[inGroup].last = selected.dataset.tab;
+    const mainOn = (t) => (t.dataset.main ? t.dataset.main === inGroup : t === selected);
     document.querySelectorAll('.main-tabs .tab').forEach((t) => { t.setAttribute('aria-selected', String(mainOn(t))); t.tabIndex = mainOn(t) ? 0 : -1; });
-    // Session Trace's tabs keep their choice while API Trace is shown
-    subTabs.querySelectorAll('.tab').forEach((t) => { const on = t.dataset.tab === lastSourceTab; t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1; });
-    subTabs.hidden = !inSource;
+    // each tab row keeps its choice while another main tab is shown
+    for (const [g, { row, last }] of Object.entries(groups)) {
+      row.querySelectorAll('.tab').forEach((t) => { const on = t.dataset.tab === last; t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1; });
+      row.hidden = g !== inGroup;
+    }
     document.querySelectorAll('.pane').forEach((p) => { p.hidden = p.id !== selected.getAttribute('aria-controls'); });
     if (selected.dataset.tab === 'file' && mode !== 'file') switchMode('file');
     try { localStorage.setItem(TAB_KEY, selected.dataset.tab); } catch (e) { /* ignore */ }
   }
 
-  const tabName = (t) => (t.dataset.main === 'source' ? lastSourceTab : t.dataset.tab);
+  const tabName = (t) => (t.dataset.main ? groups[t.dataset.main].last : t.dataset.tab);
   document.querySelectorAll('.tab').forEach((t) => {
     t.addEventListener('click', () => showTab(tabName(t)));
     t.addEventListener('keydown', (e) => {
@@ -2100,6 +2099,6 @@
     showTab('compare');
     document.getElementById('cmp-mock').click();
   } else {
-    showTab({ flow: 'file', file: 'file', mock: 'file', compare: 'compare', mask: 'mask', mining: 'mining' }[savedTab] || 'spl');
+    showTab({ flow: 'file', file: 'file', mock: 'file', compare: 'compare', mask: 'mask', mining: 'mining', settings: 'settings' }[savedTab] || 'spl');
   }
 })();

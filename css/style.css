@@ -82,12 +82,9 @@ button.add { margin-top: 6px; color: var(--accent); }
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   padding: 16px;
-}
-@media (max-width: 1000px) {
-  .layout { grid-template-columns: minmax(0, 1fr); }
 }
 
 details {
@@ -322,8 +319,6 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .seq-fig svg { display: block; }
 .sequence.fit .seq-fig svg { width: 100%; height: auto; }
 .view-actions .check { margin: 0; }
-.flow-wide .layout { grid-template-columns: minmax(0, 1fr); }
-.flow-wide .config { display: none; }
 .flow-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .flow-bar .check { margin: 0; }
 .flow-bar select { width: auto; max-width: 100%; font-family: inherit; }
@@ -482,3 +477,11 @@ details[open] > summary.icon-after::after { content: " \25BE"; }
 .mining-table-wrap:empty, .mining-table-wrap:has(table:empty) { display: none; }
 .mining-table-wrap .none td { color: var(--muted); font-style: italic; }
 .mining-countries-bar button { padding: 2px 10px; font-size: 12px; }
+.search-terms { margin: 0 0 10px; }
+.source-pick { border-top: 0; }
+.source-pick .hint { flex: 1 1 200px; padding-bottom: 8px; }
+
+/* Settings tab: the former left panel, its sections in two columns on wide screens */
+.settings-pane { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 560px), 1fr)); gap: 12px; align-items: start; overflow: auto; }
+.settings-pane > details { margin: 0; }
+.tab-icon { font-size: 1.05em; }
