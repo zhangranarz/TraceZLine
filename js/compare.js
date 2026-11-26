@@ -307,5 +307,29 @@
     return null;
   }
 
-  return { compare, detectOffset, formatOffset, extractJson, flattenJson, extractXml, flattenXml, payloadStructure };
+  // Two payloads' Parameter / Value rows side by side, in A's order then B's extra paths:
+  // [{ path, a, b, status: 'same' | 'differs' | 'only A' | 'only B' }]. A path repeated in one
+  // payload is numbered (path #2) so each occurrence is compared with the same one in the other.
+  function diffRows(rowsA, rowsB) {
+    const keyed = (rows) => {
+      const seen = new Map();
+      return rows.map(([p, v]) => {
+        const n = (seen.get(p) || 0) + 1;
+        seen.set(p, n);
+        return [n > 1 ? `${p} #${n}` : p, v];
+      });
+    };
+    const a = keyed(rowsA || []);
+    const b = new Map(keyed(rowsB || []));
+    const out = a.map(([path, va]) => {
+      if (!b.has(path)) return { path, a: va, b: null, status: 'only A' };
+      const vb = b.get(path);
+      b.delete(path);
+      return { path, a: va, b: vb, status: String(va) === String(vb) ? 'same' : 'differs' };
+    });
+    for (const [path, vb] of b) out.push({ path, a: null, b: vb, status: 'only B' });
+    return out;
+  }
+
+  return { compare, detectOffset, formatOffset, extractJson, flattenJson, extractXml, flattenXml, payloadStructure, diffRows };
 });

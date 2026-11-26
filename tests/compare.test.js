@@ -157,3 +157,13 @@ test('maskSessionIds: NA stays, a session the log kept unmasked stays, one not i
   assert.deepStrictEqual(r.rows.slice(3).map((x) => x.sessionId), ['NA', null]);
   assert.deepStrictEqual([r.masked, r.kept], [2, 1]);
 });
+
+const cmp = require('../js/compare.js');
+test('diffRows: same, differs, only A / only B, repeated paths numbered', () => {
+  const d = cmp.diffRows(
+    [['a|x', '1'], ['a|y', '2'], ['l', 'p'], ['l', 'q'], ['onlyA', 'z']],
+    [['a|y', '3'], ['a|x', '1'], ['l', 'p'], ['l', 'r'], ['onlyB', 'w']],
+  );
+  assert.deepStrictEqual(d.map((r) => `${r.path}:${r.status}`), ['a|x:same', 'a|y:differs', 'l:same', 'l #2:differs', 'onlyA:only A', 'onlyB:only B']);
+  assert.deepStrictEqual(d[1], { path: 'a|y', a: '2', b: '3', status: 'differs' });
+});

@@ -485,3 +485,38 @@ details[open] > summary.icon-after::after { content: " \25BE"; }
 .settings-pane { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 560px), 1fr)); gap: 12px; align-items: start; overflow: auto; }
 .settings-pane > details { margin: 0; }
 .tab-icon { font-size: 1.05em; }
+
+/* API Analysis: wider Log and Payload columns, and wider expanded log / payload boxes */
+#cmp-table .cmp-wide { min-width: 420px; }
+#cmp-table .cmp-raw[open] pre { min-width: 640px; max-width: 1100px; max-height: 420px; }
+#cmp-table .cmp-struct-wrap { max-width: 1100px; max-height: 420px; }
+#cmp-table .cmp-struct-wrap td:last-child { max-width: 720px; }
+#cmp-table .cmp-struct-wrap table { width: 100%; }
+#cmp-table .cmp-struct-wrap td:last-child { min-width: 260px; }
+
+/* API Analysis: tick 2 log entries and compare them */
+.cmp-filter-row { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+.cmp-filter-row .hint { margin: 0; }
+#cmp-table .cmp-pick-col { width: 34px; text-align: center; }
+#cmp-table .cmp-pick { width: 15px; height: 15px; margin: 0; cursor: pointer; vertical-align: middle; }
+#cmp-table tr[data-pick="A"] td, #cmp-table tr[data-pick="B"] td { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+#cmp-table tr[data-pick="A"] td.cmp-pick-col::after { content: " A"; font-weight: 700; color: var(--accent); }
+#cmp-table tr[data-pick="B"] td.cmp-pick-col::after { content: " B"; font-weight: 700; color: var(--accent); }
+.cmp-diff { flex: 0 0 auto; max-height: 45vh; overflow: auto; margin-top: 10px; border-top: 1px solid var(--border); }
+.cmp-diff[hidden] { display: none; }
+.cmp-diff-head { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+.cmp-diff-head h3 { font-size: 15px; margin: 8px 0 4px; }
+.cmp-diff-head button { margin-left: auto; }
+.cmp-diff-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 6px 0; }
+.cmp-diff-card div { overflow-wrap: anywhere; }
+#pane-compare .cmp-diff-wrap { max-width: none; max-height: none; }
+.cmp-diff-wrap table { width: 100%; }
+.cmp-diff-wrap td { white-space: pre-wrap; word-break: break-all; }
+.cmp-diff-wrap td:nth-child(2), .cmp-diff-wrap td:nth-child(3) { width: 34%; }
+.cmp-diff-wrap tr.diff-differs td:nth-child(2), .cmp-diff-wrap tr.diff-differs td:nth-child(3) { background: color-mix(in srgb, var(--warn-fg) 14%, transparent); }
+.cmp-diff-wrap tr.diff-only-a td:nth-child(2) { background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.cmp-diff-wrap tr.diff-only-b td:nth-child(3) { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.cmp-raw-pair { margin: 8px 0 4px; }
+.cmp-raw-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cmp-raw-cols pre { margin: 4px 0; max-height: 320px; overflow: auto; padding: 6px 8px; border-radius: 4px; background: var(--code-bg); color: var(--code-fg); font: 11.5px/1.4 var(--mono); white-space: pre-wrap; word-break: break-all; }
+#pane-compare:has(.cmp-diff:not([hidden])) .cmp-table-wrap { min-height: 300px; }

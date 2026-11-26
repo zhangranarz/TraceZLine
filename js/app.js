@@ -1376,6 +1376,83 @@
   const CMP_COLS = CMP.map(([h]) => h);
   const cmpCells = (r) => CMP.map(([, get]) => get(r));
 
+  // ---------- compare 2 logs ----------
+  // Ticked log entries (at most 2, oldest dropped), by log file and line so they survive a re-run.
+  let cmpPicked = [];
+  const pickKey = (r) => (r.l ? `${r.l.source}:${r.l.lineNo}` : '');
+  const pickedRows = () => cmpPicked.map((k) => cmpResult?.rows.find((r) => pickKey(r) === k)).filter(Boolean);
+  function pickCell(r) {
+    if (!r.l) return el('td', { class: 'cmp-pick-col' }, []);
+    const box = el('input', { type: 'checkbox', class: 'cmp-pick', 'aria-label': 'Compare this log entry', 'data-key': pickKey(r) });
+    box.checked = cmpPicked.includes(pickKey(r));
+    box.addEventListener('change', () => {
+      const k = pickKey(r);
+      cmpPicked = cmpPicked.filter((x) => x !== k);
+      if (box.checked) cmpPicked.push(k);
+      if (cmpPicked.length > 2) cmpPicked = cmpPicked.slice(-2);
+      renderLogDiff();
+    });
+    return el('td', { class: 'cmp-pick-col' }, [box]);
+  }
+  document.getElementById('cmp-pick-clear').addEventListener('click', () => { cmpPicked = []; renderLogDiff(); });
+  document.getElementById('cmp-diff-only').addEventListener('change', () => renderLogDiff());
+  let cmpDiffText = '';
+  document.getElementById('cmp-diff-copy').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(cmpDiffText); toast('Comparison copied'); } catch (e) { toast('Clipboard blocked'); }
+  });
+
+  // The two ticked entries side by side: their payload parameters (JSON or XML) and raw text.
+  function renderLogDiff() {
+    const picked = pickedRows();
+    cmpPicked = picked.map(pickKey); // ticks of rows no longer in the result are dropped
+    document.querySelectorAll('#cmp-table .cmp-pick').forEach((b) => {
+      const i = cmpPicked.indexOf(b.dataset.key);
+      b.checked = i >= 0;
+      b.closest('tr').dataset.pick = i < 0 ? '' : 'AB'[i];
+    });
+    document.getElementById('cmp-pick-hint').textContent = picked.length === 2 ? 'Comparing A and B below'
+      : picked.length === 1 ? 'A ticked: tick one more log entry to compare' : 'Tick 2 log entries (first column) to compare them';
+    document.getElementById('cmp-pick-clear').hidden = !picked.length;
+    const panel = document.getElementById('cmp-diff');
+    panel.hidden = picked.length !== 2;
+    if (picked.length !== 2) { cmpDiffText = ''; return; }
+    const [A, B] = picked;
+    const card = (tag, r) => el('div', { class: 'sum-card cmp-diff-card' }, [
+      el('div', { class: 'sum-id' }, [`${tag} · Step ${r.x.Step ?? '?'} · ${r.x.EventTime}`]),
+      el('div', {}, [svcLines(r.x)[0] || '']),
+      el('div', { class: 'hint' }, [`${base(r.l.source)}:${r.l.lineNo} · ${logTime(r.l)}`]),
+    ]);
+    document.getElementById('cmp-diff-cards').replaceChildren(card('A', A), card('B', B));
+    const cut = (raw) => (raw.length > RAW_PREVIEW ? raw.slice(0, RAW_PREVIEW) + '\n…' : raw);
+    document.getElementById('cmp-diff-raw-a').textContent = cut(A.l.raw);
+    document.getElementById('cmp-diff-raw-b').textContent = cut(B.l.raw);
+    const sa = structureOf(A.l);
+    const sb = structureOf(B.l);
+    const body = document.getElementById('cmp-diff-body');
+    const count = document.getElementById('cmp-diff-count');
+    if (!sa && !sb) {
+      count.textContent = 'neither log has a JSON or XML payload: compare the raw logs';
+      body.replaceChildren();
+      document.getElementById('cmp-diff-raw').open = true;
+      cmpDiffText = `A\n${A.l.raw}\n\nB\n${B.l.raw}\n`;
+      return;
+    }
+    const diff = window.TraceCompare.diffRows(sa?.rows, sb?.rows);
+    const n = (st) => diff.filter((d) => d.status === st).length;
+    count.textContent = `${sa?.kind || 'no payload'} vs ${sb?.kind || 'no payload'}: ${n('differs')} differ · ${n('only A')} only in A · ${n('only B')} only in B · ${n('same')} same`;
+    const only = document.getElementById('cmp-diff-only').checked;
+    const rows = only ? diff.filter((d) => d.status !== 'same') : diff;
+    const val = (v) => (v == null ? el('span', { class: 'hint' }, ['—']) : String(v));
+    body.replaceChildren(rows.length ? el('div', { class: 'cmp-struct-wrap cmp-diff-wrap' }, [el('table', {}, [
+      el('thead', {}, [el('tr', {}, ['Parameter', 'A', 'B', ''].map((h) => el('th', {}, [h])))]),
+      el('tbody', {}, rows.map((d) => el('tr', { class: 'diff-' + d.status.replace(' ', '-').toLowerCase() }, [
+        el('td', {}, [d.path]), el('td', {}, [val(d.a)]), el('td', {}, [val(d.b)]), el('td', { class: 'hint' }, [d.status]),
+      ]))),
+    ])]) : el('p', { class: 'note' }, ['The two payloads have the same parameters and values.']));
+    cmpDiffText = ['Parameter\tA\tB\tStatus', ...diff.map((d) => [d.path, d.a ?? '', d.b ?? '', d.status]
+      .map((v) => String(v).replace(/[\t\n]/g, ' ')).join('\t'))].join('\n') + '\n';
+  }
+
   function renderCompareTable() {
     if (!cmpResult) return;
     const only = document.getElementById('cmp-issues').checked;
@@ -1383,19 +1460,20 @@
     const multi = (s) => String(s).split('\n').map((t, i) => el('div', { class: i ? 'sub' : '' }, [t]));
     const shown = CMP.filter(([, , kind]) => kind !== 'export');
     document.getElementById('cmp-table').replaceChildren(
-      el('thead', {}, [el('tr', {}, shown.map(([h]) => el('th', {}, [h])))]),
+      el('thead', {}, [el('tr', {}, [el('th', { class: 'cmp-pick-col', title: 'Tick 2 log entries to compare them' }, ['A/B']),
+        ...shown.map(([h, , kind]) => el('th', kind === 'log' || kind === 'struct' ? { class: 'cmp-wide' } : {}, [h]))])]),
       // Lines that differ or are not mapped get a coloured edge (CSS) and say why on hover.
       el('tbody', {}, rows.map((r) => el('tr', {
         class: r.status === 'mapped' ? 'dbg-ok' : r.l ? 'dbg-warn' : 'dbg-out',
         ...(r.status === 'mapped' ? {} : { title: r.checks.join('; ') }),
       },
-        shown.map(([, get, kind]) => {
+        [pickCell(r), ...shown.map(([, get, kind]) => {
           const text = get(r);
           if (kind === 'multi') return el('td', {}, multi(text));
           if (kind === 'issue') return el('td', { class: 'cmp-issue' }, [text]);
           // Log: the matched event as a short "Log:"; hover shows the event text, expanding the raw event.
           if (kind === 'log') {
-            return el('td', { class: 'cmp-log' }, r.l ? [el('details', { class: 'cmp-raw' }, [
+            return el('td', { class: 'cmp-log cmp-wide' }, r.l ? [el('details', { class: 'cmp-raw' }, [
               el('summary', { title: text, class: 'icon-after' }, ['Log']),
               el('pre', {}, [r.l.raw.length > RAW_PREVIEW ? r.l.raw.slice(0, RAW_PREVIEW) + '\n…' : r.l.raw]),
             ])] : []);
@@ -1403,7 +1481,7 @@
           // Payload: the event's JSON or XML body ("JSON ▸" / "XML ▸") expands to a Parameter / Value table.
           if (kind === 'struct') {
             const s = r.l && structureOf(r.l);
-            return el('td', { class: 'cmp-log' }, s ? [el('details', { class: 'cmp-raw cmp-struct' }, [
+            return el('td', { class: 'cmp-log cmp-wide' }, s ? [el('details', { class: 'cmp-raw cmp-struct' }, [
               el('summary', { title: `${s.rows.length} parameters`, class: 'icon-after' }, [s.kind]),
               el('div', { class: 'cmp-struct-wrap' }, [el('table', {}, [
                 el('thead', {}, [el('tr', {}, [el('th', {}, ['Parameter']), el('th', {}, ['Value'])])]),
@@ -1412,8 +1490,9 @@
             ])] : []);
           }
           return el('td', {}, [text]);
-        })))),
+        })]))),
     );
+    renderLogDiff();
   }
 
   function cmpDelimited(sep) {
