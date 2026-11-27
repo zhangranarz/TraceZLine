@@ -60,11 +60,13 @@
       // eComm: -/path - Request-, -/path - Response-, or -/path - then the payload
       // (eComm responses log no direction word).
       { field: 'eCommEndpoint', layer: 'eComm', rex: String.raw`\s*-\s*(?<eCommEndpoint>/\S+)\s*-\s*(?:Request|Response|\{|\r?\n|$)` },
-      // Enterprise: the path after a comma, or after " -", before [Request] / [Response];
-      // two rules for one layer are combined: EnterpriseEndpoint=coalesce(...)
-      { field: 'EnterpriseEndpoint1', layer: 'Enterprise', rex: String.raw`,\s*(?<EnterpriseEndpoint1>/\S+)\s*-\s*\[(?:Request|Response)\]` },
-      { field: 'EnterpriseEndpoint2', layer: 'Enterprise', rex: String.raw`\s-\s*(?<EnterpriseEndpoint2>/\S+)\s*-\s*\[(?:Request|Response)\]` },
+      // Enterprise: the path (leading / optional) after a comma or a -, before [Request] / [Response]
+      { field: 'EnterpriseEndpoint', layer: 'Enterprise', rex: String.raw`(?i)(?:,\s*|\s*-\s*)(?<EnterpriseEndpoint>/?[^\s\[]+)\s*-\s*\[(?:Request|Response)\]` },
     ],
+    // Built-in endpoint fields, shown at the top of the Endpoint Rule: DGEEndpoint (MS and Host)
+    // and URL (MS). An empty rex uses the default.
+    dgeRex: String.raw`\[(?:::|:[^:\]]+:|(?:[^:\]]+:){2})(?<DGEEndpoint>[^\]]+)\]`,
+    urlRex: String.raw`\bURL(?:\s+is\s+|\s*:\s*)(?<URL>/[^\s:|]+)`,
     // sessionId per layer: the session rules of sessionOrder, in that order, else "NA" (no
     // sessionOrder: all rules in list order). One row per layer; fields comma separated.
     sessionOrder: [
@@ -91,10 +93,8 @@
     columns: ['Step', 'EventTime', 'sessionId', 'Flow', 'Params', 'ElapsedMs'],
   };
 
-  const FLOW_BLOCK = String.raw`| rex field=_raw "\[:[^:\]]+:(?<DGEEndpoint1>[^\]]+)\]"
-| rex field=_raw "\[(?:[^:\]]+:){2}(?<DGEEndpoint2>[^]]+)\]"
-| eval DGEEndpoint=coalesce(DGEEndpoint1,DGEEndpoint2)
-| rex field=_raw "\bURL(?:\s+is\s+|\s*:\s*)(?<URL>/[^\s:|]+)"
+  const FLOW_BLOCK = String.raw`| rex field=_raw "__DGE_REX__"
+| rex field=_raw "__URL_REX__"
 | rex field=_raw max_match=0 "<SvcCode>(?<SvcCode>[^<]+)</SvcCode>"
 | where LayerName!="Host" OR mvcount(SvcCode)>=1
 | sort 0 _time SortKey
@@ -315,6 +315,11 @@ __INDENT__
     return cfg.layers.filter((l) => l.name.trim()).sort((a, b) => Number(a.layer) - Number(b.layer))[0]?.name.trim() ?? null;
   }
 
+  // DGEEndpoint / URL rex of the settings, else the default (empty, or saved before they existed).
+  function builtinRex(cfg, key) {
+    return String(cfg[key] ?? '').trim() || DEFAULT_CONFIG[key];
+  }
+
   // The layer searched for the API pattern: apiLayer when it names a layer, else the top layer.
   function apiLayer(cfg) {
     const name = String(cfg.apiLayer ?? '').trim();
@@ -435,7 +440,8 @@ __INDENT__
     const indentLine = '| eval Indent=case('
       + layers.map((l) => `LayerName="${l.name.trim()}","${l.indent ?? ''}"`).join(',') + ')';
     out.push(...endpointRex);
-    out.push(FLOW_BLOCK.replace('__API_RULES__', apiRules).replace('__INDENT__', indentLine));
+    out.push(FLOW_BLOCK.replace('__API_RULES__', apiRules).replace('__INDENT__', indentLine)
+      .replace('__DGE_REX__', () => builtinRex(cfg, 'dgeRex')).replace('__URL_REX__', () => builtinRex(cfg, 'urlRex')));
 
     const params = cfg.params.filter((p) => p.field.trim());
     params.filter((p) => p.rex.trim()).forEach((p) => out.push(`| rex field=_raw "${p.rex.trim()}"`));
@@ -486,6 +492,10 @@ __INDENT__
       if (d.layer.trim() && !layerNames.has(d.layer.trim())) warnings.push(`Direction rule refers to unknown layer "${d.layer}".`);
     });
     if (!cfg.directionFirst.trim() && !cfg.directions.some((d) => d.layer.trim() && d.pattern.trim())) warnings.push('No Direction Rule: Direction=case() is empty.');
+    if (!String(cfg.dgeRex ?? '').trim()) warnings.push('DGEEndpoint rex is empty: the default is used.');
+    else if (!cfg.dgeRex.includes('(?<DGEEndpoint>')) warnings.push('DGEEndpoint rex has no (?<DGEEndpoint>...) named group, so MS and Host have no DGEEndpoint.');
+    if (!String(cfg.urlRex ?? '').trim()) warnings.push('URL rex is empty: the default is used.');
+    else if (!cfg.urlRex.includes('(?<URL>')) warnings.push('URL rex has no (?<URL>...) named group, so MS has no URL.');
     if (/\bDirWord\b/.test(cfg.directionFirst) && !cfg.dirWordRex.includes('(?<DirWord>')) {
       warnings.push('The first direction rule uses DirWord, but the DirWord rex has no (?<DirWord>...) named group, '
         + 'so DirWord is always null and Direction is empty for those events. Did you mean (?i)\\b(?<DirWord>Request|Response)\\b ?');
@@ -562,5 +572,5 @@ __INDENT__
     return changed;
   }
 
-  return { DEFAULT_CONFIG, clone, generate, generateLogs, generateSession, generateMining, SESSION_PLACEHOLDER, topLayer, apiLayer, validate, parseTerms, quoteTerm, renameMarker, parseTime, normaliseTime, timeRange, sessionOrders, sourceLayer, sourceTable, applySourcePaths };
+  return { DEFAULT_CONFIG, clone, generate, generateLogs, generateSession, generateMining, SESSION_PLACEHOLDER, topLayer, apiLayer, builtinRex, validate, parseTerms, quoteTerm, renameMarker, parseTime, normaliseTime, timeRange, sessionOrders, sourceLayer, sourceTable, applySourcePaths };
 });

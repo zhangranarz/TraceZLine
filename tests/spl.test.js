@@ -107,10 +107,10 @@ test('DirectionSymbol is set before ServiceInfo uses it', () => {
 
 test('endpoint rules: the API of their layer; several rules for a layer are coalesced', () => {
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
-  cfg.endpointRules = [cfg.endpointRules[2], { field: 'EpX', layer: 'Enterprise', rex: '(?<EpX>\\S+)' }, { field: 'EpY', layer: '', rex: '(?<EpY>\\S+)' }];
+  cfg.endpointRules = [{ field: 'EpA', layer: 'Enterprise', rex: '(?<EpA>\\S+)' }, { field: 'EpX', layer: 'Enterprise', rex: '(?<EpX>\\S+)' }, { field: 'EpY', layer: '', rex: '(?<EpY>\\S+)' }];
   const out = spl.generate(cfg);
   // two rules for Enterprise: EnterpriseEndpoint=coalesce(...) after the rex lines, then used by API=case()
-  assert.ok(out.includes('\n| eval EnterpriseEndpoint=coalesce(EnterpriseEndpoint2,EpX)\n'));
+  assert.ok(out.includes('\n| eval EnterpriseEndpoint=coalesce(EpA,EpX)\n'));
   assert.ok(out.includes('\n| eval API=case(LayerName="Enterprise",coalesce(EnterpriseEndpoint,"N/A"),\n'
     + '    LayerName="MS",coalesce(URL,LastMsURL,DGEEndpoint,LastDGEEndpoint,"N/A"),\n'
     + '    LayerName="Host",coalesce(DGEEndpoint,"N/A"))\n'));
@@ -118,7 +118,7 @@ test('endpoint rules: the API of their layer; several rules for a layer are coal
   assert.ok(spl.validate(cfg).some((w) => /"EpY" has no layer/.test(w)));
   // one rule for a layer: used directly
   cfg.endpointRules = [cfg.endpointRules[0]];
-  assert.ok(spl.generate(cfg).includes('| eval API=case(LayerName="Enterprise",coalesce(EnterpriseEndpoint2,"N/A"),'));
+  assert.ok(spl.generate(cfg).includes('| eval API=case(LayerName="Enterprise",coalesce(EpA,"N/A"),'));
 });
 
 test('empty DirWord rex and first rule drop out of the query', () => {
@@ -228,8 +228,7 @@ test('URL, eCommEndpoint (eComm) and EnterpriseEndpoint (Enterprise) read their 
   assert.strictEqual('WebLogUFWAspect: | URL:/dge-enq/enq/customer/portfolio | StartTime'.match(url).groups.URL, '/dge-enq/enq/customer/portfolio');
 
   const ecomm = toJs(spl.DEFAULT_CONFIG.endpointRules[0].rex);
-  const entComma = toJs(spl.DEFAULT_CONFIG.endpointRules[1].rex);
-  const ent = toJs(spl.DEFAULT_CONFIG.endpointRules[2].rex);
+  const ent = toJs(spl.DEFAULT_CONFIG.endpointRules[1].rex);
   const head = '[SPLMessage][dddddddd-0000-4000-8000-000000000004][U][VN][9.14][t][Android-SPL][][]';
   // eComm: -/path before "- Request-" / "- Response-"
   for (const dir of ['Request', 'Response']) {
@@ -243,16 +242,18 @@ test('URL, eCommEndpoint (eComm) and EnterpriseEndpoint (Enterprise) read their 
   assert.strictEqual(`${head} -/spl-banking/a/b - something else`.match(ecomm), null, 'not before other text');
   assert.strictEqual('[SPLHostMessage][x][] -/idm/user/profile/get - [Response]:'.match(ecomm), null, 'eComm only');
 
-  // Enterprise 1: the path after a comma, before [Request] / [Response]
-  assert.strictEqual('[SPLHostMessage][x][A], /enq/a - [Request]:'.match(entComma).groups.EnterpriseEndpoint1, '/enq/a');
-  assert.strictEqual('[SPLHostMessage][x][A] -/enq/a - [Request]:'.match(entComma), null);
-  // Enterprise 2: the path after " -", before [Request] / [Response]
-  assert.strictEqual('[SPLHostMessage][x][Android-SPL][49ms] -/idm/user/profile/get - [Response]:'.match(ent).groups.EnterpriseEndpoint2, '/idm/user/profile/get');
-  assert.strictEqual('[SPLHostMessage] [x]|[u]\n[Android-SPL] - /insights/initInsights - [Request]:'.match(ent).groups.EnterpriseEndpoint2, '/insights/initInsights');
-  assert.strictEqual('[SPLHostMessage][x][A] /enq/a - [Request]:'.match(ent), null, 'a space alone before the path: not read');
-  assert.strictEqual('[SPLHostMessage][x][A]-/enq/a - [Request]:'.match(ent), null, 'no space before the - : not read');
-  assert.strictEqual(`${head} -/spl-banking/a/b - Request -`.match(ent), null, 'not before a plain Request');
-  assert.strictEqual('[SPLHostMessage][x][] -/idm/user/profile/get - Request -'.match(ent), null, 'only before [Request] / [Response]');
+  // Enterprise: the path (leading / optional) after a comma or a -, before [Request] / [Response], any case
+  const entEp = (line) => line.match(ent)?.groups.EnterpriseEndpoint ?? null;
+  assert.strictEqual(entEp('[SPLHostMessage][x][A], /enq/a - [Request]:'), '/enq/a');
+  assert.strictEqual(entEp('[SPLHostMessage][x][A],enq/a - [Request]:'), 'enq/a');
+  assert.strictEqual(entEp('[SPLHostMessage][x][A] -/enq/a - [Request]:'), '/enq/a');
+  assert.strictEqual(entEp('[SPLHostMessage][x][A]-/enq/a - [request]:'), '/enq/a');
+  assert.strictEqual(entEp('[SPLHostMessage][x][Android-SPL][49ms] -/idm/user/profile/get - [Response]:'), '/idm/user/profile/get');
+  assert.strictEqual(entEp('[SPLHostMessage] [x]|[u]\n[Android-SPL] - /insights/initInsights - [Request]:'), '/insights/initInsights');
+  assert.strictEqual(entEp('[SPLHostMessage][x][A] - enq/a - [RESPONSE]:'), 'enq/a');
+  assert.strictEqual(entEp('[SPLHostMessage][x][A] /enq/a - [Request]:'), null, 'a space alone before the path: not read');
+  assert.strictEqual(entEp(`${head} -/spl-banking/a/b - Request -`), null, 'not before a plain Request');
+  assert.strictEqual(entEp('[SPLHostMessage][x][] -/idm/user/profile/get - Request -'), null, 'only before [Request] / [Response]');
   assert.strictEqual('[ENQWSAppLog] [t] - [::dge-enq:enq.a] - RestEndPointUFWAspect: | URL is /a request:'.match(ent), null);
 });
 
@@ -274,14 +275,20 @@ test('dropNoDirection adds | where isnotnull(Direction) right after Direction', 
   assert.doesNotMatch(spl.generate(cfg), /isnotnull\(Direction\)/);
 });
 
-test('DGEEndpoint1 reads [:name:endpoint], not [::name]', () => {
+test('DGEEndpoint reads what follows [::, [:a: or [a:b: up to the ]', () => {
   const flow = require('../js/flow.js');
   const cfg = spl.clone(spl.DEFAULT_CONFIG);
   const at = (stamp, line) => `2026-10-26 ${stamp} [x] INFO\n${line}\n`;
   const log = at('09:30:00.000', '<EAI> <SvcCode>A_X</SvcCode> Request Message - [:dge-enq:enq.a.VN.V1] WLS:aaaaaaaa-0000-4000-8000-000000000001 |')
     + at('09:30:01.000', '<EAI> <SvcCode>B_X</SvcCode> Request Message - [::dge-enq:enq.b.VN.V1] WLS:aaaaaaaa-0000-4000-8000-000000000001 |');
-  const rows = flow.run(cfg, [{ name: 'a.log', text: log, anySource: true }], []);
-  assert.deepStrictEqual(rows.map((r) => r.DGEEndpoint ?? null), ['enq.a.VN.V1', null]);
+  const more = at('09:30:02.000', '<EAI> <SvcCode>C_X</SvcCode> Request Message - [ESB:dge-bfs:bfs.c.VN.V1] WLS:aaaaaaaa-0000-4000-8000-000000000001 |')
+    + at('09:30:03.000', '<EAI> <SvcCode>D_X</SvcCode> Request Message - [dge-x] WLS:aaaaaaaa-0000-4000-8000-000000000001 |');
+  const rows = flow.run(cfg, [{ name: 'a.log', text: log + more, anySource: true }], []);
+  assert.deepStrictEqual(rows.map((r) => r.DGEEndpoint ?? null), ['enq.a.VN.V1', 'dge-enq:enq.b.VN.V1', 'bfs.c.VN.V1', null]);
+  // the SPL rex reads the same
+  const line = spl.generate(cfg).split('\n').find((l) => l.includes('(?<DGEEndpoint>'));
+  const re = new RegExp(line.match(/"(.*)"$/)[1]);
+  assert.deepStrictEqual(['[::a:b]', '[:x:a.b]', '[x:y:a.b]', '[x:a.b]'].map((t) => t.match(re)?.groups.DGEEndpoint ?? null), ['a:b', 'a.b', 'a.b', null]);
 });
 
 test('URL reads "URL:/path |" and "URL is /path", not a longer word ending in URL', () => {
@@ -488,6 +495,23 @@ test('API Trace (Enterprise API): Enterprise filters, session order and endpoint
   assert.ok(q.startsWith('(\n\t(\n\t\tsource="/var/log/pods/IDAAA/spl-banking-*log"\n\t\t("[SPLHostMessage]" OR "[MightyHostMessage]")\n\t\t("[Request]" OR "[Response]")\n\t)\n)\n"/application/confirm"\n'));
   assert.ok(!q.includes('[SPLMessage]') && !q.includes('eCommEndpoint'));
   assert.ok(q.includes('| eval sessionId=coalesce(sidSessionId, sidSessionIdentity, sidEnterprise)'));
-  assert.ok(q.includes('(?<EnterpriseEndpoint1>') && q.includes('(?<EnterpriseEndpoint2>'));
-  assert.ok(q.includes('| eval Endpoint=coalesce(EnterpriseEndpoint1,EnterpriseEndpoint2,"N/A")'));
+  assert.ok(q.includes('(?<EnterpriseEndpoint>'));
+  assert.ok(q.includes('| eval Endpoint=coalesce(EnterpriseEndpoint,"N/A")'));
+});
+
+test('DGEEndpoint and URL rex come from the settings; empty uses the default', () => {
+  const flow = require('../js/flow.js');
+  const cfg = spl.clone(spl.DEFAULT_CONFIG);
+  cfg.dgeRex = String.raw`\{(?<DGEEndpoint>[^}]+)\}`;
+  cfg.urlRex = String.raw`PATH=(?<URL>\S+)`;
+  const out = spl.generate(cfg);
+  assert.ok(out.includes(`\n| rex field=_raw "${cfg.dgeRex}"\n| rex field=_raw "${cfg.urlRex}"\n`));
+  const log = '2026-10-26 09:30:00.000 [x] [INFO ] [ENQWSAppLog] [t] - {enq.a.V1} - X: | WLS:aaaaaaaa-0000-4000-8000-000000000001 | PATH=/dge-enq/a request:\n';
+  const [row] = flow.run(cfg, [{ name: 'a.log', text: log, anySource: true }], []);
+  assert.strictEqual(row.URL, '/dge-enq/a');
+  assert.strictEqual(row.DGEEndpoint, 'enq.a.V1');
+  cfg.dgeRex = ' ';
+  cfg.urlRex = '';
+  assert.ok(spl.generate(cfg).includes(`| rex field=_raw "${spl.DEFAULT_CONFIG.dgeRex}"\n| rex field=_raw "${spl.DEFAULT_CONFIG.urlRex}"\n`));
+  assert.ok(spl.validate(cfg).some((w) => /DGEEndpoint rex is empty/.test(w)));
 });

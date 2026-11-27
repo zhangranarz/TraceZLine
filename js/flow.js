@@ -148,10 +148,9 @@
     const range = spl.timeRange(cfg);
     const layers = cfg.layers.filter((l) => l.name.trim());
     const dirWordRe = cfg.dirWordRex.trim() ? rx(cfg.dirWordRex) : null;
-    const URL_RE = lineRex('| rex field=_raw "\\bURL');
-    // [:a:endpoint], else [a:b:endpoint]: DGEEndpoint=coalesce(DGEEndpoint1,DGEEndpoint2)
-    const DGE1_RE = lineRex('| rex field=_raw "\\[:[');
-    const DGE2_RE = lineRex('| rex field=_raw "\\[(?:');
+    // URL and DGEEndpoint: the built-in endpoint rex of the settings (Endpoint Rule)
+    const URL_RE = rx(spl.builtinRex(cfg, 'urlRex'));
+    const DGE_RE = rx(spl.builtinRex(cfg, 'dgeRex'));
     const SVC_RE = /<SvcCode>([^<]+)<\/SvcCode>/g;
 
     // The endpoint rules of a layer: the first value found, else N/A (undefined for a layer without rules).
@@ -193,8 +192,7 @@
       const order = spl.sessionOrders(cfg);
       const fields = order.length ? (order.find((o) => o.layer === ev.LayerName)?.fields ?? []) : cfg.sessionRules.map((sr) => sr.field);
       ev.sessionId = fields.map((f) => ev[f]).find((v) => v != null) ?? 'NA';
-      Object.assign(ev, extract(DGE1_RE, r), extract(DGE2_RE, r), extract(URL_RE, r));
-      ev.DGEEndpoint = ev.DGEEndpoint1 ?? ev.DGEEndpoint2;
+      Object.assign(ev, extract(DGE_RE, r), extract(URL_RE, r));
       // The endpoint rule(s) of the event's layer, else N/A (eComm / Enterprise API).
       ev.Endpoint = endpointOf(ev);
       ev.SvcCode = [...r.matchAll(SVC_RE)].map((m) => m[1]);

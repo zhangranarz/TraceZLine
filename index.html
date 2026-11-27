@@ -123,6 +123,7 @@
         <div class="flow-bar">
           <label class="btn primary-btn file-only" title="Load raw log files (or a Splunk EventTime/PopulatedLog export) and run the query logic on them">Local File<input type="file" id="log-files" multiple hidden></label>
           <label class="check"><input type="checkbox" id="use-terms" autocomplete="off"> Only sessions in Search terms</label>
+          <label class="check" id="flow-focus-opt" title="The same option as in Session Trace › Query › Search terms: PlantUML, Sequence, Processing Rule and API Analysis keep only the first request with the API pattern, its response and the steps in between" hidden><input type="checkbox" class="api-focus-box" id="flow-api-focus" autocomplete="off"> Focus on the API pattern call</label>
           <select id="session-filter" aria-label="Session"></select>
           <span class="spacer"></span>
         </div>
@@ -354,7 +355,13 @@
 
           <details open>
             <summary>Endpoint Rule <span class="hint">rex → API=case()</span></summary>
-            <p class="note">Each rule's field is the API of its Layer (several rules for one layer: &lt;Layer&gt;Endpoint=coalesce(), else N/A). MS (URL, else the previous MS URL; "Endpoint:" line from [:…:…]) and Host ([:…:…]) are built in. A rule with an empty rex only adds its field.</p>
+            <p class="note">Each rule's field is the API of its Layer (several rules for one layer: &lt;Layer&gt;Endpoint=coalesce(), else N/A). MS and Host use the two rex below: MS takes URL (else the previous MS URL) with an "Endpoint:" line from DGEEndpoint; Host takes DGEEndpoint. An empty DGEEndpoint or URL rex uses the default. A rule with an empty rex only adds its field.</p>
+            <div class="row single builtin-ep">
+              <label class="field size-l"><span>DGEEndpoint rex <em>MS and Host: [::x], [:a:x] or [a:b:x]</em></span><input type="text" id="dge-rex" spellcheck="false" autocomplete="off"></label>
+            </div>
+            <div class="row single builtin-ep">
+              <label class="field size-l"><span>URL rex <em>MS: URL is /x or URL:/x</em></span><input type="text" id="url-rex" spellcheck="false" autocomplete="off"></label>
+            </div>
             <div id="list-endpointRules"></div>
             <button type="button" class="add" data-add="endpointRules">+ Add rule</button>
           </details>

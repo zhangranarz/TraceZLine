@@ -165,6 +165,14 @@
     const prevEnt = [String.raw`(?:\s+-|\s+)(?<EnterpriseEndpoint>/\S+)\s*-\s*\[(?:Request|Response)\]`, ''];
     const ei = out.endpointRules.findIndex((r) => r && r.field === 'EnterpriseEndpoint' && prevEnt.includes(r.rex));
     if (ei >= 0) out.endpointRules.splice(ei, 1, ...clone(DEFAULT_CONFIG.endpointRules.filter((d) => d.layer === 'Enterprise')));
+    // EnterpriseEndpoint1 / EnterpriseEndpoint2 saved as the earlier two default rules: the one rule now.
+    const OLD_ENT2 = [String.raw`,\s*(?<EnterpriseEndpoint1>/\S+)\s*-\s*\[(?:Request|Response)\]`, String.raw`\s-\s*(?<EnterpriseEndpoint2>/\S+)\s*-\s*\[(?:Request|Response)\]`];
+    const e1 = out.endpointRules.findIndex((r) => r && r.field === 'EnterpriseEndpoint1' && r.rex === OLD_ENT2[0]);
+    const e2 = out.endpointRules.findIndex((r) => r && r.field === 'EnterpriseEndpoint2' && r.rex === OLD_ENT2[1]);
+    if (e1 >= 0 && e2 >= 0) {
+      out.endpointRules = out.endpointRules.filter((_, i) => i !== e2);
+      out.endpointRules.splice(e1, 1, ...clone(DEFAULT_CONFIG.endpointRules.filter((d) => d.layer === 'Enterprise')));
+    }
     // The default Endpoint3 rule (endpoint: … in a payload) is gone: WS (now MS) uses its URL and [::…].
     out.endpointRules = out.endpointRules.filter((r) => !(r && r.field === 'Endpoint3' && r.rex === String.raw`(?i)endpoint\"?\s*[:=]\s*\"?(?<Endpoint3>[^\",]+)`));
     // Direction saved as the earlier default (DirWord + first rule for eComm / Enterprise, rules for
@@ -346,11 +354,12 @@
     Object.keys(SECTIONS).forEach(renderList);
     document.getElementById('terms').value = state.terms.join('\n');
     document.getElementById('api-pattern').value = state.apiPattern;
-    document.getElementById('api-focus').checked = state.focusApiCall;
     document.querySelectorAll('input[name="term-mode"]').forEach((r) => { r.checked = r.value === (state.termMode === 'api' ? `api:${state.apiLayer}` : 'session'); });
     document.getElementById('group-sources').checked = state.groupSources;
     document.getElementById('drop-no-direction').checked = state.dropNoDirection;
     document.getElementById('dir-word-rex').value = state.dirWordRex;
+    document.getElementById('dge-rex').value = state.dgeRex;
+    document.getElementById('url-rex').value = state.urlRex;
     document.getElementById('dir-first').value = state.directionFirst;
     document.getElementById('start-time').value = state.startTime || '';
     document.getElementById('end-time').value = state.endTime || '';
@@ -373,6 +382,8 @@
     document.getElementById('terms-count').textContent = api ? `last session of ${state.apiLayer} ${state.apiPattern.trim() || '(no API)'}` : n + (n === 1 ? ' term' : ' terms');
     document.getElementById('terms-session').hidden = api;
     document.getElementById('terms-api').hidden = !api;
+    ['api-focus', 'flow-api-focus'].forEach((id) => { document.getElementById(id).checked = state.focusApiCall; });
+    document.getElementById('flow-focus-opt').hidden = !api; // only with Search terms by API
     document.getElementById('api-layer-name').textContent = state.apiLayer;
     const warnings = validate(queryCfg());
     document.getElementById('warnings').replaceChildren(...warnings.map((w) => el('li', {}, [w])));
@@ -413,10 +424,11 @@
     state.apiPattern = e.target.value;
     update();
   });
-  document.getElementById('api-focus').addEventListener('change', (e) => {
+  // Focus on the API pattern call: one setting, in Search terms and in Flow Analysis
+  ['api-focus', 'flow-api-focus'].forEach((id) => document.getElementById(id).addEventListener('change', (e) => {
     state.focusApiCall = e.target.checked;
     update();
-  });
+  }));
 
   document.getElementById('group-sources').addEventListener('change', (e) => {
     state.groupSources = e.target.checked;
@@ -489,7 +501,7 @@
     });
   });
 
-  [['dir-word-rex', 'dirWordRex'], ['dir-first', 'directionFirst']].forEach(([id, key]) => {
+  [['dir-word-rex', 'dirWordRex'], ['dir-first', 'directionFirst'], ['dge-rex', 'dgeRex'], ['url-rex', 'urlRex']].forEach(([id, key]) => {
     document.getElementById(id).addEventListener('input', (e) => {
       state[key] = e.target.value;
       update();
